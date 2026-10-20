@@ -6,9 +6,7 @@ Not affiliated with Kennesaw State University or D2L.
 
 ## Screenshots
 
-These screenshots use synthetic sample data and are embedded here so the pages
-can be previewed directly from this README. See the
-[full screenshot gallery](docs/screenshots/README.md) for the labeled collection.
+These current screenshots show the app running with real course data.
 
 ### Dashboard
 
@@ -34,31 +32,9 @@ can be previewed directly from this README. See the
 
 ![Assignments](docs/screenshots/assignments.png)
 
-### Quizzes filter
-
-![Assignments filtered to quizzes](docs/screenshots/quizzes.png)
-
-### Grades
-
-![Grades](docs/screenshots/grades.png)
-
 ### Content
 
 ![Content](docs/screenshots/content.png)
-
-### Search
-
-![Search](docs/screenshots/search.png)
-
-### Settings
-
-![Settings appearance](docs/screenshots/settings.png)
-
-![Settings about section](docs/screenshots/settings-about.png)
-
-### About
-
-![About](docs/screenshots/about.png)
 
 ## What it does
 

@@ -1,13 +1,10 @@
 # Dashboard screenshots
 
-These screenshots show the current dashboard UI with **synthetic sample data**.
-They were rendered from the app's page templates and styles. Names, courses,
-assignments, dates, grades, and other course details shown here are fictional;
-no signed-in D2L account data is included.
+Current captures of the app, embedded directly in the project README as well.
 
 ## Dashboard
 
-![Dashboard overview](dashboard.png)
+![Dashboard](dashboard.png)
 
 ## Courses
 
@@ -15,7 +12,7 @@ no signed-in D2L account data is included.
 
 ## Course detail
 
-![Course detail with instructor and course information](course-detail.png)
+![Course detail](course-detail.png)
 
 ## Calendar
 
@@ -29,30 +26,6 @@ no signed-in D2L account data is included.
 
 ![Assignments](assignments.png)
 
-## Quizzes filter
-
-The Assignments screen with the Quizzes type filter selected.
-
-![Assignments filtered to quizzes](quizzes.png)
-
-## Grades
-
-![Grades](grades.png)
-
 ## Content
 
-![Course content](content.png)
-
-## Search
-
-![Search results](search.png)
-
-## Settings
-
-![Settings appearance](settings.png)
-
-![Settings about section](settings-about.png)
-
-## About
-
-![About](about.png)
+![Content](content.png)
