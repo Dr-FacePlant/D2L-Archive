@@ -1,6 +1,10 @@
-# D2L Archive
+<p align="center">
+  <img src="icons/icon-128.png" alt="D2L Archive icon" width="96">
+</p>
 
-A read-only Chrome extension that turns your D2L courses into a local archive and a dashboard for upcoming work, updates, and grades.
+<h1 align="center">D2L Archive</h1>
+
+<p align="center">A read-only Chrome extension that turns your D2L courses into a local archive and a dashboard for upcoming work, updates, and grades.</p>
 
 It uses your existing D2L session. It does not post, submit work, start quizzes, or change D2L settings. No account, server, or telemetry.
 
