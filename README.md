@@ -20,9 +20,6 @@ Not affiliated with Kennesaw State University or D2L.
 
 ## Screenshots
 
-<details>
-<summary>View app screenshots</summary>
-
 Current app captures with real course data:
 
 <table>
@@ -43,8 +40,6 @@ Current app captures with real course data:
     <td></td>
   </tr>
 </table>
-
-</details>
 
 ## Easy setup
 
