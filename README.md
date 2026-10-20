@@ -6,6 +6,14 @@
 
 <p align="center">A read-only Chrome extension that turns your D2L courses into a local archive and a dashboard for upcoming work, updates, and grades.</p>
 
+<p align="center">
+  <img src="https://img.shields.io/badge/platform-Chrome-4285F4?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Platform: Chrome">
+  <img src="https://img.shields.io/badge/Manifest-V3-34A853?style=for-the-badge" alt="Manifest Version 3">
+  <img src="https://img.shields.io/badge/behavior-read--only-0F766E?style=for-the-badge" alt="Read-only behavior">
+  <img src="https://img.shields.io/github/v/release/Dr-FacePlant/D2L-Archive?style=for-the-badge&label=release" alt="Latest release">
+  <img src="https://img.shields.io/github/license/Dr-FacePlant/D2L-Archive?style=for-the-badge" alt="License: MIT">
+</p>
+
 It uses your existing D2L session. It does not post, submit work, start quizzes, or change D2L settings. No account, server, or telemetry.
 
 Not affiliated with Kennesaw State University or D2L.
