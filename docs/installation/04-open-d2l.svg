@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 320" role="img" aria-labelledby="title desc">
+  <title id="title">Step 4: Open D2L Archive</title>
+  <desc id="desc">D2L Archive is ready on a Kennesaw State D2L course page.</desc>
+  <rect width="960" height="320" rx="26" fill="#f3f6fb"/>
+  <circle cx="78" cy="78" r="25" fill="#dbeafe"/>
+  <text x="78" y="84" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="700" fill="#1769e0">04</text>
+  <text x="120" y="82" font-family="Arial,sans-serif" font-size="16" font-weight="700" letter-spacing="1.2" fill="#1769e0">OPEN D2L</text>
+  <text x="64" y="144" font-family="Arial,sans-serif" font-size="30" font-weight="700" fill="#172033">You're ready to go</text>
+  <text x="64" y="180" font-family="Arial,sans-serif" font-size="18" fill="#64748b">Open KSU D2L to launch it.</text>
+  <text x="64" y="207" font-family="Arial,sans-serif" font-size="18" fill="#64748b">Refresh an already-open tab.</text>
+  <rect x="456" y="42" width="444" height="236" rx="18" fill="#ffffff" stroke="#dce4ef" stroke-width="2"/>
+  <rect x="456" y="42" width="444" height="38" rx="18" fill="#f8fafc"/>
+  <path d="M456 62v18h444V62" fill="#f8fafc"/>
+  <circle cx="480" cy="61" r="4" fill="#cbd5e1"/><circle cx="495" cy="61" r="4" fill="#cbd5e1"/><circle cx="510" cy="61" r="4" fill="#cbd5e1"/>
+  <rect x="526" y="51" width="294" height="21" rx="10" fill="#e9eef5"/>
+  <text x="541" y="66" font-family="Arial,sans-serif" font-size="11" fill="#526176">kennesaw.view.usg.edu/d2l</text>
+  <rect x="476" y="96" width="404" height="158" rx="12" fill="#f8fafc"/>
+  <rect x="492" y="112" width="136" height="24" rx="7" fill="#dbeafe"/>
+  <text x="504" y="128" font-family="Arial,sans-serif" font-size="12" font-weight="700" fill="#1769e0">ART 1107</text>
+  <rect x="492" y="148" width="168" height="11" rx="5" fill="#cbd5e1"/>
+  <rect x="492" y="169" width="206" height="11" rx="5" fill="#e2e8f0"/>
+  <rect x="492" y="197" width="166" height="40" rx="9" fill="#ffffff" stroke="#dce4ef"/>
+  <circle cx="512" cy="217" r="10" fill="#eaf2ff"/>
+  <path d="M507 216h10M512 211v10" stroke="#1769e0" stroke-width="2" stroke-linecap="round"/>
+  <text x="530" y="221" font-family="Arial,sans-serif" font-size="12" font-weight="700" fill="#334155">Course content</text>
+  <rect x="714" y="104" width="146" height="125" rx="14" fill="#ffffff" stroke="#b9cdf0" stroke-width="2"/>
+  <rect x="730" y="121" width="34" height="34" rx="10" fill="#eaf2ff"/>
+  <path d="M739 144v-12l8-5 8 5v12h-5v-7h-6v7z" fill="#1769e0"/>
+  <text x="774" y="137" font-family="Arial,sans-serif" font-size="13" font-weight="700" fill="#172033">D2L Archive</text>
+  <text x="730" y="179" font-family="Arial,sans-serif" font-size="12" fill="#64748b">Ready on this page</text>
+  <rect x="730" y="192" width="114" height="24" rx="7" fill="#1769e0"/>
+  <text x="787" y="208" text-anchor="middle" font-family="Arial,sans-serif" font-size="11" font-weight="700" fill="#ffffff">Open dashboard</text>
+</svg>

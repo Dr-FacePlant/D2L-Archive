@@ -48,12 +48,29 @@ Current app captures with real course data:
 
 Prefer a video? [Watch how to download and load an extension from GitHub](https://www.youtube.com/watch?v=PSqcV5eT8FM), or [see Chrome's Load unpacked steps](https://www.youtube.com/watch?v=xiT8c8M1OIw).
 
-1. Open the [latest release](https://github.com/Dr-FacePlant/D2L-Archive/releases/latest) and download the `d2l-archive-*.zip` asset under **Assets**. Choose the named ZIP, not GitHub's **Source code** ZIP.
-2. Extract the downloaded ZIP. The extracted folder should contain `manifest.json`.
-3. In desktop Chrome, open `chrome://extensions`.
-4. Turn on **Developer mode**, then click **Load unpacked**.
-5. Select the extracted folder that contains `manifest.json`.
-6. Visit [KSU D2L](https://kennesaw.view.usg.edu/d2l/). The overlay opens on your first visit; use the extension icon or `Alt+Shift+A` to toggle it later.
+### 1. Download the release ZIP
+
+<p align="center"><img src="docs/installation/01-download.svg" alt="A GitHub release page with a highlighted Download extension ZIP button" width="760"></p>
+
+Open the [latest release](https://github.com/Dr-FacePlant/D2L-Archive/releases/latest) and download the `d2l-archive-*.zip` asset under **Assets**. Choose the named ZIP, not GitHub's **Source code** ZIP.
+
+### 2. Extract the ZIP
+
+<p align="center"><img src="docs/installation/02-extract.svg" alt="A ZIP file being extracted to a folder containing manifest.json" width="760"></p>
+
+Extract the downloaded ZIP. The resulting folder should contain `manifest.json` at its top level.
+
+### 3. Load it in Chrome
+
+<p align="center"><img src="docs/installation/03-load-chrome.svg" alt="Chrome extensions page showing Developer mode on and Load unpacked" width="760"></p>
+
+In desktop Chrome, open `chrome://extensions`, turn on **Developer mode**, then click **Load unpacked** and select the extracted folder that contains `manifest.json`.
+
+### 4. Open D2L Archive
+
+<p align="center"><img src="docs/installation/04-open-d2l.svg" alt="D2L Archive open on a KSU D2L course page" width="760"></p>
+
+Visit [KSU D2L](https://kennesaw.view.usg.edu/d2l/). The overlay opens on your first visit. If D2L was already open, refresh that tab. Use the extension icon or `Alt+Shift+A` to toggle the overlay later.
 
 Course-file downloads are optional and off by default. Turn them on in Settings if you want files included in your export.
 
