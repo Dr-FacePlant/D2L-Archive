@@ -50,9 +50,9 @@ Prefer a video? [Watch how to download and load an extension from GitHub](https:
 
 ### 1. Download the release ZIP
 
-<p align="center"><img src="docs/installation/01-download.svg" alt="A GitHub release page with a highlighted Download extension ZIP button" width="760"></p>
+<p align="center"><a href="https://github.com/Dr-FacePlant/D2L-Archive/releases/latest" title="Open the latest release to download the extension ZIP"><img src="docs/installation/01-download.svg" alt="Download the D2L Archive extension ZIP" width="620"></a></p>
 
-Open the [latest release](https://github.com/Dr-FacePlant/D2L-Archive/releases/latest) and download the `d2l-archive-*.zip` asset under **Assets**. Choose the named ZIP, not GitHub's **Source code** ZIP.
+Click the button above, then download the `d2l-archive-*.zip` asset under **Assets**. Skip GitHub's **Source code** ZIP.
 
 ### 2. Extract the ZIP
 
