@@ -1,162 +1,97 @@
 # D2L Archive
 
-D2L Archive is a read-only Chrome extension that saves your D2L course data into a local archive: courses, assignments, quizzes, grades, discussions, announcements, content, and files. Its dashboard shows what is due, what changed, and what was graded; actions open in D2L. Downloads are optional, off by default. No account, server, or telemetry.
+A read-only Chrome extension that turns your D2L courses into a local archive and a dashboard for upcoming work, updates, and grades.
+
+It uses your existing D2L session. It does not post, submit work, start quizzes, or change D2L settings. No account, server, or telemetry.
 
 Not affiliated with Kennesaw State University or D2L.
 
 ## Screenshots
 
-These current screenshots show the app running with real course data.
+Current app captures with real course data:
 
-### Dashboard
+<table>
+  <tr>
+    <td align="center"><img src="docs/screenshots/dashboard.png" alt="Dashboard" width="480"><br>Dashboard</td>
+    <td align="center"><img src="docs/screenshots/courses.png" alt="Courses" width="480"><br>Courses</td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/screenshots/course-detail.png" alt="Course detail" width="480"><br>Course detail</td>
+    <td align="center"><img src="docs/screenshots/calendar.png" alt="Calendar" width="480"><br>Calendar</td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/screenshots/updates.png" alt="Updates" width="480"><br>Updates</td>
+    <td align="center"><img src="docs/screenshots/assignments.png" alt="Assignments" width="480"><br>Assignments</td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/screenshots/content.png" alt="Content" width="480"><br>Content</td>
+    <td></td>
+  </tr>
+</table>
 
-![Dashboard](docs/screenshots/dashboard.png)
+## Get started
 
-### Courses
+1. [Download the repository as a ZIP](https://github.com/Dr-FacePlant/D2L-Archive/archive/refs/heads/main.zip) and unzip it, or clone it.
+2. In Chrome, open `chrome://extensions` and turn on **Developer mode**.
+3. Select **Load unpacked** and choose this repository's folder (the one containing `manifest.json`).
+4. Visit [KSU D2L](https://kennesaw.view.usg.edu/d2l/). The overlay opens on your first visit; use the extension icon or `Alt+Shift+A` to toggle it later.
 
-![Courses](docs/screenshots/courses.png)
+Course-file downloads are optional and off by default. Turn them on in Settings if you want files included in your export.
 
-### Course detail
+## What you can do
 
-![Course detail](docs/screenshots/course-detail.png)
-
-### Calendar
-
-![Calendar](docs/screenshots/calendar.png)
-
-### Updates
-
-![Updates](docs/screenshots/updates.png)
-
-### Assignments
-
-![Assignments](docs/screenshots/assignments.png)
-
-### Content
-
-![Content](docs/screenshots/content.png)
-
-## What it does
-
-- **Dashboard** — What's next, recent updates, a grade card per course, and a
-  campus-only study banner for upcoming quizzes. Saved data renders first; a
-  background refresh updates it from D2L when a tab is available.
-- **Assignments** — assignments, quizzes, discussions, checklist tasks, and a
-  **Needs attention** tab, with detail views that preserve list state and
-  scroll position.
-- **Courses, Calendar, Updates, Grades, Content** — course home, every event,
-  announcements, grade categories and rubrics, and content in D2L's own order.
-- **Search** — results open under the box as you type; Enter lists them all.
-- **Overlay** — opens over D2L on a D2L tab. Every assignment, quiz, and
-  discussion gets an exact handoff link to the real D2L page.
-- **Read-only** — the extension never submits, posts, starts quizzes, deletes
-  data, subscribes, marks content complete, or changes D2L settings. It only
-  reads and archives what you can already see.
-- **Local archive** — a portable folder of JSON, CSV, Markdown, and page
-  snapshots plus an offline verifier and query tools.
-
-## Install (unpacked)
-
-1. Open `chrome://extensions`.
-2. Turn on **Developer mode**.
-3. Click **Load unpacked** and select this folder.
-4. Open a `https://kennesaw.view.usg.edu/d2l/` page. The overlay opens on first
-   visit; the extension icon or `Alt+Shift+A` toggles it.
-
-Settings has a **Download course files** switch. It is off by default; when on,
-course-file candidates are saved into the export folder as well as listed in
-the manifest.
+- See upcoming assignments and quizzes, recent course updates, and grade summaries from the dashboard.
+- Browse courses, assignments, calendar events, announcements, discussions, grades, and course content.
+- Search archived course data and open items in D2L using their original links.
+- Save a portable archive of JSON, CSV, Markdown, and page snapshots for offline review.
 
 ## Privacy
 
-- Everything stays on your machine: the archive is written under
-  `~/Downloads/D2L Export/`, dashboard state lives in extension-owned
-  IndexedDB, and settings live in `chrome.storage.local`.
-- Network requests go only to your D2L site, using your existing session. There
-  is no analytics, no remote configuration, and no third-party server.
-- There are no D2L writes. Submitting, posting, and quiz attempts happen only
-  when you open the item in D2L yourself.
+Course data and exports stay on your device. Requests go only to your D2L site using your existing session; the extension has no analytics or third-party server. It only reads D2L data. To submit work or post, open the item in D2L and do it there yourself.
 
-## Development
+<details>
+<summary>Developer and archive reference</summary>
+
+### Development
 
 ```sh
-node run-local-checks.mjs     # syntax + static contract + regression suite
+node run-local-checks.mjs
 node tools/validate-extension.mjs
 ```
 
-`run-local-checks.mjs` runs the synthetic regression suite and needs no
-dependencies beyond Node 20+. The ignored `dashboard-test-exports.json` can
-point local preview tools at your own exports; it is never included in Git.
+The local checks use Node 20+ and need no additional dependencies. To preview the dashboard against saved exports:
 
 ```sh
-node tools/dev-dashboard-preview.mjs 8791   # serve the dashboard from saved exports
+node tools/dev-dashboard-preview.mjs 8791
 ```
 
-### Repository layout
+### Archive tools
 
-```
-background.js, content.js, popup.*   extension entrypoints
-manifest.json                        MV3 manifest
-src/background/                     sync, storage, export
-src/content/                        page parsers, overlay, school branding
-src/dashboard/                      dashboard app, model, render, styles
-src/shared/                         constants, URLs, rows, evidence contract
-src/popup/                          extractor tools
-tests/                              regression suite + synthetic fixtures
-tools/                              offline verify/query/preview CLIs
-docs/                               specs, field maps, history, store notes
-```
-
-Tests are not part of the packaged extension; `node tools/package.mjs` builds a
-zip with only the runtime files: `manifest.json`, `background.js`, `content.js`,
-`popup.*`, `dashboard.html`, `src/`, `icons/`, and `README.md`.
-
-## Export format
-
-An export lands in `~/Downloads/D2L Export/d2l-export-<timestamp>/`:
-
-- `manifest.json` / `manifest.csv` — every row with source URL and local paths
-- `ai-index.jsonl` — retrieval-friendly index over the archive
-- `entities.json`, `relationships.json` — canonical bundles and evidence links
-- `index.json`, `audit-report.md` — inventory and coverage audit
-- `change-report.*`, `student-action-brief.md`, `student-questions.md`
-- `courses/<course>/course.json`, `items.csv`, `items.json`
-- `courses/<course>/pages/` — readable Markdown page snapshots
-- `courses/<course>/files/` — downloaded content candidates (when enabled)
-
-`export-progress.json` records the final phase, so an interrupted run still
-leaves an inspectable `phase: "pre-files"` manifest.
-
-## Verify and query an archive
+Exports are saved under `~/Downloads/D2L Export/d2l-export-<timestamp>/`. They include a manifest, course data, readable page snapshots, and audit/change reports. Course files are included only when enabled. The ignored `dashboard-test-exports.json` can point local preview tools at personal exports and is not included in Git.
 
 ```sh
 node tools/verify-archive.mjs "$HOME/Downloads/D2L Export/d2l-export-..."
-node tools/verify-archive.mjs "$HOME/Downloads/D2L Export/d2l-export-new" --compare "$HOME/Downloads/D2L Export/d2l-export-old"
 node tools/verify-latest.mjs
 node tools/query-ai-index.mjs "$HOME/Downloads/D2L Export/d2l-export-..." "quiz feedback due"
 ```
 
-The verifier writes `offline-verification.md`, `offline-action-brief.md`, and
-`offline-ai-index.jsonl` into the archive, and can reconstruct a partial
-manifest from page snapshots when `manifest.json` is missing. `verify-latest`
-picks the newest export, compares it with the previous one, and writes
-`offline-smoke-query-report.json` plus `next-live-review.md`.
+An export records coverage and gaps. D2L permissions vary by course, so submitted-file downloads, instructor comments, quiz question-level results, and discussion grading feedback may be unavailable.
 
-## Extraction coverage
+### Repository layout
 
-Covered: active courses, content modules and files, assignments and
-instructions, quiz metadata and released attempts, grade items and rubrics,
-full-semester calendar, announcements, discussions, syllabus/policy tags,
-classlist, external resources, and per-course capability gaps.
+```text
+background.js, content.js, popup.*   extension entrypoints
+manifest.json                        Chrome MV3 manifest
+src/                                 extension features and shared code
+tests/                               regression suite and synthetic fixtures
+tools/                               archive, validation, and preview CLIs
+docs/                                specifications, field maps, and notes
+```
 
-Partial, because D2L gates it per course and per permission: submitted-file
-downloads, instructor comments, quiz question-level results, discussion grading
-feedback, and tools a course disables. Each export states what it proved,
-what was empty, and what still needs review instead of silently omitting it.
+`node tools/package.mjs` builds a zip containing only runtime files. See [`docs/VALENCE-API-MAP.md`](docs/VALENCE-API-MAP.md), [`docs/PRE-RELEASE-IMPLEMENTATION-PLAN.md`](docs/PRE-RELEASE-IMPLEMENTATION-PLAN.md), and [`docs/store-listing.md`](docs/store-listing.md) for deeper technical and release notes.
 
-See `docs/VALENCE-API-MAP.md`, `docs/PRE-RELEASE-IMPLEMENTATION-PLAN.md`,
-and `docs/store-listing.md` for API, release, and listing notes.
+</details>
 
 ## License
 
-MIT — see `LICENSE`.
+MIT — see [`LICENSE`](LICENSE).
