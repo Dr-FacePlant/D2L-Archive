@@ -14,9 +14,9 @@
   <text x="553" y="133" text-anchor="middle" font-family="Arial,sans-serif" font-size="19" font-weight="700" fill="#1769e0">ZIP</text>
   <path d="M545 154h16v18h-16zM550 154v-7a3 3 0 0 1 6 0v7" fill="none" stroke="#1769e0" stroke-width="2.5" stroke-linejoin="round"/>
   <path d="M632 145h46m-12-12 12 12-12 12" fill="none" stroke="#94a3b8" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M706 112h54l15 16h72a10 10 0 0 1 10 10v68a10 10 0 0 1-10 10H706a10 10 0 0 1-10-10v-84a10 10 0 0 1 10-10Z" fill="#fff7df" stroke="#eab84e" stroke-width="2"/>
-  <path d="M696 145h161v61a10 10 0 0 1-10 10H706a10 10 0 0 1-10-10Z" fill="#ffedbd"/>
-  <rect x="719" y="163" width="128" height="31" rx="8" fill="#ffffff"/>
+  <path d="M706 112h54l15 16h90a10 10 0 0 1 10 10v68a10 10 0 0 1-10 10H706a10 10 0 0 1-10-10v-84a10 10 0 0 1 10-10Z" fill="#fff7df" stroke="#eab84e" stroke-width="2"/>
+  <path d="M696 145h179v61a10 10 0 0 1-10 10H706a10 10 0 0 1-10-10Z" fill="#ffedbd"/>
+  <rect x="719" y="163" width="144" height="31" rx="8" fill="#ffffff"/>
   <path d="M733 173h11l5 5h22v11h-38z" fill="#f1b93e"/>
-  <text x="780" y="184" font-family="Arial,sans-serif" font-size="13" font-weight="700" fill="#334155">manifest.json</text>
+  <text x="776" y="184" font-family="Arial,sans-serif" font-size="12" font-weight="700" fill="#334155">manifest.json</text>
 </svg>
