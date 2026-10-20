@@ -1,0 +1,16 @@
+{
+  "note": "Copy to dashboard-test-exports.json (gitignored) to run the dashboard tests that render saved exports. Each archive lists the export folders under exportRoot, the course ids to include, the export time as now, and legacy: true for exports made before 0.8.162.",
+  "exportRoot": "~/Downloads/D2L Export",
+  "archives": [
+    {
+      "label": "My newest export",
+      "exports": [
+        "d2l-export-2026-01-01T00-00-00-000Z"
+      ],
+      "courseIds": [
+        "100001"
+      ],
+      "now": "2026-01-01T00:01:00.000Z"
+    }
+  ]
+}

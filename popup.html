@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>D2L Archive</title>
+    <link rel="stylesheet" href="popup.css">
+  </head>
+  <body>
+    <header>
+      <div>
+        <h1>D2L Archive</h1>
+        <p id="status">Open a D2L page, then extract the visible data.</p>
+      </div>
+    </header>
+
+    <main>
+      <section class="controls" aria-label="Extractor controls">
+        <button id="extract" class="btn btn-primary" type="button">Extract course content</button>
+        <div class="control-row">
+          <button id="copy" class="btn" type="button" disabled>Copy JSON</button>
+          <button id="download" class="btn" type="button" disabled>Download</button>
+        </div>
+        <p id="last-run" class="last-run" aria-live="polite">No extraction yet.</p>
+      </section>
+
+      <section class="summary" aria-label="Extraction summary">
+        <dl>
+          <div>
+            <dt>Page</dt>
+            <dd id="pageType">-</dd>
+          </div>
+          <div>
+            <dt>Course</dt>
+            <dd id="course">-</dd>
+          </div>
+          <div>
+            <dt>Items</dt>
+            <dd id="itemCount">-</dd>
+          </div>
+        </dl>
+      </section>
+
+      <pre id="output" aria-label="Extracted JSON"></pre>
+    </main>
+
+    <script src="src/popup/elements.js"></script>
+    <script src="src/popup/view.js"></script>
+    <script src="src/popup/extract.js"></script>
+    <script src="popup.js"></script>
+  </body>
+</html>

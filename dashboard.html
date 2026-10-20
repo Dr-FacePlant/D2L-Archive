@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>D2L Archive</title>
+    <script src="src/dashboard/appearance.js"></script>
+    <link rel="stylesheet" href="src/dashboard/dashboard.css">
+  </head>
+  <body>
+    <div class="app">
+      <header class="topbar">
+        <a class="brand" href="#/" aria-label="Dashboard home">
+          <img id="school-logo" class="brand-logo" alt="" hidden>
+          <span id="brand-fallback" class="brand-mark" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5 12 5l9 4.5-9 4.5z M7 11.6V16c0 1.4 2.2 2.6 5 2.6s5-1.2 5-2.6v-4.4 M21 9.5v5"/></svg></span>
+        </a>
+        <div class="topbar-spacer"><form class="top-search" data-action="search" role="search"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13z M20 20l-4.2-4.2"/></svg><input name="q" type="search" placeholder="Search your D2L archive" aria-label="Search your D2L archive" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="search-panel"></form><div id="search-panel" class="search-panel" role="listbox" aria-label="Search results" hidden></div></div>
+        <button id="sync-button" class="icon-btn sync-btn" type="button" data-action="sync" aria-label="Sync from D2L" title="Sync from D2L"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14.3-4.9L4 8 M4 4v4h4 M4 13a8 8 0 0 0 14.3 4.9L20 16 M20 20v-4h-4"/></svg><span class="sync-dot" aria-hidden="true" hidden></span></button>
+        <div class="menu-root">
+          <button class="icon-btn" type="button" data-menu-toggle aria-controls="help-menu" aria-expanded="false" aria-label="Help">
+            <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.4a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.2-2.4 3.5"/><path d="M12 17.2h.01"/></svg>
+          </button>
+          <div id="help-menu" class="menu" hidden>
+            <div class="menu-title">Help &amp; campus links</div>
+            <a class="menu-item" href="https://campus.kennesaw.edu/offices-services/library/" target="_blank" rel="noopener noreferrer"><span><b>KSU Libraries</b><span>Books, databases and study rooms</span></span></a>
+            <a class="menu-item" href="https://campus.kennesaw.edu/faculty-staff/academic-affairs/student-success/smart-center/" target="_blank" rel="noopener noreferrer"><span><b>SMART Center tutoring</b><span>Free tutoring for core courses</span></span></a>
+            <a class="menu-item" href="https://campus.kennesaw.edu/current-students/academics/writing-center/" target="_blank" rel="noopener noreferrer"><span><b>Writing Center</b><span>Help with any writing assignment</span></span></a>
+            <a class="menu-item" href="https://kennesaw.view.usg.edu/d2l/home" target="_blank" rel="noopener noreferrer"><span><b>Open D2L</b><span>Assignments, quizzes, and discussions open there</span></span></a>
+            <div class="menu-note">Campus links open KSU's own sites. This dashboard is not affiliated with Kennesaw State University or D2L.</div>
+          </div>
+        </div>
+        <button id="overlay-close" class="icon-btn overlay-close" type="button" data-action="close-overlay" aria-label="Close D2L Archive and show D2L" title="Close and show D2L (Esc)" hidden><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12 M18 6 6 18"/></svg></button>
+      </header>
+      <div class="frame">
+        <nav id="nav" class="sidenav" aria-label="Main"></nav>
+        <main id="main" class="main" tabindex="-1"></main>
+      </div>
+    </div>
+    <div id="detail-root"></div>
+    <div id="toast" class="toast" role="status" hidden></div>
+    <script src="src/dashboard/format.js"></script>
+    <script src="src/dashboard/model.js"></script>
+    <script src="src/dashboard/model-archive.js"></script>
+    <script src="src/dashboard/model-updates.js"></script>
+    <script src="src/dashboard/model-work.js"></script>
+    <script src="src/dashboard/model-details.js"></script>
+    <script src="src/dashboard/model-resources.js"></script>
+    <script src="src/dashboard/model-dashboard.js"></script>
+    <script src="src/dashboard/model-courses.js"></script>
+    <script src="src/dashboard/model-grades.js"></script>
+    <script src="src/dashboard/model-calendar.js"></script>
+    <script src="src/dashboard/model-search.js"></script>
+    <script src="src/dashboard/model-routes.js"></script>
+    <script src="src/dashboard/render.js"></script>
+    <script src="src/dashboard/render-dashboard.js"></script>
+    <script src="src/dashboard/render-updates.js"></script>
+    <script src="src/dashboard/render-courses.js"></script>
+    <script src="src/dashboard/render-calendar.js"></script>
+    <script src="src/dashboard/render-work.js"></script>
+    <script src="src/dashboard/render-details.js"></script>
+    <script src="src/dashboard/render-grades.js"></script>
+    <script src="src/dashboard/render-resources.js"></script>
+    <script src="src/dashboard/render-search.js"></script>
+    <script src="src/dashboard/render-settings.js"></script>
+    <script src="src/dashboard/file-cache.js"></script>
+    <script src="src/dashboard/checklist-state.js"></script>
+    <script src="src/dashboard/account-binding.js"></script>
+    <script src="src/dashboard/app-state.js"></script>
+    <script src="src/dashboard/app-plumbing.js"></script>
+    <script src="src/dashboard/app-overlay.js"></script>
+    <script src="src/dashboard/app-files.js"></script>
+    <script src="src/dashboard/app-preview.js"></script>
+    <script src="src/dashboard/app-appearance.js"></script>
+    <script src="src/dashboard/app-archive.js"></script>
+    <script src="src/dashboard/app-render.js"></script>
+    <script src="src/dashboard/app-sync.js"></script>
+    <script src="src/dashboard/app-events.js"></script>
+    <script src="src/dashboard/app-selfcheck.js"></script>
+    <script src="src/dashboard/app.js"></script>
+  </body>
+</html>

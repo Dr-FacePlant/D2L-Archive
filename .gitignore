@@ -1,0 +1,48 @@
+# Local machine state / never publish
+_backup*/
+_dev-artifacts*/
+_archive*/
+dashboard-test-exports.json
+ACCOUNT-ISOLATION-BASELINE.json
+remaining-extraction-audit-*.json
+remaining-extraction-audit-*.md
+.claude/
+dev-fixtures/chatgpt-real-files/
+
+# Local export folders and generated reports
+exports/
+D2L Export/
+tools/output/
+offline-*.json
+query-results-*.md
+
+# Build / package artifacts
+dist/
+*.zip
+*.tar.gz
+*.log
+
+# OS / editor
+.DS_Store
+node_modules/
+
+# Local validation notes and fixtures contain real course/export details.
+/docs/history/
+/docs/specs/001-ui-review-fixes/
+/docs/specs/002-d2l-overlay/
+/docs/specs/003-codex-continuation/
+/docs/mockups/
+/docs/decisions/
+/docs/button-system-mockup.html
+/tools/live-check-dashboard.mjs
+/tests/test-dashboard-screens.mjs
+/tests/test-dashboard-review-fixes.mjs
+/tests/test-dashboard-contextual-navigation.mjs
+/tests/test-dashboard-ui-polish.mjs
+/tests/test-primary-page-layout.mjs
+/tests/test-dashboard-live-search.mjs
+/tests/test-overlay.mjs
+/tests/test-checklist-discussion-links.mjs
+/tests/test-detail-screens-e.mjs
+/tests/test-list-status-marks.mjs
+/tests/test-discussion-replies.mjs

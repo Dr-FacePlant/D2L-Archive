@@ -1,0 +1,103 @@
+{
+  "recordedAt": "2026-09-23",
+  "extensionVersion": "0.8.118",
+  "baselinePackage": "../d2l-extractor-extension-0.8.118-baseline.zip",
+  "baselinePackageSha256": "8b21494c79c556f0367b3edf31b598c7c382191d01978b37721a1644e5ec799e",
+  "messages": [
+    "D2L_EXTRACT_VISIBLE_PAGE",
+    "D2L_COLLECT_COURSE_API",
+    "D2L_DOWNLOAD_API_EXPORT",
+    "D2L_DOWNLOAD_PAGE_PROBE_EXPORT",
+    "D2L_EXTRACTOR_COLLECT_COURSE_API",
+    "D2L_EXTRACTOR_EXPORT_COURSE_API"
+  ],
+  "csvColumns": [
+    "crawledAt",
+    "pageType",
+    "pageTitle",
+    "pageUrl",
+    "courseOrgUnitId",
+    "courseTitle",
+    "source",
+    "title",
+    "description",
+    "status",
+    "gate",
+    "type",
+    "dueAtText",
+    "availabilityText",
+    "itemUrl",
+    "downloadUrl",
+    "suggestedFileName",
+    "historyUrl",
+    "feedbackUrl",
+    "localPath",
+    "downloadError",
+    "localPageTextPath",
+    "localPageTextSnippet",
+    "ids",
+    "columns"
+  ],
+  "requiredArchiveFiles": [
+    "manifest.csv",
+    "manifest.json",
+    "ai-index.jsonl",
+    "index.json",
+    "audit-report.md",
+    "change-report.md",
+    "change-report.json",
+    "student-action-brief.md",
+    "student-questions.md",
+    "query-guide.md",
+    "export-progress.json"
+  ],
+  "capabilityEvidence": {
+    "courseExport": {
+      "archive": "d2l-course-export-2026-09-21T23-16-11-656Z",
+      "mode": "apiWithPageProbes",
+      "requiredSources": [
+        "contentTopic",
+        "quiz",
+        "assignment",
+        "assignmentSubmission",
+        "assignmentFeedback",
+        "submittedFile",
+        "apiProbe",
+        "calendarEvent",
+        "announcement",
+        "discussionForum",
+        "gradeItem",
+        "quizSummaryRow",
+        "announcementLink"
+      ],
+      "minimumProbeVisits": {
+        "assignment": 1,
+        "quiz": 1,
+        "announcement": 1
+      },
+      "requiresExistingDownloadedPath": true
+    },
+    "discussionExport": {
+      "archive": "d2l-export-2026-09-19T13-57-57-537Z",
+      "requiredSources": [
+        "discussionTopic",
+        "discussionPost",
+        "discussionAttachment",
+        "discussionFeedback"
+      ],
+      "requiresExistingDownloadedPath": true
+    },
+    "pageProbeExport": {
+      "archive": "d2l-page-probe-export-2026-09-21T18-12-31-571Z",
+      "mode": "pageProbe",
+      "requiredSources": [
+        "quizSummaryRow",
+        "assignmentFeedback",
+        "submittedFile",
+        "announcement",
+        "announcementLink"
+      ],
+      "requiresExistingDownloadedPath": true
+    }
+  }
+}

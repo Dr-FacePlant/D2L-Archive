@@ -1,0 +1,100 @@
+{
+  "manifest_version": 3,
+  "name": "D2L Archive",
+  "version": "0.9.0",
+  "description": "Saves your D2L courses, assignments, grades, and files into a local archive and dashboard. Read-only; actions open in D2L.",
+  "permissions": [
+    "scripting",
+    "downloads",
+    "downloads.open",
+    "tabs",
+    "alarms",
+    "storage",
+    "unlimitedStorage"
+  ],
+  "host_permissions": [
+    "https://kennesaw.view.usg.edu/d2l/*"
+  ],
+  "action": {
+    "default_title": "D2L Archive (on D2L: open or close it on the page)",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    }
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://kennesaw.view.usg.edu/d2l/*"
+      ],
+      "js": [
+        "src/shared/constants.js",
+        "src/shared/text.js",
+        "src/shared/urls.js",
+        "src/shared/rows.js",
+        "src/content/dom.js",
+        "src/content/page-context.js",
+        "src/content/school-logo.js",
+        "src/content/user-profile.js",
+        "src/content/file-links.js",
+        "src/content/parsers/assignments.js",
+        "src/content/parsers/announcements.js",
+        "src/content/parsers/discussions.js",
+        "src/content/parsers/quizzes-grades.js",
+        "src/content/parsers/calendar-tools.js",
+        "src/content/parsers/dashboard.js",
+        "src/content/parsers/content.js",
+        "src/content/api/client.js",
+        "src/content/api/assessments.js",
+        "src/content/api/communications.js",
+        "src/content/api/tools.js",
+        "src/content/api/course.js",
+        "src/content/extraction.js",
+        "src/content/discovery.js",
+        "src/content/probe-frame.js",
+        "src/content/bridges.js",
+        "content.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": true
+    },
+    {
+      "matches": [
+        "https://kennesaw.view.usg.edu/d2l/*"
+      ],
+      "js": [
+        "src/content/overlay.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "commands": {
+    "toggle-overlay": {
+      "suggested_key": {
+        "default": "Alt+Shift+A"
+      },
+      "description": "Open or close D2L Archive on a D2L page"
+    }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "dashboard.html"
+      ],
+      "matches": [
+        "https://kennesaw.view.usg.edu/*"
+      ]
+    }
+  ],
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  }
+}
