@@ -4,25 +4,6 @@ D2L Archive is a read-only Chrome extension that saves your D2L course data into
 
 Not affiliated with Kennesaw State University or D2L.
 
-## What it does
-
-- **Dashboard** — What's next, recent updates, a grade card per course, and a
-  campus-only study banner for upcoming quizzes. Saved data renders first; a
-  background refresh updates it from D2L when a tab is available.
-- **Assignments** — assignments, quizzes, discussions, checklist tasks, and a
-  **Needs attention** tab, with detail views that preserve list state and
-  scroll position.
-- **Courses, Calendar, Updates, Grades, Content** — course home, every event,
-  announcements, grade categories and rubrics, and content in D2L's own order.
-- **Search** — results open under the box as you type; Enter lists them all.
-- **Overlay** — opens over D2L on a D2L tab. Every assignment, quiz, and
-  discussion gets an exact handoff link to the real D2L page.
-- **Read-only** — the extension never submits, posts, starts quizzes, deletes
-  data, subscribes, marks content complete, or changes D2L settings. It only
-  reads and archives what you can already see.
-- **Local archive** — a portable folder of JSON, CSV, Markdown, and page
-  snapshots plus an offline verifier and query tools.
-
 ## Screenshots
 
 These screenshots use synthetic sample data and are embedded here so the pages
@@ -78,6 +59,25 @@ can be previewed directly from this README. See the
 ### About
 
 ![About](docs/screenshots/about.png)
+
+## What it does
+
+- **Dashboard** — What's next, recent updates, a grade card per course, and a
+  campus-only study banner for upcoming quizzes. Saved data renders first; a
+  background refresh updates it from D2L when a tab is available.
+- **Assignments** — assignments, quizzes, discussions, checklist tasks, and a
+  **Needs attention** tab, with detail views that preserve list state and
+  scroll position.
+- **Courses, Calendar, Updates, Grades, Content** — course home, every event,
+  announcements, grade categories and rubrics, and content in D2L's own order.
+- **Search** — results open under the box as you type; Enter lists them all.
+- **Overlay** — opens over D2L on a D2L tab. Every assignment, quiz, and
+  discussion gets an exact handoff link to the real D2L page.
+- **Read-only** — the extension never submits, posts, starts quizzes, deletes
+  data, subscribes, marks content complete, or changes D2L settings. It only
+  reads and archives what you can already see.
+- **Local archive** — a portable folder of JSON, CSV, Markdown, and page
+  snapshots plus an offline verifier and query tools.
 
 ## Install (unpacked)
 
