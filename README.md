@@ -14,6 +14,8 @@
   <img src="https://img.shields.io/github/license/Dr-FacePlant/D2L-Archive?style=for-the-badge" alt="License: MIT">
 </p>
 
+> **Chrome Web Store:** D2L Archive isn’t listed yet. We expect to submit the first version in the next couple of days. Once it’s approved and published, installing it will be easier. For now, use the ZIP setup below.
+
 It uses your existing D2L session. It does not post, submit work, start quizzes, or change D2L settings. No account, server, or telemetry.
 
 Not affiliated with Kennesaw State University or D2L.
