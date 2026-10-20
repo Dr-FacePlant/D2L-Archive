@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="320" viewBox="0 0 960 320" role="img" aria-labelledby="title desc">
+  <title id="title">Download the extension ZIP</title>
+  <desc id="desc">Open the latest D2L Archive release to download the extension ZIP.</desc>
+  <rect x="120" y="110" width="720" height="100" rx="18" fill="#1769e0"/>
+  <path d="M184 136v30m-12-12 12 12 12-12m-31 29v7a4 4 0 0 0 4 4h54a4 4 0 0 0 4-4v-7" fill="none" stroke="#ffffff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="232" y="171" font-family="Arial,sans-serif" font-size="27" font-weight="700" fill="#ffffff">Download extension ZIP</text>
+  <path d="M765 160h30m-12-12 12 12-12 12" fill="none" stroke="#ffffff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
