@@ -36,6 +36,9 @@ Current app captures with real course data:
 
 ## Easy setup
 
+<details>
+<summary>View setup steps and video help</summary>
+
 Prefer a video? [Watch how to download and load an extension from GitHub](https://www.youtube.com/watch?v=PSqcV5eT8FM), or [see Chrome's Load unpacked steps](https://www.youtube.com/watch?v=xiT8c8M1OIw).
 
 1. Open the [latest release](https://github.com/Dr-FacePlant/D2L-Archive/releases/latest) and download the `d2l-archive-*.zip` asset under **Assets**. Choose the named ZIP, not GitHub's **Source code** ZIP.
@@ -47,12 +50,19 @@ Prefer a video? [Watch how to download and load an extension from GitHub](https:
 
 Course-file downloads are optional and off by default. Turn them on in Settings if you want files included in your export.
 
+</details>
+
 ## What you can do
+
+<details>
+<summary>View features</summary>
 
 - See upcoming assignments and quizzes, recent course updates, and grade summaries from the dashboard.
 - Browse courses, assignments, calendar events, announcements, discussions, grades, and course content.
 - Search archived course data and open items in D2L using their original links.
 - Save a portable archive of JSON, CSV, Markdown, and page snapshots for offline review.
+
+</details>
 
 ## Privacy
 
