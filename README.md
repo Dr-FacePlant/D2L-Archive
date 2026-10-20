@@ -23,6 +23,11 @@ Not affiliated with Kennesaw State University or D2L.
 - **Local archive** — a portable folder of JSON, CSV, Markdown, and page
   snapshots plus an offline verifier and query tools.
 
+## Screenshots
+
+The [screenshot gallery](docs/screenshots/README.md) shows each main dashboard
+page, plus course details and settings, using synthetic sample data.
+
 ## Install (unpacked)
 
 1. Open `chrome://extensions`.
