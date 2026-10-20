@@ -29,12 +29,16 @@ Current app captures with real course data:
   </tr>
 </table>
 
-## Get started
+## Easy setup
 
-1. [Download the repository as a ZIP](https://github.com/Dr-FacePlant/D2L-Archive/archive/refs/heads/main.zip) and unzip it, or clone it.
-2. In Chrome, open `chrome://extensions` and turn on **Developer mode**.
-3. Select **Load unpacked** and choose this repository's folder (the one containing `manifest.json`).
-4. Visit [KSU D2L](https://kennesaw.view.usg.edu/d2l/). The overlay opens on your first visit; use the extension icon or `Alt+Shift+A` to toggle it later.
+Prefer a video? [Watch how to download and load an extension from GitHub](https://www.youtube.com/watch?v=PSqcV5eT8FM), or [see Chrome's Load unpacked steps](https://www.youtube.com/watch?v=xiT8c8M1OIw).
+
+1. Open the [latest release](https://github.com/Dr-FacePlant/D2L-Archive/releases/latest) and download the `d2l-archive-*.zip` asset under **Assets**. Choose the named ZIP, not GitHub's **Source code** ZIP.
+2. Extract the downloaded ZIP. The extracted folder should contain `manifest.json`.
+3. In desktop Chrome, open `chrome://extensions`.
+4. Turn on **Developer mode**, then click **Load unpacked**.
+5. Select the extracted folder that contains `manifest.json`.
+6. Visit [KSU D2L](https://kennesaw.view.usg.edu/d2l/). The overlay opens on your first visit; use the extension icon or `Alt+Shift+A` to toggle it later.
 
 Course-file downloads are optional and off by default. Turn them on in Settings if you want files included in your export.
 
