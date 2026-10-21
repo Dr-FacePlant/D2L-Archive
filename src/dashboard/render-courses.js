@@ -1,7 +1,7 @@
 // Courses list and course home pages.
 (function initDashboardRenderCourses(global) {
   const dash = global.D2LDashboard ||= {};
-  const { cardHead, courseCard, emptyState, escapeHtml: e, selectMenu, gradeText, icon, notFoundPage, plural, statusMark, workRow } = dash;
+  const { cardHead, courseCard, emptyState, escapeHtml: e, selectMenu, icon, notFoundPage, plural, statusMark, workRow } = dash;
   // -------------------------------------------------------------- courses
 
   function coursesPage(model) {
@@ -51,10 +51,6 @@
                 <div class="course-code" style="color:${e(c.ink)}">${e([c.label, c.term].filter(Boolean).join("  ·  "))}</div>
                 <div class="course-title-row"><h1 title="${e(c.title)}">${e(c.name)}</h1>${c.d2lHome ? `<a class="icon-btn" href="${e(c.d2lHome)}" target="_blank" rel="noopener noreferrer" data-d2l-link title="Open in D2L" aria-label="Open ${e(c.name)} in D2L">${icon("external", 18)}</a>` : ""}</div>
                 ${c.section ? `<div style="display:flex;flex-wrap:wrap;gap:6px 18px;margin-top:8px;font-size:13.5px;color:var(--ink-4)"><span>${e(c.section)}</span></div>` : ""}
-              </div>
-              <div class="course-header-summary">
-                ${c.completion ? `<div class="course-completion"><div class="course-completion-label"><span>Content completed</span><span>${e(`${c.completion.completed} of ${c.completion.required}`)}</span></div><div class="progress" style="margin:0"><div class="bar" style="height:6px"><i style="width:${c.completion.pct}%;background:${e(c.color)}"></i></div></div></div>` : ""}
-                <a class="btn course-grades" href="#/grades?course=${encodeURIComponent(c.courseId)}">${e(model.final ? `Grades: ${gradeText(model.final)}` : `Grades: ${model.gradedCount} of ${model.gradeCount} graded`)}</a>
               </div>
             </div>
           </section>

@@ -643,10 +643,6 @@ p { margin: 0; }
 .course-page-layout .course-hero { height: 96px; }
 .course-header-body { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 20px; padding: 14px 20px 16px; }
 .course-header-meta { flex: 1 1 260px; min-width: 0; }
-.course-header-summary { display: flex; flex: 0 1 auto; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 12px 16px; }
-.course-completion { width: 180px; }
-.course-completion-label { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 6px; color: var(--muted); font-size: 12px; }
-.course-grades { max-width: 100%; white-space: normal; }
 .course-main-column, .course-side-column { min-width: 0; }
 .course-side-column { gap: 16px; }
 .instructor-contact-card { padding: 9px 14px; }
@@ -883,8 +879,6 @@ details[open] > .module-head .fold { transform: rotate(180deg); }
   .study-chip b { font-size: 20px; }
   .course-page-layout .course-hero { height: 72px; }
   .course-header-body { padding: 14px 16px; }
-  .course-header-summary { width: 100%; justify-content: flex-start; }
-  .course-completion { flex: 1 1 170px; }
   /* The top-bar box is narrow here, so its results span the screen. */
   .search-panel { position: fixed; top: 70px; left: 8px; right: 8px; width: auto; transform: none; max-height: calc(100vh - 86px); }
   .col-weight, .col-pct { display: none; }
