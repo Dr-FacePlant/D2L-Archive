@@ -53,12 +53,29 @@ for (const accent of Object.keys(look.ACCENTS).filter((key) => key !== "blue")) 
 }
 
 const hex = (value) => /^#[0-9A-Fa-f]{6}$/.test(String(value));
+const toHex = (color) => `#${color.map((value) => Math.round(value).toString(16).padStart(2, "0")).join("")}`;
+const resolveColor = (value, tokens, seen = new Set()) => {
+  const raw = String(value || "").trim();
+  if (hex(raw)) return raw;
+  const variable = raw.match(/^var\((--[\w-]+)\)$/);
+  if (variable) {
+    if (seen.has(variable[1])) return raw;
+    return resolveColor(tokens[variable[1]] || raw, tokens, new Set([...seen, variable[1]]));
+  }
+  const mixed = raw.match(/^color-mix\(in srgb,\s*(.+?)\s+(\d+(?:\.\d+)?)%,\s*(.+)\)$/i);
+  if (mixed) {
+    const first = resolveColor(mixed[1], tokens, seen);
+    const second = resolveColor(mixed[3], tokens, seen);
+    if (hex(first) && hex(second)) return toHex(look.mix(look.rgb(first), look.rgb(second), Number(mixed[2]) / 100));
+  }
+  return raw;
+};
 const ratio = (a, b) => look.contrast(look.rgb(a), look.rgb(b));
 function readable(mode, accent, text, ground, need = 4.5) {
   const tokens = palette(mode, accent);
-  const fg = tokens[text] || text;
-  const bg = tokens[ground] || ground;
-  if (!hex(fg) || !hex(bg)) return failures.push(`A3: ${mode}/${accent} ${text} on ${ground} isn't a plain color (${fg} on ${bg})`);
+  const fg = resolveColor(tokens[text] || text, tokens);
+  const bg = resolveColor(tokens[ground] || ground, tokens);
+  if (!hex(fg) || !hex(bg)) return failures.push(`A3: ${mode}/${accent} ${text} on ${ground} isn't a resolvable color (${fg} on ${bg})`);
   const value = ratio(fg, bg);
   check(value >= need, `A3: ${mode}/${accent} ${text} on ${ground} is ${value.toFixed(2)}:1, needs ${need}:1`);
 }

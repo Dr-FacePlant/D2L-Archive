@@ -17,3 +17,5 @@ jobs:
         run: node run-local-checks.mjs
       - name: Static extension validation
         run: node tools/validate-extension.mjs
+      - name: Store package dry run
+        run: node tools/package.mjs --dry-run
