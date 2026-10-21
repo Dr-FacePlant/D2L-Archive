@@ -100,6 +100,6 @@ icon mark on the dashboard background color.
 - [ ] Unzip the package into a clean folder, load it unpacked, and run the reload
       checklist (dashboard, overlay, Settings, sync, About).
 - [x] No `_`-prefixed files, docs, tests, or scratch JSON in the ZIP.
-- [ ] Privacy policy published and URL filled in.
+- [x] Privacy policy published and URL filled in.
 - [x] Permission list matches the table above (no `tabGroups` or `activeTab`).
 - [ ] Screenshots and 128×128 icon uploaded.
