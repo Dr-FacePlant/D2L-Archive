@@ -69,12 +69,6 @@ and you complete the action there yourself.
   `chrome://extensions`, or by clearing the extension's site data.
 - Your D2L account itself is never modified.
 
-## Children's privacy
-
-The extension is a study tool for the student using it. It collects no personal
-information, creates no profile, and transmits nothing about the user to the
-developer or anyone else.
-
 ## Changes
 
 If this policy changes, the updated text ships in the repository next to the
