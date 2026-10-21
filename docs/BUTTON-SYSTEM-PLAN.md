@@ -1,7 +1,8 @@
 # Button system + read-only D2L affordances — implementation plan
 
-Status: **approved**. Decisions 1–7 settled on the default options. Implementation
-has not started.
+Status: **Track A complete; Track B not started.** Decisions 1–7 settled on the
+default options. Track A shipped in `0.9.0`: the submission and post forms are
+gone and every D2L-facing control is an "Open … in D2L" link.
 Decision pages: [`docs/decisions/`](decisions/index.html). Full mockup:
 `docs/button-system-mockup.html` (light/dark and "highlight changes" toggles are
 in the page header).

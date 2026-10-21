@@ -1,11 +1,14 @@
 # D2L Archive — Privacy Policy
 
-Last updated: 2026-10-19
+Last updated: 2026-10-21
+
+Published at <https://dr-faceplant.github.io/D2L-Archive/privacy-policy.html>.
 
 D2L Archive is a Chrome extension that saves the D2L course pages you can already
 see into a local archive on your own computer and shows them in a dashboard. It
-has no server, no account, and no analytics. This page lists exactly what is
-stored, what leaves your device, and how to delete it.
+has no server, no account, and no analytics. This build is for Kennesaw State
+University's D2L site. This page lists exactly what is stored, what leaves your
+device, and how to delete it.
 
 ## Data stored on your device
 
@@ -52,13 +55,10 @@ permission to read or change unrelated browsing history.
 
 ## D2L actions it can take
 
-Reading D2L is the default. The only D2L writes are the ones you explicitly
-confirm in the overlay: submitting a supported individual file assignment, or
-posting a discussion thread or reply. Each write is bound to a fresh, one-use
-confirmation for that exact request, is never retried automatically, and is
-reported as successful only after D2L lists the result. The extension never
-starts a quiz, deletes data, subscribes to anything, marks content complete, or
-changes D2L settings.
+The extension only reads D2L. It does not submit assignments, post discussions,
+start quizzes, delete data, subscribe to anything, mark content complete, or
+change D2L settings. When you need to act, the dashboard opens the item in D2L
+and you complete the action there yourself.
 
 ## Retention and deletion
 
@@ -67,7 +67,7 @@ changes D2L settings.
 - **Saved previews** are cleared with **Settings → Saved previews → Clear**.
 - **Dashboard state and settings** are removed when you remove the extension from
   `chrome://extensions`, or by clearing the extension's site data.
-- Your D2L account itself is never modified beyond the confirmed writes above.
+- Your D2L account itself is never modified.
 
 ## Children's privacy
 

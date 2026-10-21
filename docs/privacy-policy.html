@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Privacy Policy — D2L Archive</title>
+    <meta name="description" content="What D2L Archive stores, what leaves your device, and how to delete it.">
+    <link rel="icon" href="icon-128.png" type="image/png">
+    <link rel="stylesheet" href="site.css">
+  </head>
+  <body>
+    <header class="site">
+      <a class="brand" href="./">
+        <img src="icon-128.png" alt="">
+        D2L Archive
+      </a>
+      <nav class="site" aria-label="Site">
+        <a href="./">Home</a>
+        <a href="https://github.com/Dr-FacePlant/D2L-Archive">GitHub</a>
+        <a href="https://github.com/Dr-FacePlant/D2L-Archive/releases">Releases</a>
+      </nav>
+    </header>
+
+    <main class="policy">
+      <h1>Privacy Policy</h1>
+      <p class="updated">Last updated: October 21, 2026</p>
+
+      <p>
+        D2L Archive is a Chrome extension that saves the D2L course pages you can
+        already see into a local archive on your own computer and shows them in a
+        dashboard. It has no server, no account, and no analytics. This build is
+        for Kennesaw State University's D2L site. This page lists exactly what is
+        stored, what leaves your device, and how to delete it.
+      </p>
+
+      <h2>Data stored on your device</h2>
+      <ul>
+        <li>
+          <strong>Archive files.</strong> When you run a sync or export, the
+          extension writes an export folder under
+          <code>~/Downloads/D2L Export/</code>: JSON and CSV manifests, Markdown
+          page snapshots, and — only if you turn on <strong>Download course
+          files</strong> — the course-file candidates it finds. These are ordinary
+          files you can open, move, or delete.
+        </li>
+        <li>
+          <strong>Dashboard state.</strong> Course list, read marks, done/skip
+          marks, checklist state, and settings are stored in extension-owned
+          IndexedDB and <code>chrome.storage.local</code>, scoped to the D2L
+          account that produced them.
+        </li>
+        <li>
+          <strong>Per-tab state.</strong> Whether the overlay is open and which
+          screen it is on is kept in <code>chrome.storage.session</code> and
+          cleared when the browser closes.
+        </li>
+        <li>
+          <strong>Saved previews.</strong> Files you open in the dashboard's
+          preview are cached locally (oldest first, after 300 MB) so they open
+          faster. <strong>Settings → Saved previews → Clear</strong> removes them.
+        </li>
+      </ul>
+      <p>
+        Nothing here is uploaded anywhere. It stays in your browser profile and
+        your Downloads folder.
+      </p>
+
+      <h2>Data that leaves your device</h2>
+      <ul>
+        <li>
+          <strong>Requests to your D2L site only.</strong> The extension calls the
+          same <code>https://kennesaw.view.usg.edu/d2l/*</code> pages and API
+          routes your browser already uses, with your existing session.
+          <code>manifest.json</code> lists that host as the only host permission.
+        </li>
+        <li>
+          <strong>No other network traffic.</strong> There is no telemetry, no
+          crash reporting, no remote configuration, no advertising, and no
+          third-party service. The extension contains no analytics SDK and no
+          remote code.
+        </li>
+      </ul>
+
+      <h2>Permissions and why</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Permission</th>
+              <th scope="col">Why it is needed</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>host_permissions: https://kennesaw.view.usg.edu/d2l/*</code></td>
+              <td>Read the D2L pages and API routes the archive is built from.</td>
+            </tr>
+            <tr>
+              <td><code>scripting</code></td>
+              <td>Load the content scripts that read the visible D2L page.</td>
+            </tr>
+            <tr>
+              <td><code>tabs</code></td>
+              <td>Find an existing D2L tab to sync in, instead of opening new tabs.</td>
+            </tr>
+            <tr>
+              <td><code>alarms</code></td>
+              <td>Resume queued, rate-limited sync work after a short delay.</td>
+            </tr>
+            <tr>
+              <td><code>storage</code></td>
+              <td>Save settings and per-account dashboard state.</td>
+            </tr>
+            <tr>
+              <td><code>unlimitedStorage</code></td>
+              <td>Hold the local archive index when it grows past the normal quota.</td>
+            </tr>
+            <tr>
+              <td><code>downloads</code>, <code>downloads.open</code></td>
+              <td>Write export files and opened previews into your Downloads folder.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        The extension requests no permission for any site other than D2L, and no
+        permission to read or change unrelated browsing history.
+      </p>
+
+      <h2>D2L actions it can take</h2>
+      <p>
+        The extension only reads D2L. It does not submit assignments, post
+        discussions, start quizzes, delete data, subscribe to anything, mark
+        content complete, or change D2L settings. When you need to act, the
+        dashboard opens the item in D2L and you complete the action there
+        yourself.
+      </p>
+
+      <h2>Retention and deletion</h2>
+      <ul>
+        <li>
+          <strong>Export folders</strong> live in your Downloads folder and are
+          yours; delete the folder to remove the archive.
+        </li>
+        <li>
+          <strong>Saved previews</strong> are cleared with
+          <strong>Settings → Saved previews → Clear</strong>.
+        </li>
+        <li>
+          <strong>Dashboard state and settings</strong> are removed when you remove
+          the extension from <code>chrome://extensions</code>, or by clearing the
+          extension's site data.
+        </li>
+        <li>Your D2L account itself is never modified.</li>
+      </ul>
+
+      <h2>Children's privacy</h2>
+      <p>
+        The extension is a study tool for the student using it. It collects no
+        personal information, creates no profile, and transmits nothing about the
+        user to the developer or anyone else.
+      </p>
+
+      <h2>Changes</h2>
+      <p>
+        If this policy changes, the updated text ships in the repository next to
+        the version of the extension it applies to.
+      </p>
+
+      <h2>Contact</h2>
+      <p>
+        Questions or problems: open an issue on the
+        <a href="https://github.com/Dr-FacePlant/D2L-Archive/issues">project's GitHub repository</a>.
+      </p>
+    </main>
+
+    <footer class="site">
+      <p>D2L Archive is an independent project, not affiliated with or endorsed by Kennesaw State University or D2L Corporation.</p>
+      <p><a href="./">D2L Archive home</a></p>
+    </footer>
+  </body>
+</html>

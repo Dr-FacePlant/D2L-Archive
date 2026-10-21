@@ -1,10 +1,11 @@
 # D2L Archive — Pre-Release Implementation Plan
 
-Status: **draft, not started**. No code has been modified for this plan.
-Baseline version: `0.8.265`. Reference build: `src/dashboard` at the state where the
+Status: **complete through Phase 7**. Released as `0.9.0` on 2026-10-20. This
+document is retained as the historical implementation record.
+Starting baseline: `0.8.265`. Reference build: `src/dashboard` at the state where the
 study banner (Option D) replaced the sponsor slideshow + attention bar.
 
-This plan does six things in order:
+This plan did six things in order:
 
 1. Freeze the current working state in git (so every later step is a reversible commit).
 2. Archive the ChatGPT integration out of the shipped extension.
@@ -26,8 +27,8 @@ reversed that on 2026-10-19 and asked for them before shipping; Phase 7 is compl
 
 ```bash
 node run-local-checks.mjs            # syntax sweep + core test subset (~100 tests)
-node test-background-module-loading.mjs
-node validate-extension.mjs
+node tests/test-background-module-loading.mjs
+node tools/validate-extension.mjs
 ```
 
 Plus static gates per phase (grep counts, `node --check`, manifest parse).
@@ -48,7 +49,7 @@ Record the pre-change result so regressions are detectable:
 
 ```bash
 node run-local-checks.mjs | tail -5        # save the pass/fail counts
-node validate-extension.mjs | tail -5
+node tools/validate-extension.mjs | tail -5
 ```
 
 If the baseline is already red, fix or document that test *before* starting Phase 1 —
@@ -67,9 +68,9 @@ otherwise every phase inherits a broken signal.
 - **Never create `_`-prefixed files or folders inside the extension directory.**
   Chrome refuses to load unpacked extensions with reserved names. All archives live
   one level up: `outputs/_archive-*`.
-- The store ZIP must contain only: `manifest.json`, `background.js`, `content.js`,
-  `popup.*`, `dashboard.html`, `src/` (minus `src/verify`), icons. Tests, tools,
-  docs, fixtures stay out (Phase 5 adds the packaging script).
+- The store ZIP contains only: `README.md`, `manifest.json`, `background.js`,
+  `content.js`, `popup.*`, `dashboard.html`, `src/` (minus `src/verify`), icons.
+  Tests, tools, docs, fixtures stay out (Phase 5 adds the packaging script).
 
 ---
 
@@ -238,7 +239,7 @@ compressed, restorable" artifact you asked for).
 
 ```bash
 node --check background.js
-node test-background-module-loading.mjs
+node tests/test-background-module-loading.mjs
 node run-local-checks.mjs
 grep -ri "chatgpt\|chat-gpt" --include="*.js" --include="*.json" . \
   | grep -v "_backup\|docs/PRE-RELEASE\|docs/history"   # expect 0 shipped-code hits

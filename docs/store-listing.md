@@ -9,21 +9,21 @@ D2L Archive
 
 ## Short description (132 characters max)
 
-Read-only D2L archive and dashboard: courses, assignments, grades, files. Local only.
+Read-only KSU D2L archive and dashboard: courses, assignments, grades, files. Local only.
 
 ## Summary (GitHub repo description, 350 characters max)
 
-D2L Archive is a read-only Chrome extension that saves your D2L course data into a
-local archive: courses, assignments, quizzes, grades, discussions, announcements,
-content, and files. Its dashboard shows what is due, what changed, and what was
-graded; actions open in D2L. Downloads are optional, off by default. No account,
-server, or telemetry.
+D2L Archive is a read-only Chrome extension for Kennesaw State University that
+saves your D2L course data into a local archive: courses, assignments, quizzes,
+grades, discussions, announcements, content, and files. Its dashboard shows what
+is due, what changed, and what was graded; actions open in D2L. Downloads are
+optional, off by default. No account, server, or telemetry.
 
 ## Detailed description
 
-D2L Archive keeps a personal, searchable copy of your D2L course data and shows it
-in a dashboard that answers the questions students actually open D2L for: what is
-due, what changed, and what was graded.
+D2L Archive keeps a personal, searchable copy of your Kennesaw State University
+D2L course data and shows it in a dashboard that answers the questions students
+actually open D2L for: what is due, what changed, and what was graded.
 
 - Dashboard: What's Next, Recent Updates, a grade card per course, and upcoming
   quizzes at a glance.
@@ -32,15 +32,14 @@ due, what changed, and what was graded.
 - Courses, Calendar, Updates, Grades, Content: course home, every event,
   announcements, grade categories and rubrics, and content in D2L's own order.
 - Search: results open under the search box as you type.
-- Overlay: opens over D2L in the same tab. Supported individual file assignments
-  and non-group discussions have a review-and-confirm submit/post action;
-  everything else gets an exact handoff back to D2L.
+- Overlay: opens over D2L in the same tab. Every action is an exact handoff back
+  to the item on D2L, where you complete it yourself.
 - Local archive: a folder of JSON, CSV, Markdown, and page snapshots you can keep
   or read elsewhere, with offline verify and query tools.
 
-Read-only by default. The extension never starts quizzes, deletes data, subscribes,
-marks content complete, or changes D2L settings. It does not send your data
-anywhere: no account, no server, no analytics.
+Read-only. The extension does not submit assignments, post discussions, start
+quizzes, delete data, subscribe, mark content complete, or change D2L settings.
+It does not send your data anywhere: no account, no server, no analytics.
 
 Course-file downloads are opt-in and off by default.
 
@@ -71,15 +70,15 @@ local, read-only archive and displays that archive in a dashboard.
 - **Data sold or shared:** no.
 - **Data used for purposes unrelated to the single purpose:** no.
 - **Remote code:** no. All code ships in the package.
-- **Privacy policy URL:** publish `docs/privacy-policy.md` (GitHub Pages or another
-  static host) and paste the public URL here.
+- **Privacy policy URL:** https://dr-faceplant.github.io/D2L-Archive/privacy-policy.html
 - **Certification:** the extension's use of data complies with the Chrome Web Store
   User Data Policy.
 
 ## Screenshot checklist
 
-Capture at 1280×800 (or 640×400) from the real build, with a real D2L account and
-no personal data visible:
+Capture at 1280×800 (or 640×400) from the real build, with synthetic or demo data
+and no student names, grades, course labels, or other personal data visible. Pick
+five of these:
 
 1. Dashboard with What's Next, Recent Updates, and course grade cards.
 2. Assignments → Needs attention.
@@ -94,12 +93,13 @@ icon mark on the dashboard background color.
 
 ## Submission checklist
 
-- [ ] `manifest.json` name/description/version match this document.
-- [ ] `node run-local-checks.mjs` and `node tools/validate-extension.mjs` pass.
-- [ ] `node tools/package.mjs` produces the store ZIP and prints only shipped files.
+- [x] `manifest.json` name and version match this document; its description is
+      read-only and local.
+- [x] `node run-local-checks.mjs` and `node tools/validate-extension.mjs` pass.
+- [x] `node tools/package.mjs` produces the store ZIP and prints only shipped files.
 - [ ] Unzip the package into a clean folder, load it unpacked, and run the reload
       checklist (dashboard, overlay, Settings, sync, About).
-- [ ] No `_`-prefixed files, docs, tests, or scratch JSON in the ZIP.
+- [x] No `_`-prefixed files, docs, tests, or scratch JSON in the ZIP.
 - [ ] Privacy policy published and URL filled in.
-- [ ] Permission list matches the table above (no `tabGroups` or `activeTab`).
+- [x] Permission list matches the table above (no `tabGroups` or `activeTab`).
 - [ ] Screenshots and 128×128 icon uploaded.

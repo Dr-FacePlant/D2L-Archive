@@ -4,7 +4,7 @@
 
 <h1 align="center">D2L Archive</h1>
 
-<p align="center">A read-only Chrome extension that turns your D2L courses into a local archive and a dashboard for upcoming work, updates, and grades.</p>
+<p align="center">A read-only Chrome extension for Kennesaw State University that turns your D2L courses into a local archive and a dashboard for upcoming work, updates, and grades.</p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/platform-Chrome-4285F4?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Platform: Chrome">
@@ -88,7 +88,9 @@ Course-file downloads are optional and off by default. Turn them on in Settings 
 
 ## Privacy
 
-Course data and exports stay on your device. Requests go only to your D2L site using your existing session; the extension has no analytics or third-party server. It only reads D2L data. To submit work or post, open the item in D2L and do it there yourself.
+Course data and exports stay on your device. Requests go only to KSU's D2L site using your existing session; the extension has no analytics or third-party server. It only reads D2L data. To submit work or post, open the item in D2L and do it there yourself. Read the full [privacy policy](https://dr-faceplant.github.io/D2L-Archive/privacy-policy.html).
+
+D2L Archive is an independent project, not affiliated with or endorsed by Kennesaw State University or D2L Corporation.
 
 <details>
 <summary>Developer and archive reference</summary>
@@ -100,7 +102,7 @@ node run-local-checks.mjs
 node tools/validate-extension.mjs
 ```
 
-The local checks use Node 20+ and need no additional dependencies. To preview the dashboard against saved exports:
+The local checks use Node 20+ and need no additional dependencies. To preview the dashboard against saved exports, first place a `dashboard-test-exports.json` file at the repo root:
 
 ```sh
 node tools/dev-dashboard-preview.mjs 8791
