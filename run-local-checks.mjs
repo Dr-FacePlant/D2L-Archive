@@ -174,6 +174,7 @@ const checks = [
   ["user profile menu", [path.join(root, "tests", "test-user-profile-menu.mjs")]],
   ["about cleanup", [path.join(root, "tests", "test-about-cleanup.mjs")]],
   ["content row actions", [path.join(root, "tests", "test-content-link-actions.mjs")]],
+  ["syllabus detection and contact extraction", [path.join(root, "tests", "test-syllabus-detection.mjs")]],
   ["dashboard extractor fields regression", [path.join(root, "tests", "test-dashboard-extractor-fields.mjs")]],
   ["dashboard lesson deadlines", [path.join(root, "tests", "test-dashboard-lesson-deadlines.mjs")]],
   ["dashboard appearance and settings", [path.join(root, "tests", "test-dashboard-appearance.mjs")]],
