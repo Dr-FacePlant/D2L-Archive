@@ -168,12 +168,19 @@
     const earlierAnnouncements = allAnnouncements.filter((a) => fromEarlierTerm(index, courseId, a.at))
       .map((a) => ({ ...a, date: fmtDate(a.at, index.now) }));
     const modules = resourceModules(index, courseId);
-    const syllabusRegex = /\b(?:syllabus|course\s+outline|course\s+information|course\s+info|policies\s*(?:&|and)\s*schedule)\b/i;
+    const syllabusRegex = /\b(?:syllabus|simple\s+syllabus|course\s+outline|course\s+information|course\s+info|policies\s*(?:&|and)\s*schedule)\b/i;
     let syllabus = modules.flatMap((module) => module.items).find((item) => syllabusRegex.test(item.title)) || null;
     if (!syllabus) {
       const overviewPolicies = index.list(courseId, "coursePolicy").filter((p) => p.policyType === "courseOverview");
       if (overviewPolicies.length) {
         syllabus = { id: overviewPolicies[0].entityId, title: overviewPolicies[0].canonicalTitle, from: "Overview" };
+      }
+    }
+    if (!syllabus) {
+      // Check for syllabus policies tagged from announcements or tools (e.g. Simple Syllabus or quickLink)
+      const syllabusPolicies = index.list(courseId, "coursePolicy").filter((p) => syllabusRegex.test(p.canonicalTitle || ""));
+      if (syllabusPolicies.length) {
+        syllabus = { id: syllabusPolicies[0].entityId, title: syllabusPolicies[0].canonicalTitle, from: "Policy" };
       }
     }
     const listed = new Set(nextRows(upcoming, 6).map((item) => item.id));
