@@ -2,7 +2,7 @@
 (function initDashboardAppEvents(global) {
   const dash = global.D2LDashboard ||= {};
   const mod = dash.appModules ||= {};
-  const { $, EMBEDDED, READ_KEY, RECREATED_SEEN_KEY, SETTINGS_KEY, adoptLegacyArchive, api, backFromDetail, closeDetailToBase, closeOverlay, closePreview, detailRoot, exportActivity, fileScope, look, main, moveGradeCarousel, navigateToDetail, openArchivedFile, openInD2l, previewFile, redrawAdoptNotice, refreshIfStaleOnFocus, rememberScreen, render, renderSyncStatus, saveLook, setChecklistDone, setWorkMark, startSync, state, storageSet, toast, updateGradeCarouselControls, wait } = dash.appModules;
+  const { $, EMBEDDED, READ_KEY, RECREATED_SEEN_KEY, SETTINGS_KEY, adoptLegacyArchive, api, backFromDetail, closeDetailToBase, closeLinkConfirm, closeOverlay, closePreview, detailRoot, exportActivity, fileScope, look, main, moveGradeCarousel, navigateToDetail, openArchivedFile, openConfirmedD2l, openConfirmedLink, previewConfirmedFile, previewFile, redrawAdoptNotice, refreshIfStaleOnFocus, rememberScreen, render, renderSyncStatus, saveLook, setChecklistDone, setWorkMark, showFileOpen, showLinkConfirm, startSync, state, storageSet, toast, updateGradeCarouselControls, wait } = dash.appModules;
   // ------------------------------------------------------------- events
 
   function markRead(ids, value = true) {
@@ -160,18 +160,36 @@
       flip.classList.toggle("flipped");
       return;
     }
-    if (EMBEDDED) {
-      if (event.target.closest("[data-action=close-overlay]")) {
-        closeOverlay();
-        return;
-      }
-      // A plain click on a D2L link shows that page in this tab; Ctrl/Cmd-click
-      // and middle-click still open a new tab.
-      if (link && plain && dash.embeddedLinkTarget(link.getAttribute("href")) === "d2l") {
-        event.preventDefault();
-        openInD2l(link.href);
-        return;
-      }
+    if (EMBEDDED && event.target.closest("[data-action=close-overlay]")) {
+      closeOverlay();
+      return;
+    }
+    // A saved file can be previewed here or opened on D2L. Its row stays an
+    // anchor, so modified clicks still open the D2L original in a new tab.
+    if (link && plain && link.hasAttribute("data-file-open")) {
+      event.preventDefault();
+      showFileOpen({
+        path: link.getAttribute("data-path"),
+        name: link.getAttribute("data-name") || "File",
+        d2l: link.getAttribute("data-d2l") || link.href,
+        download: link.getAttribute("data-download") || ""
+      });
+      return;
+    }
+    // Every link that leaves the archive asks once. Modified clicks keep the
+    // browser's own new-tab behavior and skip the prompt.
+    if (link && plain && dash.isOutboundLink(link.getAttribute("href"))) {
+      event.preventDefault();
+      const d2l = link.hasAttribute("data-d2l-link") || dash.embeddedLinkTarget(link.getAttribute("href")) === "d2l";
+      const title = link.getAttribute("data-confirm-external")
+        || link.getAttribute("data-confirm-title")
+        || link.getAttribute("aria-label")
+        || link.textContent.trim()
+        || link.getAttribute("title")
+        || "this link";
+      closeMenu();
+      showLinkConfirm({ url: link.href, title, kind: d2l ? "d2l" : "external" });
+      return;
     }
     const toggle = event.target.closest("[data-menu-toggle]");
     if (toggle) {
@@ -298,6 +316,14 @@
       openArchivedFile(actionNode.dataset.path);
     } else if (action === "preview-file") {
       previewFile(actionNode);
+    } else if (action === "confirm-link") {
+      openConfirmedLink();
+    } else if (action === "preview-confirmed-file") {
+      previewConfirmedFile();
+    } else if (action === "open-confirmed-d2l") {
+      openConfirmedD2l();
+    } else if (action === "close-link-confirm") {
+      if (!actionNode.dataset.backdrop || event.target === actionNode) closeLinkConfirm();
     } else if (action === "reload-page") {
       location.reload();
     } else if (action === "close-preview") {
@@ -344,6 +370,26 @@
   }, true);
 
   document.addEventListener("keydown", (event) => {
+    if (state.linkConfirm) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeLinkConfirm();
+        return;
+      }
+      if (event.key === "Tab") {
+        const panel = document.querySelector("#link-confirm .link-confirm-panel");
+        const focusable = [...(panel?.querySelectorAll('a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])') || [])]
+          .filter((node) => !node.hidden && node.getClientRects().length);
+        if (focusable.length) {
+          const first = focusable[0];
+          const last = focusable.at(-1);
+          if (!panel.contains(document.activeElement)) { event.preventDefault(); first.focus(); }
+          else if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+          else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+        }
+        return;
+      }
+    }
     if (event.key === "Tab" && state.detail && !state.preview && !$("#action-confirm")?.open) {
       const panel = detailRoot()?.querySelector(".detail-panel");
       const focusable = [...(panel?.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])') || [])]
@@ -501,6 +547,7 @@
     closeMenu();
     closeFilterMenu();
     closePreview();
+    closeLinkConfirm({ restoreFocus: false });
     closeSearchPanel();
     rememberScreen();
     render();

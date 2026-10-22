@@ -50,7 +50,7 @@
 
   // A smaller D2L link under the to-do card's one button.
   function moreLink(link) {
-    return `<a class="link-btn" href="${e(link.url)}" target="_blank" rel="noopener noreferrer" data-d2l-link>${e(link.label)} ${icon("external", 14)}</a>`;
+    return `<a class="link-btn" href="${e(link.url)}" rel="noopener noreferrer" data-d2l-link>${e(link.label)} ${icon("external", 14)}</a>`;
   }
 
   // The to-do card: the steps, one button, smaller links, the quiet line.
@@ -224,7 +224,7 @@
         <div class="viewer-head">
           ${icon("file", 18)}<b>${e(view.name)}</b>
           ${view.localPath ? `<button class="btn" type="button" data-action="open-file" data-path="${e(view.localPath)}">Open on this computer</button>` : ""}
-          ${view.d2lUrl ? `<a class="icon-btn" href="${e(view.d2lUrl)}" target="_blank" rel="noopener noreferrer" title="Open in D2L" aria-label="Open in D2L">${icon("external", 18)}</a>` : ""}
+          ${view.d2lUrl ? `<a class="btn" href="${e(view.d2lUrl)}" rel="noopener noreferrer" data-d2l-link>Open in D2L ${icon("external", 14)}</a>` : ""}
           <button class="icon-btn" type="button" data-action="close-preview" aria-label="Close preview">${icon("close", 18)}</button>
         </div>
         <div class="viewer-body ${e(view.state === "ready" ? view.kind : "note")}">${body}</div>

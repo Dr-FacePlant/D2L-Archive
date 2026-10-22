@@ -54,18 +54,28 @@
   }
 
   // Where a link goes when the dashboard runs in the overlay on a D2L page:
-  // "route" stays in the overlay, "d2l" opens in that same tab (the overlay
-  // closes), "extension" and "external" open a new tab as usual.
+  // "route" stays in the overlay, "d2l" and "external" leave it for the same
+  // tab, and "extension" is one of the extension's own pages.
   function embeddedLinkTarget(href) {
     const link = String(href || "");
     if (link.startsWith("#")) return "route";
-    if (link.startsWith(`${D2L_ORIGIN}/`)) return "d2l";
+    if (link === D2L_ORIGIN || link.startsWith(`${D2L_ORIGIN}/`)) return "d2l";
     if (/^[a-z][a-z0-9+.-]*:/i.test(link) || link.startsWith("//")) return "external";
     return "extension";
   }
 
+  // Links that leave the archive for a web page. Hash routes and extension
+  // pages stay put; mail and phone links belong to their own apps.
+  function isOutboundLink(href) {
+    const link = String(href || "");
+    if (!link || link.startsWith("#")) return false;
+    if (/^(mailto:|tel:|javascript:)/i.test(link)) return false;
+    if (link === D2L_ORIGIN || link.startsWith(`${D2L_ORIGIN}/`)) return true;
+    return /^(https?:)?\/\//i.test(link);
+  }
+
 
   Object.assign(dash, {
-    detailFor, parseRoute, isDetailRoute, isLayerRoute, canonicalParentForRoute, embeddedLinkTarget
+    detailFor, parseRoute, isDetailRoute, isLayerRoute, canonicalParentForRoute, embeddedLinkTarget, isOutboundLink
   });
 })(globalThis);

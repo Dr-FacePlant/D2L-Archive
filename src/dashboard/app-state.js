@@ -39,6 +39,7 @@
     detailContexts: new Map(),
     pageScrolls: new Map(),
     previewFocus: null,
+    linkConfirm: null,
     baseStale: false,
     shownHash: null,
     lastFocusRefreshAt: 0

@@ -68,7 +68,7 @@ const app = appSource();
 const css = read("src/dashboard/dashboard.css");
 check(!shell.includes('href="#/settings" aria-label="Settings"'), "the old top-bar Settings gear still exists");
 check(app.includes('id="profile-menu"') && app.includes('id="profile-avatar"') && app.includes('href="#/settings"'), "the sidebar profile menu or Settings entry is missing");
-check(app.includes('href="#/about"') && app.includes("Open D2L") && !app.includes("popup.html") && !app.includes("Extractor tools"), "the compact profile menu should contain only Settings, About, and Open D2L");
+check(app.includes('href="#/settings/about"') && app.includes("Open D2L") && !app.includes("popup.html") && !app.includes("Extractor tools"), "the compact profile menu should contain only Settings, About, and Open D2L, with About opening Settings");
 check(!app.includes('id="profile-name"') && !app.includes("profile-copy") && app.includes("M9 0a9 9"), "the sidebar should show only the official Brightspace profile image or profile-default icon, never the student's name");
 check(!app.includes("Sync reminders and visible courses") && !app.includes("Privacy, support and project details"), "profile menu actions should not include descriptive subtitles");
 check(css.includes(".nav-profile { margin-top: auto") && css.includes(".profile-menu { position: fixed"), "the profile control is not anchored to the bottom of the sidebar");

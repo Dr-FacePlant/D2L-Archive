@@ -25,9 +25,8 @@
             </div>`).join("")}</div>
         </section>
         <div class="side stack" style="flex:1 1 280px">
-          <a class="today-bar" href="${e(model.todayHref)}">${icon("calendar", 15)}Today</a>
           <section class="card card-pad">
-            <div class="card-head"><h2 style="font-size:16px">${e(model.selectedTitle)}</h2>${model.selected === model.today ? `<span class="today-tag">Today</span>` : ""}</div>
+            <div class="card-head"><h2>${e(model.selectedTitle)}</h2><a class="today-jump" href="${e(model.todayHref)}" aria-label="Go to today" title="Today">${icon("calendar", 18)}</a></div>
             ${model.selectedEvents.length ? model.selectedEvents.map((event) => `<a class="row compact" href="${e(event.route)}"><span class="stripe" style="background:${e(event.course?.color || "var(--faint)")}"></span><span class="grow"><span class="title plain">${e(event.title)}</span><span class="meta">${e(event.course?.label || "")}</span></span><span class="aside">${e(event.time)}</span></a>`).join("") : emptyState("", "Nothing scheduled in D2L.")}
           </section>
           <section class="card card-body">

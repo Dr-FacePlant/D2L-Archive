@@ -117,7 +117,7 @@
   function extLink(link, extraClass = "") {
     if (!link?.url) return "";
     const cls = link.primary ? "btn btn-primary open-d2l" : "btn open-d2l";
-    return `<a class="${cls} ${extraClass}" href="${e(link.url)}" target="_blank" rel="noopener noreferrer" data-d2l-link>${e(link.label)} ${icon("external", 15)}</a>`;
+    return `<a class="${cls} ${extraClass}" href="${e(link.url)}" rel="noopener noreferrer" data-d2l-link>${e(link.label)} ${icon("external", 15)}</a>`;
   }
 
   function previewButton(file, label = "Preview") {
@@ -127,7 +127,7 @@
   function fileRow(file) {
     const actions = [
       file.localPath ? previewButton(file) : "",
-      !file.localPath && file.url ? `<a class="btn" href="${e(file.url)}" target="_blank" rel="noopener noreferrer">Download from D2L ${icon("external", 14)}</a>` : ""
+      !file.localPath && file.url ? `<a class="btn" href="${e(file.url)}" rel="noopener noreferrer">Download from D2L ${icon("external", 14)}</a>` : ""
     ].join("");
     return `<div class="file">${icon("file", 18)}<span class="n">${e(file.name)}</span>${file.size ? `<span class="s">${e(file.size)}</span>` : ""}${actions}</div>`;
   }
@@ -169,7 +169,58 @@
     return `<div class="page slim" data-screen="no-account">${emptyState("Open D2L to continue", "Open your D2L course site in this browser so the archive can tell which account is signed in. Your saved data stays on this device and will appear once your account is known.")}</div>`;
   }
 
+  // A link that leaves the archive asks once before it opens. The destination
+  // is named so the choice is concrete, not a generic warning.
+  function linkConfirmPanel({ title, domain, kind = "external" }) {
+    const d2l = kind === "d2l";
+    return `<div class="viewer link-confirm" data-action="close-link-confirm" data-backdrop="true">
+      <div class="link-confirm-panel" role="dialog" aria-modal="true" aria-labelledby="link-confirm-title">
+        <div class="link-confirm-icon">${icon("external", 20)}</div>
+        <h2 id="link-confirm-title">${d2l ? "Open in D2L?" : "Open this link?"}</h2>
+        <p>This opens <b>${e(title)}</b> ${d2l ? "in D2L. You'll stay in this tab." : "in this tab."}</p>
+        <div class="link-confirm-dest">
+          <span class="link-confirm-badge">${icon("external", 16)}</span>
+          <span class="grow"><span class="k">${e(domain)}</span><span class="v">${d2l ? "D2L course site" : "External website"}</span></span>
+        </div>
+        <div class="link-confirm-actions">
+          <button class="btn" type="button" data-action="close-link-confirm">Cancel</button>
+          <button class="btn btn-primary" type="button" data-action="confirm-link">${d2l ? "Open in D2L" : "Open link"} ${icon("arrowRight", 14)}</button>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  // A saved file has two useful destinations: the copy in the archive and the
+  // original on D2L. The row itself stays a link so a new tab is possible.
+  function fileOpenPanel({ name }) {
+    return `<div class="viewer link-confirm" data-action="close-link-confirm" data-backdrop="true">
+      <div class="link-confirm-panel file-open-panel" role="dialog" aria-modal="true" aria-labelledby="file-open-title">
+        <div class="link-confirm-icon">${icon("file", 20)}</div>
+        <h2 id="file-open-title">How do you want to open this file?</h2>
+        <p>You have a saved copy in your archive, or you can open the original in D2L.</p>
+        <div class="file-open-file">
+          <span class="file-open-badge">${icon("file", 18)}</span>
+          <span class="grow"><span class="file-open-name">${e(name)}</span><span class="file-open-sub">Saved in your archive</span></span>
+          <span class="file-open-saved">Saved</span>
+        </div>
+        <button class="file-open-choice primary" type="button" data-action="preview-confirmed-file">
+          <span class="file-open-choice-icon">${icon("eye", 17)}</span>
+          <span class="grow"><span class="file-open-choice-title">Preview saved copy</span><span class="file-open-choice-note">Open it here without leaving the dashboard.</span></span>
+          ${icon("arrowRight", 15)}
+        </button>
+        <button class="file-open-choice" type="button" data-action="open-confirmed-d2l">
+          <span class="file-open-choice-icon">${icon("external", 17)}</span>
+          <span class="grow"><span class="file-open-choice-title">Open in D2L</span><span class="file-open-choice-note">Go to the original file on D2L in this tab.</span></span>
+          ${icon("arrowRight", 15)}
+        </button>
+        <div class="link-confirm-actions">
+          <button class="btn" type="button" data-action="close-link-confirm">Cancel</button>
+        </div>
+      </div>
+    </div>`;
+  }
+
   Object.assign(dash, {
-    icon, selectMenu, statusMark, gradeText, instructorNames, dateBox, extLink, previewButton, fileRow, rubricTable, emptyState, cardHead, notFoundPage, loadingPage, noAccountPage, ICONS, KIND_ICON, STEP_MARK, DONE_KEYS, LATE_KEYS, pressed
+    icon, selectMenu, statusMark, gradeText, instructorNames, dateBox, extLink, previewButton, fileRow, rubricTable, emptyState, cardHead, notFoundPage, loadingPage, noAccountPage, linkConfirmPanel, fileOpenPanel, ICONS, KIND_ICON, STEP_MARK, DONE_KEYS, LATE_KEYS, pressed
   });
 })(globalThis);

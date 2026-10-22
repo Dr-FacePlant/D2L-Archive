@@ -1,7 +1,7 @@
 // Calendar events and the calendar screen.
 (function initDashboardModelCalendar(global) {
   const dash = global.D2LDashboard ||= {};
-  const { dayKey, fmtDate, fmtTime, monthLabel, routeFor, time, toDate } = dash;
+  const { dayKey, fmtLongDate, fmtTime, monthLabel, routeFor, time, toDate } = dash;
   // -------------------------------------------------------------- calendar
 
   function calendarEvents(index) {
@@ -84,7 +84,7 @@
       today,
       cells,
       selected,
-      selectedTitle: selected === today ? "Today" : fmtDate(selectedDate, index.now),
+      selectedTitle: fmtLongDate(selectedDate, index.now),
       selectedEvents: byDay.get(selected) || [],
       total: events.length,
       courses: index.courses.map((course) => ({ ...course, on: !hidden.has(course.courseId), href: href({ hide: toggled(course.courseId) }) }))

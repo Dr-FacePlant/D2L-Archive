@@ -1,26 +1,33 @@
 // Resources page.
 (function initDashboardRenderResources(global) {
   const dash = global.D2LDashboard ||= {};
-  const { emptyState, escapeHtml: e, selectMenu, icon, plural, previewButton } = dash;
+  const { emptyState, escapeHtml: e, selectMenu, icon, plural } = dash;
   // ------------------------------------------------------------ resources
 
-  // One main action per topic: preview the saved file, open the web link, or
-  // open the topic in D2L. D2L stays one small icon when it isn't the main one.
+  // One control per topic: the whole row offers a saved file's two
+  // destinations, opens the course link, or opens the topic in D2L. The icon
+  // on the right is only a destination marker; it is never a second hit area.
   function resourceRow(item, highlight) {
     const typeIcon = item.icon || "doc";
-    const main = item.localPath
-      ? previewButton({ name: item.title, localPath: item.localPath, d2lUrl: item.d2lUrl, downloadUrl: item.downloadUrl })
-      : item.external ? `<a class="btn" href="${e(item.external)}" target="_blank" rel="noopener noreferrer">Open link ${icon("external", 14)}</a>`
-      : item.d2lUrl ? `<a class="icon-btn" href="${e(item.d2lUrl)}" target="_blank" rel="noopener noreferrer" data-d2l-link title="Open in D2L" aria-label="Open ${e(item.title)} in D2L">${icon("external", 16)}</a>` : "";
-    const d2l = item.d2lUrl && (item.localPath || item.external)
-      ? `<a class="icon-btn" href="${e(item.d2lUrl)}" target="_blank" rel="noopener noreferrer" data-d2l-link title="Open in D2L" aria-label="Open ${e(item.title)} in D2L">${icon("external", 16)}</a>`
-      : "";
-    const actions = main + d2l;
-    return `<div class="row compact" id="${e(item.id)}" style="${highlight === item.id ? "background:var(--cal-selected)" : ""}" data-entity="${e(item.id)}">
-      <span class="ico">${icon(typeIcon, 20)}</span>
-      <span class="grow"><span class="title plain">${e(item.title)}</span><span class="meta">${e([item.type, item.dates, item.exempt ? "Exempt" : ""].filter(Boolean).join(" · "))}</span></span>
-      <span class="row-actions">${actions}</span>
-    </div>`;
+    const meta = e([item.type, item.dates, item.exempt ? "Exempt" : ""].filter(Boolean).join(" · "));
+    const body = `<span class="ico">${icon(typeIcon, 20)}</span>
+      <span class="grow"><span class="title plain">${e(item.title)}</span><span class="meta">${meta}</span></span>
+      <span class="row-icon" aria-hidden="true">${icon("external", 16)}</span>`;
+    const id = `id="${e(item.id)}" style="${highlight === item.id ? "background:var(--cal-selected)" : ""}" data-entity="${e(item.id)}"`;
+    const fileData = `data-path="${e(item.localPath)}" data-name="${e(item.title)}" data-d2l="${e(item.d2lUrl || "")}" data-download="${e(item.downloadUrl || "")}"`;
+    if (item.localPath && item.d2lUrl) {
+      return `<a class="row compact resource-row" ${id} href="${e(item.d2lUrl)}" ${fileData} data-file-open>${body}<span class="sr-only"> Opens file options.</span></a>`;
+    }
+    if (item.localPath) {
+      return `<button class="row compact resource-row" type="button" ${id} data-action="preview-file" ${fileData}>${body}<span class="sr-only"> Previews the saved file.</span></button>`;
+    }
+    if (item.external) {
+      return `<a class="row compact resource-row" ${id} href="${e(item.external)}" rel="noopener noreferrer" data-confirm-external="${e(item.title)}">${body}<span class="sr-only"> Opens an external site.</span></a>`;
+    }
+    if (item.d2lUrl) {
+      return `<a class="row compact resource-row" ${id} href="${e(item.d2lUrl)}" rel="noopener noreferrer" data-d2l-link data-confirm-title="${e(item.title)}">${body}<span class="sr-only"> Opens in D2L.</span></a>`;
+    }
+    return `<div class="row compact resource-row resource-static" ${id}>${body}</div>`;
   }
 
   function resourcesPage(model) {
@@ -34,7 +41,7 @@
       ${model.modules.length ? model.modules.map((module) => `<details class="card module" id="module-${e(module.id)}"${module.id === model.openModule || module.items.some((item) => item.id === model.highlight) ? " open" : ""}>
           <summary class="module-head">${icon("folder", 20)}<h2>${e(module.title)}</h2><span class="sub">${e([module.topics, module.startsAt, module.completion].filter(Boolean).join(" · "))}</span><span class="fold">${icon("chevronDown", 18)}</span></summary>
           ${module.items.length ? module.items.map((item) => resourceRow(item, model.highlight)).join("") : emptyState("", module.subModules ? "This module's topics are in its sub-modules below." : "No topics in this module.")}
-          ${module.d2lUrl ? `<div class="module-foot"><a class="link-btn" href="${e(module.d2lUrl)}" target="_blank" rel="noopener noreferrer" data-d2l-link>Open module in D2L ${icon("external", 14)}</a></div>` : ""}
+          ${module.d2lUrl ? `<div class="module-foot"><a class="link-btn" href="${e(module.d2lUrl)}" rel="noopener noreferrer" data-d2l-link>Open module in D2L ${icon("external", 14)}</a></div>` : ""}
         </details>`).join("") : emptyState("No content", "This course has no content in the archive.")}
     </div>`;
   }
