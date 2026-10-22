@@ -15,7 +15,18 @@
   function instructorOfficeHours(person) {
     const direct = String(person.officeHours || person.office_hours || person.OfficeHours || "").trim();
     if (direct) return direct;
-    return String(person.description || "").match(/\boffice\s*hours?\s*[:\-–]\s*([^|]*?)(?=\s*\||\s+(?:email|phone|last accessed)\s*:|$)/i)?.[1]?.trim() || "";
+    return extractOfficeHours(person.description || "");
+  }
+
+  function extractOfficeHours(text) {
+    if (!text) return "";
+    const clean = String(text).replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ");
+    return clean.match(/\boffice\s*hours?\s*[:\-–]\s*([^|\n\r<]*?)(?=\s*\||\s+(?:email|phone|last accessed|location|office)\s*:|$)/i)?.[1]?.trim() || "";
+  }
+
+  function extractEmail(text) {
+    if (!text) return "";
+    return String(text).match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i)?.[0] || "";
   }
 
   function buildIndex(raw) {
@@ -42,12 +53,39 @@
         const people = list(course.courseId, "person");
         const instructorPeople = people.filter((person) => /^instructor$/i.test(person.roleName || ""));
         const instructors = instructorPeople.map((person) => instructorName(person.displayName)).filter(Boolean);
-        const instructorContacts = instructorPeople.map((person) => {
+        let instructorContacts = instructorPeople.map((person) => {
           const source = [person.email, person.description].filter(Boolean).join(" ");
-          const email = source.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i)?.[0] || "";
+          const email = extractEmail(source);
           const officeHours = instructorOfficeHours(person);
           return { name: instructorName(person.displayName), email, officeHours };
         }).filter((person) => person.name || person.email || person.officeHours);
+
+        // Fallback: If email or office hours are missing from Classlist person profiles,
+        // extract from course overview policy bodies or syllabus topic descriptions.
+        const courseTexts = [
+          ...list(course.courseId, "coursePolicy").map((p) => [p.canonicalTitle, p.body].filter(Boolean).join(" ")),
+          ...list(course.courseId, "learningResource")
+            .filter((r) => /\b(?:syllabus|course\s+outline|course\s+information|course\s+info)\b/i.test(r.canonicalTitle || ""))
+            .map((r) => [r.canonicalTitle, r.body, r.description].filter(Boolean).join(" "))
+        ];
+        const combinedText = courseTexts.join("\n");
+        if (combinedText) {
+          const fallbackEmail = extractEmail(combinedText);
+          const fallbackHours = extractOfficeHours(combinedText);
+          if (instructorContacts.length) {
+            instructorContacts = instructorContacts.map((contact) => ({
+              ...contact,
+              email: contact.email || fallbackEmail,
+              officeHours: contact.officeHours || fallbackHours
+            }));
+          } else if (fallbackEmail || fallbackHours || instructors.length) {
+            instructorContacts = [{
+              name: instructors[0] || "",
+              email: fallbackEmail,
+              officeHours: fallbackHours
+            }].filter((c) => c.name || c.email || c.officeHours);
+          }
+        }
         const completion = list(course.courseId, "studentProgress").find((entity) => entity.progressKind === "courseCompletion") || null;
         const finalGrade = list(course.courseId, "gradeRecord").find((entity) => entity.kind === "final") || null;
         return {

@@ -23,7 +23,8 @@
 
   function syllabusVisitButton(syllabus, courseId) {
     if (!syllabus) return `<button class="instructor-visit" type="button" disabled aria-label="Syllabus not available">${icon("link", 14)}<span>Visit</span></button>`;
-    return `<a class="instructor-visit" href="#/resources/${encodeURIComponent(courseId)}?item=${encodeURIComponent(syllabus.id)}" aria-label="Visit syllabus: ${e(syllabus.title)}">${icon("link", 14)}<span>Visit</span></a>`;
+    const targetUrl = syllabus.url || (syllabus.id ? `#/resources/${encodeURIComponent(courseId)}?item=${encodeURIComponent(syllabus.id)}` : `#/resources/${encodeURIComponent(courseId)}`);
+    return `<a class="instructor-visit" href="${e(targetUrl)}" aria-label="Visit syllabus: ${e(syllabus.title)}">${icon("link", 14)}<span>Visit</span></a>`;
   }
 
   function instructorContactCard(contacts = [], syllabus = null, courseId = "") {

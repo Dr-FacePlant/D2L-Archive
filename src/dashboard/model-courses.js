@@ -168,7 +168,14 @@
     const earlierAnnouncements = allAnnouncements.filter((a) => fromEarlierTerm(index, courseId, a.at))
       .map((a) => ({ ...a, date: fmtDate(a.at, index.now) }));
     const modules = resourceModules(index, courseId);
-    const syllabus = modules.flatMap((module) => module.items).find((item) => /\bsyllabus\b/i.test(item.title)) || null;
+    const syllabusRegex = /\b(?:syllabus|course\s+outline|course\s+information|course\s+info|policies\s*(?:&|and)\s*schedule)\b/i;
+    let syllabus = modules.flatMap((module) => module.items).find((item) => syllabusRegex.test(item.title)) || null;
+    if (!syllabus) {
+      const overviewPolicies = index.list(courseId, "coursePolicy").filter((p) => p.policyType === "courseOverview");
+      if (overviewPolicies.length) {
+        syllabus = { id: overviewPolicies[0].entityId, title: overviewPolicies[0].canonicalTitle, from: "Overview" };
+      }
+    }
     const listed = new Set(nextRows(upcoming, 6).map((item) => item.id));
     // Discussions already in Upcoming work aren't repeated in their own card.
     const discussions = allWork(index).filter((item) => item.courseId === courseId && item.kind === "discussion" && !listed.has(item.id)).sort(byDue);
@@ -184,7 +191,7 @@
       announcements: announcements.slice(0, 5),
       announcementTotal: announcements.length,
       earlierAnnouncements,
-      syllabus: syllabus ? { id: syllabus.id, title: syllabus.title } : null,
+      syllabus: syllabus ? { id: syllabus.id, title: syllabus.title, from: syllabus.from || "Content" } : null,
       modules: modules.map((module) => ({ title: module.title, topics: module.topics, completion: module.completion, route: `#/resources/${encodeURIComponent(courseId)}?module=${encodeURIComponent(module.id)}` })),
       discussions: discussions.slice(0, 6),
       discussionTotal: discussions.length,
