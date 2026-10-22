@@ -9,7 +9,7 @@
   // exports so it can be compared with live D2L.
 
   function selfCheckRoutes(index) {
-    const routes = ["#/", "#/courses", "#/updates", "#/work", "#/work?tab=all", "#/work?tab=done", "#/settings", "#/about", "#/search?q=Iceman"];
+    const routes = ["#/", "#/courses", "#/updates", "#/work", "#/work?tab=all", "#/work?tab=done", "#/settings", "#/settings/about", "#/search?q=Iceman"];
     for (const course of index.courses) {
       routes.push(`#/course/${course.courseId}`, `#/grades?course=${course.courseId}`, `#/resources/${course.courseId}`);
     }

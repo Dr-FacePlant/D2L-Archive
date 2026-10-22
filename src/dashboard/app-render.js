@@ -16,7 +16,7 @@
   ];
   // Search lives in the top bar. Settings and account-related links live in
   // the profile menu anchored at the bottom of the sidebar.
-  const NAV_OF = { course: "courses", assignment: "work", quiz: "work", discussion: "work", task: "work", checklist: "work", announcement: "updates", grade: "grades", event: "calendar", about: "settings" };
+  const NAV_OF = { course: "courses", assignment: "work", quiz: "work", discussion: "work", task: "work", checklist: "work", announcement: "updates", grade: "grades", event: "calendar" };
 
   function renderNav(active) {
     state.activeNav = active;
@@ -29,8 +29,8 @@
           </button>
           <div id="profile-menu" class="menu profile-menu" hidden>
             <a class="menu-item" href="#/settings"><span class="menu-item-icon">${dash.icon("settings", 18)}</span><b>Settings</b></a>
-            <a class="menu-item" href="#/about"><span class="menu-item-icon">${dash.icon("help", 18)}</span><b>About</b></a>
-            <a class="menu-item" href="https://kennesaw.view.usg.edu/d2l/home" target="_blank" rel="noopener noreferrer" data-d2l-link><span class="menu-item-icon">${dash.icon("external", 18)}</span><b>Open D2L</b></a>
+            <a class="menu-item" href="#/settings/about"><span class="menu-item-icon">${dash.icon("help", 18)}</span><b>About</b></a>
+            <a class="menu-item" href="https://kennesaw.view.usg.edu/d2l/home" rel="noopener noreferrer" data-d2l-link><span class="menu-item-icon">${dash.icon("external", 18)}</span><b>Open D2L</b></a>
           </div>
         </div>`;
     renderUserProfile();
@@ -56,7 +56,7 @@
 
   function routeLabel(hash) {
     const route = dash.parseRoute(hash);
-    const labels = { dashboard: "Dashboard", courses: "Courses", calendar: "Calendar", updates: "Updates", work: "Assignments", grades: "Grades", resources: "Content", search: "Search", settings: "Settings", about: "About" };
+    const labels = { dashboard: "Dashboard", courses: "Courses", calendar: "Calendar", updates: "Updates", work: "Assignments", grades: "Grades", resources: "Content", search: "Search", settings: "Settings" };
     if (route.name === "course") return state.index?.courseById?.get(route.id)?.label || "Course";
     return labels[route.name] || "Previous page";
   }
@@ -321,6 +321,11 @@
   async function render(hash = location.hash) {
     hash = normalizedHash(hash);
     const route = dash.parseRoute(hash);
+    // Old #/about bookmarks now land on the only About screen.
+    if (route.name === "about") {
+      location.replace("#/settings/about");
+      return;
+    }
     if (dash.isLayerRoute(route)) return renderDetailRoute(hash, route);
     if (state.detail) {
       const context = state.detail;
@@ -394,9 +399,6 @@
         html = dash.searchPage(dash.searchModel(index, state.search.result), query, state.search.pending);
         break;
       }
-      case "about":
-        html = dash.aboutPage();
-        break;
       default: {
         if (!CRUMBS[route.name]) {
           html = dash.notFoundPage("That page doesn't exist.");

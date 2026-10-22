@@ -49,7 +49,7 @@
             <div class="course-header-body">
               <div class="course-header-meta">
                 <div class="course-code" style="color:${e(c.ink)}">${e([c.label, c.term].filter(Boolean).join("  ·  "))}</div>
-                <div class="course-title-row"><h1 title="${e(c.title)}">${e(c.name)}</h1>${c.d2lHome ? `<a class="icon-btn" href="${e(c.d2lHome)}" target="_blank" rel="noopener noreferrer" data-d2l-link title="Open in D2L" aria-label="Open ${e(c.name)} in D2L">${icon("external", 18)}</a>` : ""}</div>
+                <div class="course-title-row"><h1 title="${e(c.title)}">${e(c.name)}</h1>${c.d2lHome ? `<a class="icon-btn" href="${e(c.d2lHome)}" rel="noopener noreferrer" data-d2l-link title="Open in D2L" aria-label="Open ${e(c.name)} in D2L">${icon("external", 18)}</a>` : ""}</div>
                 ${c.section ? `<div style="display:flex;flex-wrap:wrap;gap:6px 18px;margin-top:8px;font-size:13.5px;color:var(--ink-4)"><span>${e(c.section)}</span></div>` : ""}
               </div>
             </div>

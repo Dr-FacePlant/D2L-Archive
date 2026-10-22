@@ -131,6 +131,8 @@ function fromD2lTopFrame(sender) {
 //                    saves {dismissed, route}; a close from the dashboard reaches the page.
 // D2L_OVERLAY_OPEN_D2L  dashboard frame: open a D2L link in this tab with the
 //                    overlay closed for that destination only.
+// D2L_OVERLAY_OPEN_URL  dashboard frame: open a confirmed external web link in
+//                    this tab the same way.
 async function handleOverlayMessage(message, sender) {
   const dashboard = fromDashboardFrame(sender);
   if (!dashboard && !fromD2lTopFrame(sender)) return { ok: false, error: "Overlay requests come from a D2L page or the overlay itself." };
@@ -155,12 +157,17 @@ async function handleOverlayMessage(message, sender) {
     if (dashboard && patch.dismissed === true) await applyOverlay(tabId, state);
     return { ok: true, ...state };
   }
-  if (message.type === "D2L_OVERLAY_OPEN_D2L") {
+  if (message.type === "D2L_OVERLAY_OPEN_D2L" || message.type === "D2L_OVERLAY_OPEN_URL") {
     const url = String(message.url || "");
-    if (!dashboard || !url.startsWith(`${D2L_ORIGIN}/`)) return { ok: false, error: "Only D2L links open in this tab." };
+    if (!dashboard) return { ok: false, error: "Only the dashboard opens a link in this tab." };
+    let parsed;
+    try { parsed = new URL(url); } catch { return { ok: false, error: "That link is not a web address." }; }
+    const d2l = message.type === "D2L_OVERLAY_OPEN_D2L";
+    if (d2l && parsed.origin !== D2L_ORIGIN) return { ok: false, error: "Only D2L links open in this tab." };
+    if (!d2l && !["http:", "https:"].includes(parsed.protocol)) return { ok: false, error: "Only web links open in this tab." };
     const state = await saveOverlayState(tabId, { dismissed: true, suppress: true });
     await applyOverlay(tabId, state);
-    await chrome.tabs.update(tabId, { url });
+    await chrome.tabs.update(tabId, { url: parsed.href });
     return { ok: true, ...state };
   }
   return { ok: false, error: `Unknown overlay request ${message.type}.` };

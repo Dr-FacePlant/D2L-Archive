@@ -6,6 +6,7 @@
   const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   const MON_LONG = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
   const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const DOW_LONG = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
   const DAY_MS = 24 * 60 * 60 * 1000;
 
   function toDate(value) {
@@ -49,6 +50,16 @@
     if (!date) return "";
     const year = date.getFullYear() !== (toDate(now) || new Date()).getFullYear() ? `, ${date.getFullYear()}` : "";
     return `${DOW[date.getDay()]}, ${MON[date.getMonth()]} ${date.getDate()}${year}`;
+  }
+
+  // "Wednesday, October 21st" (with the year when it isn't the current one).
+  function fmtLongDate(value, now = new Date()) {
+    const date = toDate(value);
+    if (!date) return "";
+    const day = date.getDate();
+    const suffix = day % 100 >= 11 && day % 100 <= 13 ? "th" : ["th", "st", "nd", "rd"][day % 10] || "th";
+    const year = date.getFullYear() !== (toDate(now) || new Date()).getFullYear() ? `, ${date.getFullYear()}` : "";
+    return `${DOW_LONG[date.getDay()]}, ${MON_LONG[date.getMonth()]} ${day}${suffix}${year}`;
   }
 
   // "Thu, Oct 2 · 11:59 PM"
@@ -195,7 +206,7 @@
 
   Object.assign(dash, {
     MON, MON_LONG, DOW, DAY_MS,
-    toDate, escapeHtml, dayKey, dateParts, fmtTime, fmtDate, fmtDateTime, fmtShortDate, monthLabel,
+    toDate, escapeHtml, dayKey, dateParts, fmtTime, fmtDate, fmtLongDate, fmtDateTime, fmtShortDate, monthLabel,
     startOfDay, relativeDay, countdown, ago, fmtNumber, fmtPoints, fmtBytes, courseCode, courseName, sectionOf, termOf,
     plural, percent, plainText
   });

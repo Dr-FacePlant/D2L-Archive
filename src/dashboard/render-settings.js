@@ -1,4 +1,4 @@
-// Settings, About and shell pages.
+// Settings and shell pages.
 (function initDashboardRenderSettings(global) {
   const dash = global.D2LDashboard ||= {};
   const { emptyState, escapeHtml: e, fmtDateTime, icon, plural, pressed, statusMark } = dash;
@@ -102,7 +102,7 @@
   function aboutSection() {
     return `<h2>About</h2>
       <p class="prose" style="font-size:13.5px;margin-top:10px">D2L Archive is not affiliated with, endorsed by, or made by Kennesaw State University or D2L. It reads the D2L pages you can already see, saves them on this computer, and never submits, posts, or changes anything in D2L.</p>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px"><a class="btn" href="#/about">How this dashboard is paid for</a><a class="btn" href="popup.html" target="_blank" rel="noopener">Extractor tools (advanced)</a></div>`;
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px"><a class="btn" href="popup.html" target="_blank" rel="noopener">Extractor tools (advanced)</a></div>`;
   }
 
   function settingsSection(model) {
@@ -115,19 +115,7 @@
     return appearanceSection(model);
   }
 
-  function aboutPage() {
-    return `<div class="page slim" data-screen="about">
-      <div class="page-head"><div><h1>About</h1><p>An archive of your D2L courses that stays on your computer</p></div></div>
-      <section class="card card-body stack">
-        <p class="prose">This dashboard is free. It keeps your D2L data on your own computer and never sends your courses, grades, or anything else it reads to anyone.</p>
-        <p class="prose">Course files are downloaded only when Download course files is on in Settings. Everything else stays in your browser's own archive.</p>
-        <p class="prose" style="font-size:13px;color:var(--muted)">Not affiliated with Kennesaw State University or D2L.</p>
-      </section>
-    </div>`;
-  }
-
-
   Object.assign(dash, {
-    settingsSectionName, settingsNav, settingsShell, appearanceSection, coursesSection, syncSection, sizeLabel, storageSection, activitySection, aboutSection, settingsSection, aboutPage, SETTINGS_SECTIONS, lookButton
+    settingsSectionName, settingsNav, settingsShell, appearanceSection, coursesSection, syncSection, sizeLabel, storageSection, activitySection, aboutSection, settingsSection, SETTINGS_SECTIONS, lookButton
   });
 })(globalThis);

@@ -85,7 +85,7 @@
         <div class="grade-summary-detail">${e(detail)}</div>
       </div>
       ${summary?.explanation ? `<details class="grade-method"><summary>How this is calculated</summary><p>${e(summary.explanation)}</p></details>` : ""}
-      <a class="link-btn grade-summary-d2l" href="${e(model.d2lUrl)}" target="_blank" rel="noopener noreferrer" data-d2l-link>Open grades in D2L ${icon("external", 14)}</a>
+      <a class="link-btn grade-summary-d2l" href="${e(model.d2lUrl)}" rel="noopener noreferrer" data-d2l-link>Open grades in D2L ${icon("external", 14)}</a>
       </div>
       ${scoreChart(model.chart, model.course, { compact: true, inCard: true })}
     </section>`;

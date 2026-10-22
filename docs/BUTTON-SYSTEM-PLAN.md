@@ -100,7 +100,7 @@ Icon buttons stay 38×38 with `--control-radius: 8px`.
 | Month nav | `.cal-bar` + two `.icon-btn`s | `.cal-nav-tile` | Previous left, centered `.cal-month`, Next right |
 | Switch | `.switch` | `.switch` (keep) | 42×24; `role="switch"` |
 | Menu row | `.menu-item` | `.menu-item` (keep) | 36px min height, 8px radius |
-| Tag | `.tag` | `.today-tag`, `.study-chip`, `.chip` | Non-interactive; no pointer cursor |
+| Tag | `.tag` | `.study-chip`, `.chip` | Non-interactive; no pointer cursor |
 | Picker | `.swatch`, `.tile` | keep | Add shared focus ring and pressed ring |
 
 Retire: `.chip`, `.filter-menu-*`, `.cal-nav-tile`, and the unused `.stepper`.
@@ -209,11 +209,11 @@ D2L". The rest of the plan is unaffected.
 | `render-dashboard.js` | "See work", "Get to studying" stay primary (different screens/states); remove the duplicate "Sync from D2L" primary (decision 6B); "Grades: x of y" becomes tertiary with arrow; "Mark read" stays tertiary; "View all" stays tertiary; adopt/dismiss stay secondary |
 | `render-courses.js` | Course D2L home stays icon; "Grades: …" demoted to tertiary; course cards become fully clickable rows |
 | `render-details.js` | One primary "Open … in D2L"; "Belongs to" / "Graded work" demoted to tertiary; "Submission history"/"Feedback"/"Attempts" tertiary; "Open on this computer" secondary; "Reload" stays primary only in the stale state; close stays icon; remove Reply buttons and forms (Track A) |
-| `render-resources.js` | "Open link" becomes tertiary; remove the duplicate icon when the text link exists; "Expand all" secondary; module D2L link tertiary; row external icon only when there is no text link |
+| `render-resources.js` | One whole-row control per topic with a decorative side icon; a saved file with a D2L original offers "Preview saved copy" or "Open in D2L" after a plain click; every outbound link (D2L and external) confirms once and opens in the current tab; "Expand all" secondary; module D2L link tertiary |
 | `render-grades.js` | Course/view selects use `.select`; chart zoom/pan use `.icon-btn`; carousel arrows stay as flush `.grade-carousel-btn` side rails; "Open grades in D2L" tertiary, sentence case; disabled icon keeps `aria-label` |
 | `render-updates.js` | Segmented filter stays; "Mark all as read" secondary (bulk); per-row "Mark read" tertiary; "Show N more" secondary; "View all" tertiary |
-| `render-settings.js` | "Sync now" sole primary; "Clear" and both exports secondary; theme stays segmented; switches keep; close icon; "How this dashboard is paid for" tertiary; "Extractor tools" tertiary |
-| `render-calendar.js` | Month nav becomes previous icon, centered month, next icon in `.cal-bar`; switches stay; "Open calendar in D2L" tertiary |
+| `render-settings.js` | "Sync now" sole primary; "Clear" and both exports secondary; theme stays segmented; switches keep; close icon; "Extractor tools" tertiary |
+| `render-calendar.js` | Month nav becomes previous icon, centered month, next icon in `.cal-bar`; Today is a 48px icon-only blue shortcut in the selected-day header, labelled for screen readers and tooltips, while the header carries the long date; switches stay; "Open calendar in D2L" tertiary |
 | `app-render.js` | Header keeps one labeled "Sync from D2L" action plus a last-synced note (decision 6B); help/overlay-close stay icon; profile/help menu rows stay; no new styles |
 | `popup.html` / `popup.css` | Replace bare buttons with `.btn`/`.btn-primary` using the same tokens (copy the ~20 lines, or extract a shared `controls.css` if you want one source) |
 
@@ -263,7 +263,8 @@ Add `tests/test-button-system.mjs`:
 - no `cal-nav-tile` or `.stepper`; grade arrows use
   `.grade-carousel-btn.prev` / `.next`;
 - every `<a>` with a `data-d2l-link` carries the external icon and
-  `target="_blank" rel="noopener noreferrer"`;
+  `rel="noopener noreferrer"`; it confirms and opens in the current tab, while
+  modified clicks keep the browser's new-tab behavior;
 - every `.icon-btn` has `aria-label` (and `title` when it is not inside a
   labelled group);
 - every `<button>` has `type="button"` unless it is a submit;
