@@ -24,9 +24,22 @@
     return clean.match(/\boffice\s*hours?\s*[:\-–]\s*([^|\n\r<]*?)(?=\s*\||\s+(?:email|phone|last accessed|location|office)\s*:|$)/i)?.[1]?.trim() || "";
   }
 
-  function extractEmail(text) {
+  function extractEmail(text, instructorNameStr = "") {
     if (!text) return "";
-    return String(text).match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i)?.[0] || "";
+    const matches = String(text).match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi) || [];
+    const valid = matches.filter((email) => {
+      const lower = email.toLowerCase();
+      if (/helpdesk|studenthelpdesk|support|service|service_desk|admin|noreply|donotreply|registrar|bursar/i.test(lower)) return false;
+      if (/@(?:students|student|alumni)\./i.test(lower)) return false;
+      return true;
+    });
+    if (!valid.length) return "";
+    if (instructorNameStr) {
+      const nameParts = instructorNameStr.toLowerCase().split(/\s+/).filter((p) => p.length > 2);
+      const nameMatch = valid.find((email) => nameParts.some((part) => email.toLowerCase().includes(part)));
+      if (nameMatch) return nameMatch;
+    }
+    return valid[0] || "";
   }
 
   function buildIndex(raw) {
@@ -55,32 +68,35 @@
         const instructors = instructorPeople.map((person) => instructorName(person.displayName)).filter(Boolean);
         let instructorContacts = instructorPeople.map((person) => {
           const source = [person.email, person.description].filter(Boolean).join(" ");
-          const email = extractEmail(source);
+          const name = instructorName(person.displayName);
+          const email = extractEmail(source, name);
           const officeHours = instructorOfficeHours(person);
-          return { name: instructorName(person.displayName), email, officeHours };
+          return { name, email, officeHours };
         }).filter((person) => person.name || person.email || person.officeHours);
 
         // Fallback: If email or office hours are missing from Classlist person profiles,
-        // extract from course overview policy bodies or syllabus topic descriptions.
+        // extract from course overview policy bodies, syllabus topic descriptions, and announcements.
+        const instructorPrimary = instructors[0] || instructorContacts[0]?.name || "";
         const courseTexts = [
           ...list(course.courseId, "coursePolicy").map((p) => [p.canonicalTitle, p.body].filter(Boolean).join(" ")),
           ...list(course.courseId, "learningResource")
             .filter((r) => /\b(?:syllabus|course\s+outline|course\s+information|course\s+info)\b/i.test(r.canonicalTitle || ""))
-            .map((r) => [r.canonicalTitle, r.body, r.description].filter(Boolean).join(" "))
+            .map((r) => [r.canonicalTitle, r.body, r.description].filter(Boolean).join(" ")),
+          ...list(course.courseId, "announcement").map((a) => [a.canonicalTitle, a.body].filter(Boolean).join(" "))
         ];
         const combinedText = courseTexts.join("\n");
         if (combinedText) {
-          const fallbackEmail = extractEmail(combinedText);
+          const fallbackEmail = extractEmail(combinedText, instructorPrimary);
           const fallbackHours = extractOfficeHours(combinedText);
           if (instructorContacts.length) {
             instructorContacts = instructorContacts.map((contact) => ({
               ...contact,
-              email: contact.email || fallbackEmail,
+              email: contact.email || extractEmail(combinedText, contact.name) || fallbackEmail,
               officeHours: contact.officeHours || fallbackHours
             }));
           } else if (fallbackEmail || fallbackHours || instructors.length) {
             instructorContacts = [{
-              name: instructors[0] || "",
+              name: instructorPrimary,
               email: fallbackEmail,
               officeHours: fallbackHours
             }].filter((c) => c.name || c.email || c.officeHours);
