@@ -786,6 +786,43 @@ p { margin: 0; }
 .file { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 6px 8px 6px 12px; border: 1px solid var(--line-3); border-radius: 10px; background: var(--hover); font-size: 13.5px; }
 .file .n { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .file .s { font-size: 12px; color: var(--muted); flex: none; }
+/* Related items on an assignment or quiz: side labels, icon-tile pills, hover card. */
+.related { margin-top: 2px; }
+.rel-group { display: flex; flex-wrap: wrap; gap: 6px 12px; padding: 10px 0; }
+.rel-group + .rel-group { border-top: 1px solid var(--line-2); }
+.rel-label { flex: none; width: 112px; padding-top: 7px; font-size: 12px; color: var(--muted); }
+.rel-pills { flex: 1 1 220px; min-width: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.rel { position: relative; display: inline-flex; max-width: 100%; }
+.rel-pill, .rel-more { display: inline-flex; align-items: center; gap: 8px; max-width: 100%; height: 32px; padding: 0 12px 0 5px; border: 1px solid var(--line-3); border-radius: 8px; background: var(--surface); color: var(--ink-2); font-size: 13px; font-weight: 500; text-decoration: none; transition: background .12s ease; }
+.rel-pill:hover, .rel-pill:focus-visible, .rel-more:hover { background: var(--hover-soft); color: var(--ink-2); text-decoration: none; }
+.rel-more { padding: 0 12px; border-style: dashed; background: transparent; color: var(--ink-4); }
+.rel-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 250px; }
+.rel-tile { display: grid; flex: none; place-items: center; width: 22px; height: 22px; border-radius: 6px; background: var(--nav-on); color: var(--nav-on-ink); }
+.rel-tile.big { width: 28px; height: 28px; border-radius: 7px; }
+.rel-tip { position: absolute; left: 0; bottom: calc(100% + 8px); z-index: 6; width: 292px; max-width: calc(100vw - 32px); padding: 12px 14px; border: 1px solid var(--line-3); border-radius: 10px; background: var(--surface); box-shadow: var(--shadow-pop); color: var(--ink-2); text-align: left; white-space: normal; opacity: 0; visibility: hidden; transform: translateY(3px); transition: opacity .12s ease, transform .12s ease, visibility .12s; pointer-events: none; }
+.rel.below .rel-tip { bottom: auto; top: calc(100% + 8px); transform: translateY(-3px); }
+.rel.end .rel-tip { left: auto; right: 0; }
+.rel:hover .rel-tip, .rel:focus-within .rel-tip { opacity: 1; visibility: visible; transform: none; }
+.rel-tip-top { display: flex; align-items: flex-start; gap: 10px; }
+.rel-tip-tt { flex: 1; min-width: 0; }
+.rel-tip-title { font-size: 13.5px; font-weight: 600; line-height: 1.35; color: var(--ink); overflow-wrap: anywhere; }
+.rel-tip-meta { margin-top: 1px; font-size: 12px; color: var(--muted); }
+.rel-tip-body { margin-top: 8px; font-size: 12.5px; line-height: 1.45; color: var(--ink-4); overflow-wrap: anywhere; }
+.rel-tip-facts { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 10px; }
+.rel-tip-facts .k { font-size: 11.5px; color: var(--muted); }
+.rel-tip-facts .v { margin-top: 1px; font-size: 12.5px; font-weight: 500; color: var(--ink); }
+.rel-chip { display: inline-block; padding: 3px 8px; border-radius: 999px; background: var(--neutral-tint); color: var(--neutral); font-size: 11px; font-weight: 650; white-space: nowrap; }
+.rel-chip.good { background: var(--good-tint); color: var(--good); }
+.rel-chip.info { background: var(--info-tint); color: var(--info); }
+.rel-chip.warn { background: var(--warn-tint); color: var(--warn); }
+.rel-chip.bad { background: var(--bad-tint); color: var(--bad); }
+.rel-tip-foot { display: flex; align-items: center; gap: 5px; margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line-2); font-size: 12px; color: var(--muted); }
+@container detail (max-width: 560px) {
+  .rel-group { display: block; }
+  .rel-label { width: auto; padding: 0 0 6px; }
+}
+/* A touch screen has no hover, so a tap opens the item and the card stays out of the way. */
+@media (hover: none) { .rel-tip { display: none; } }
 .open-d2l { width: 100%; height: var(--control-h-lg); }
 .kv { display: grid; grid-template-columns: auto 1fr; gap: 10px 16px; font-size: 13.5px; margin: 0; }
 .kv dt { color: var(--muted); }

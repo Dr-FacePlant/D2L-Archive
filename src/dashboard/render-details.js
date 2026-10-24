@@ -94,6 +94,22 @@
   }
 
   // The gray line over the title: course, then what kind of item it is.
+  // Related items: side labels, an icon-tile pill per item, and a hover card
+  // (also shown on keyboard focus) with the facts. A pill is a plain link.
+  function relatedChip(fact) {
+    return `<span class="rel-chip ${e(fact.tone || "neutral")}">${e(fact.v)}</span>`;
+  }
+
+  function relatedPill(item, id) {
+    const facts = item.facts?.length ? `<div class="rel-tip-facts">${item.facts.map((fact) => `<div><div class="k">${e(fact.k)}</div><div class="v">${fact.k === "Status" ? relatedChip(fact) : e(fact.v)}</div></div>`).join("")}</div>` : "";
+    return `<span class="rel"><a class="rel-pill" href="${e(item.route)}" aria-describedby="${id}"><span class="rel-tile">${icon(item.icon, 13)}</span><span class="rel-name">${e(item.title)}</span></a><div class="rel-tip" role="tooltip" id="${id}"><div class="rel-tip-top"><span class="rel-tile big">${icon(item.icon, 16)}</span><div class="rel-tip-tt"><div class="rel-tip-title">${e(item.title)}</div>${item.meta ? `<div class="rel-tip-meta">${e(item.meta)}</div>` : ""}</div></div>${item.text ? `<div class="rel-tip-body">${e(item.text)}</div>` : ""}${facts}<div class="rel-tip-foot">${icon("arrowRight", 13)}<span>${e(item.open)}</span></div></div></span>`;
+  }
+
+  function relatedSection(groups) {
+    let count = 0;
+    return `<h2>Related items</h2><div class="related">${groups.map((group) => `<div class="rel-group"><div class="rel-label">${e(group.label)}</div><div class="rel-pills">${group.items.map((item) => relatedPill(item, `rel-tip-${++count}`)).join("")}${group.more ? `<a class="rel-more" href="${e(group.more.route)}">+${e(group.more.count)} more</a>` : ""}</div></div>`).join("")}</div>`;
+  }
+
   function detailMeta(model) {
     const course = model.course;
     const parts = model.meta || [TYPE_LABEL[model.kind], model.forum].filter(Boolean);
@@ -141,6 +157,8 @@
       if (model.rubric) sections.push(rubricTable(model.rubric));
       if (model.source) sections.push(`<h2>Graded work</h2><a class="btn" href="${e(model.source.route)}">${e(`${model.source.kind}: ${model.source.title}`)} ${icon("arrowRight", 15)}</a>`);
     }
+
+    if ((model.kind === "assignment" || model.kind === "quiz") && model.related?.length) sections.push(relatedSection(model.related));
 
     const work = WORK_KINDS.has(model.kind);
     let sideCard;

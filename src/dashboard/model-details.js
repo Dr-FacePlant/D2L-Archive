@@ -188,6 +188,7 @@
       feedback,
       score: item.score,
       grade: grade && isGradedGrade(grade) ? { route: routeFor(grade), displayed: grade.grade?.displayed || "" } : null,
+      related: dash.relatedItems?.(index, entity, "assignment") || [],
       links: [
         { label: "Open assignment in D2L", url: entity.urls?.d2l, primary: true },
         item.done ? { label: "Submission history", url: entity.urls?.history } : null,
@@ -235,6 +236,7 @@
       summaryText: summary?.description || "",
       lockdown,
       grade: graded ? { route: routeFor(grade) } : null,
+      related: dash.relatedItems?.(index, entity, "quiz") || [],
       links: [
         { label: "Open quiz in D2L", url: entity.urls?.d2l, primary: item.status.key === "open" },
         (graded || attempts.completed > 0) ? { label: "View quiz attempts", url: entity.urls?.submissions } : null

@@ -706,6 +706,21 @@
   document.addEventListener("input", (event) => {
     if (event.target === searchInput()) queueLiveSearch(event.target.value);
   });
+  // A related-item card opens above its pill. Near the right edge it aligns to
+  // the pill's right side, and near the top of the scrolling pop-up it opens
+  // below, so the scroll area never clips it.
+  function placeRelatedCard(event) {
+    const rel = event.target.closest?.(".rel");
+    const tip = rel?.querySelector(".rel-tip");
+    if (!tip) return;
+    const box = rel.getBoundingClientRect();
+    const areaTop = rel.closest(".detail-layer-scroll")?.getBoundingClientRect().top || 0;
+    rel.classList.toggle("end", box.left + tip.offsetWidth > document.documentElement.clientWidth - 16);
+    rel.classList.toggle("below", box.top - areaTop < tip.offsetHeight + 16);
+  }
+  document.addEventListener("mouseover", placeRelatedCard);
+  document.addEventListener("focusin", placeRelatedCard);
+
 
   // Coming back to the box (focus, or a click while it already has focus)
   // reopens the results for what's in it.
