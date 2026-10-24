@@ -64,7 +64,10 @@ check(groupOf(quizGroups, "work")?.items.some((item) => item.kind === "assignmen
 
 // Rendering: side labels, icon-tile pill, hover card tied to its pill, escaped titles.
 const html = dash.detailPage(assignment, { body: true });
-check(html.includes("<h2>Related items</h2>") && html.includes('class="rel-label">Content<'), "the page should show Related items with side labels");
+check(html.includes('<h2>Related items <span class="rel-count">6</span></h2>') && html.includes('class="rel-label">Content<'), "the page should show a Related items card with a count and side labels");
+const detailCard = html.match(/<section class="card detail">([\s\S]*?)<\/section>/)?.[1] || "";
+check(html.includes('<section class="card related-card">') && !detailCard.includes("Related items"), "Related items should be its own card, not part of the content card");
+check(html.indexOf('class="card related-card"') > html.indexOf('class="card side-card"') && html.indexOf('class="card related-card"') > html.indexOf('class="card detail"'), "the Related items card should come after the content and to-do cards");
 check(/<a class="rel-pill" href="[^"]+" aria-describedby="(rel-tip-\d+)">[\s\S]*?role="tooltip" id="\1"/.test(html), "each hover card should be described by its own pill");
 check(html.includes('class="rel-tile"') && html.includes("Open quiz"), "each pill should lead with an icon tile and its card should say what opens");
 check(!html.includes("<img src=x") && html.includes("&lt;img src=x"), "a topic title with markup should be escaped");
@@ -83,12 +86,16 @@ const many = [entities[0], ...Array.from({ length: 12 }, (_, n) => topic(String(
 const crowded = detail(dash.buildIndex({ now: NOW, courses: [course], entities: many }), "assignment", `assignmentBundle:${C}:11`)?.related || [];
 const crowdedContent = groupOf(crowded, "content");
 check(crowdedContent?.items.length === 8 && crowdedContent.more?.count === 4 && crowdedContent.more.route === `#/resources/${C}?module=50`, "a long module should show 8 pills and a +4 more link to the module");
+check(dash.detailPage(detail(dash.buildIndex({ now: NOW, courses: [course], entities: many }), "assignment", `assignmentBundle:${C}:11`), { body: true }).includes('<span class="rel-count">12</span>'), "the count should include the pills folded into +N more");
 
 // Wiring.
 const css = read("src/dashboard/dashboard.css");
 const events = read("src/dashboard/app-events.js");
 check(/\.rel:hover \.rel-tip, \.rel:focus-within \.rel-tip/.test(css), "the card should open on hover and on keyboard focus");
 check(css.includes("@media (hover: none) { .rel-tip { display: none; } }"), "touch screens should skip the hover card");
+check(css.includes('grid-template-areas: "head side" "main side" "related related"'), "the Related items card should span both columns under the content and to-do cards");
+check(css.includes('"head" "side" "main" "related"') && css.includes('"head" "main" "side" "related"'), "in a narrow pop-up the Related items card should come last");
+check(/\.related-card \{ grid-area: related;/.test(css), "the Related items card should sit in its own grid area");
 check(css.includes("@container detail (max-width: 560px)") && css.includes(".rel-group { display: block; }"), "side labels should stack in a narrow pop-up");
 check(events.includes("function placeRelatedCard") && events.includes('document.addEventListener("focusin", placeRelatedCard)'), "the card should reposition near an edge, on hover and focus");
 check(read("dashboard.html").includes("model-related.js"), "the dashboard should load the related-items model");

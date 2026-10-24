@@ -716,7 +716,7 @@ p { margin: 0; }
    card. When the frame is narrow they split, and work's to-do card moves
    between them: title, then what to do, then the details. */
 .detail-frame { container: detail / inline-size; }
-.detail-layout { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); grid-template-rows: auto 1fr; grid-template-areas: "head side" "main side"; column-gap: 16px; align-items: start; }
+.detail-layout { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); grid-template-rows: auto 1fr auto; grid-template-areas: "head side" "main side" "related related"; column-gap: 16px; align-items: start; }
 .detail-head { grid-area: head; min-width: 0; padding: 24px 26px 2px; border-bottom: 0; border-radius: 12px 12px 0 0; }
 .detail-layout.no-content > .detail-head { padding-bottom: 24px; border-bottom: 1px solid var(--line); border-radius: 12px; }
 .detail-head h1 { margin-top: 8px; font-size: 28px; font-weight: 700; letter-spacing: -.01em; overflow-wrap: anywhere; }
@@ -732,9 +732,10 @@ p { margin: 0; }
 .detail-marks { margin-top: 14px; font-size: 13px; color: var(--muted); }
 .detail-marks span + span::before { content: "·"; margin: 0 8px; color: var(--faint); }
 @container detail (max-width: 780px) {
-  .detail-layout { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; grid-template-areas: "head" "side" "main"; row-gap: 12px; }
-  .detail-layout:not(.has-todo) { grid-template-areas: "head" "main" "side"; row-gap: 0; }
-  .detail-layout:not(.has-todo) > .side-card { margin-top: 12px; }
+  .detail-layout { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; grid-template-areas: "head" "side" "main" "related"; row-gap: 12px; }
+  .detail-layout:not(.has-todo) { grid-template-areas: "head" "main" "side" "related"; row-gap: 0; }
+  .detail-layout:not(.has-todo) > .side-card, .detail-layout:not(.has-todo) > .related-card { margin-top: 12px; }
+  .detail-layout.has-todo > .related-card { margin-top: 0; }
   .detail-head { padding: 18px 18px 2px; }
   .detail-head h1 { font-size: 24px; }
   .detail { padding: 0 18px 22px; }
@@ -786,9 +787,12 @@ p { margin: 0; }
 .file { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 6px 8px 6px 12px; border: 1px solid var(--line-3); border-radius: 10px; background: var(--hover); font-size: 13.5px; }
 .file .n { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .file .s { font-size: 12px; color: var(--muted); flex: none; }
-/* Related items on an assignment or quiz: side labels, icon-tile pills, hover card. */
-.related { margin-top: 2px; }
-.rel-group { display: flex; flex-wrap: wrap; gap: 6px 12px; padding: 10px 0; }
+/* Related items on an assignment or quiz: its own card under both columns, side
+   labels, icon-tile pills that wrap, and a hover card. */
+.related-card { grid-area: related; min-width: 0; margin-top: 16px; padding: 18px 22px 20px; }
+.related-card h2 { display: flex; align-items: center; gap: 8px; margin: 0 0 4px; font-size: 15px; font-weight: 600; }
+.rel-count { padding: 0 7px; border-radius: 999px; background: var(--neutral-tint); color: var(--neutral); font-size: 11.5px; font-weight: 650; line-height: 18px; }
+.rel-group { display: flex; flex-wrap: wrap; gap: 6px 16px; padding: 12px 0; }
 .rel-group + .rel-group { border-top: 1px solid var(--line-2); }
 .rel-label { flex: none; width: 112px; padding-top: 7px; font-size: 12px; color: var(--muted); }
 .rel-pills { flex: 1 1 220px; min-width: 0; display: flex; flex-wrap: wrap; gap: 8px; }
@@ -796,7 +800,7 @@ p { margin: 0; }
 .rel-pill, .rel-more { display: inline-flex; align-items: center; gap: 8px; max-width: 100%; height: 32px; padding: 0 12px 0 5px; border: 1px solid var(--line-3); border-radius: 8px; background: var(--surface); color: var(--ink-2); font-size: 13px; font-weight: 500; text-decoration: none; transition: background .12s ease; }
 .rel-pill:hover, .rel-pill:focus-visible, .rel-more:hover { background: var(--hover-soft); color: var(--ink-2); text-decoration: none; }
 .rel-more { padding: 0 12px; border-style: dashed; background: transparent; color: var(--ink-4); }
-.rel-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 250px; }
+.rel-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 190px; }
 .rel-tile { display: grid; flex: none; place-items: center; width: 22px; height: 22px; border-radius: 6px; background: var(--nav-on); color: var(--nav-on-ink); }
 .rel-tile.big { width: 28px; height: 28px; border-radius: 7px; }
 .rel-tip { position: absolute; left: 0; bottom: calc(100% + 8px); z-index: 6; width: 292px; max-width: calc(100vw - 32px); padding: 12px 14px; border: 1px solid var(--line-3); border-radius: 10px; background: var(--surface); box-shadow: var(--shadow-pop); color: var(--ink-2); text-align: left; white-space: normal; opacity: 0; visibility: hidden; transform: translateY(3px); transition: opacity .12s ease, transform .12s ease, visibility .12s; pointer-events: none; }

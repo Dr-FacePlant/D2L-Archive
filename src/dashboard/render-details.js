@@ -105,9 +105,12 @@
     return `<span class="rel"><a class="rel-pill" href="${e(item.route)}" aria-describedby="${id}"><span class="rel-tile">${icon(item.icon, 13)}</span><span class="rel-name">${e(item.title)}</span></a><div class="rel-tip" role="tooltip" id="${id}"><div class="rel-tip-top"><span class="rel-tile big">${icon(item.icon, 16)}</span><div class="rel-tip-tt"><div class="rel-tip-title">${e(item.title)}</div>${item.meta ? `<div class="rel-tip-meta">${e(item.meta)}</div>` : ""}</div></div>${item.text ? `<div class="rel-tip-body">${e(item.text)}</div>` : ""}${facts}<div class="rel-tip-foot">${icon("arrowRight", 13)}<span>${e(item.open)}</span></div></div></span>`;
   }
 
-  function relatedSection(groups) {
+  // Its own card under both columns, so it spans from the content card to the
+  // right edge of the to-do card.
+  function relatedCard(groups) {
     let count = 0;
-    return `<h2>Related items</h2><div class="related">${groups.map((group) => `<div class="rel-group"><div class="rel-label">${e(group.label)}</div><div class="rel-pills">${group.items.map((item) => relatedPill(item, `rel-tip-${++count}`)).join("")}${group.more ? `<a class="rel-more" href="${e(group.more.route)}">+${e(group.more.count)} more</a>` : ""}</div></div>`).join("")}</div>`;
+    const total = groups.reduce((sum, group) => sum + group.items.length + (group.more?.count || 0), 0);
+    return `<section class="card related-card"><h2>Related items <span class="rel-count">${total}</span></h2><div class="related">${groups.map((group) => `<div class="rel-group"><div class="rel-label">${e(group.label)}</div><div class="rel-pills">${group.items.map((item) => relatedPill(item, `rel-tip-${++count}`)).join("")}${group.more ? `<a class="rel-more" href="${e(group.more.route)}">+${e(group.more.count)} more</a>` : ""}</div></div>`).join("")}</div></section>`;
   }
 
   function detailMeta(model) {
@@ -158,7 +161,7 @@
       if (model.source) sections.push(`<h2>Graded work</h2><a class="btn" href="${e(model.source.route)}">${e(`${model.source.kind}: ${model.source.title}`)} ${icon("arrowRight", 15)}</a>`);
     }
 
-    if ((model.kind === "assignment" || model.kind === "quiz") && model.related?.length) sections.push(relatedSection(model.related));
+    const relatedBlock = (model.kind === "assignment" || model.kind === "quiz") && model.related?.length ? relatedCard(model.related) : "";
 
     const work = WORK_KINDS.has(model.kind);
     let sideCard;
@@ -186,6 +189,7 @@
           ${model.posted ? `<p class="detail-posted">${e(model.posted)}</p>` : ""}
         </header>
         ${todoFirst ? `${sideCard}${main}` : `${main}${sideCard}`}
+        ${relatedBlock}
       </div></div>`;
     const body = `<div class="page detail-page" data-screen="${e(model.kind)}">${layout}</div>`;
     if (crumb?.body) return body;
