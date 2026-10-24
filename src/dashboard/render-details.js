@@ -176,19 +176,27 @@
     }
 
     const facts = model.facts?.length ? `<div class="facts">${model.facts.map((fact) => `<div class="fact"><div class="k">${e(fact.k)}</div><div class="v">${e(fact.v)}</div></div>`).join("")}</div>` : "";
-    const content = `${facts}${sections.join("")}`;
+    // Assignment and quiz pop-ups keep a steady top row (see .detail-top in the
+    // CSS). Their text sits in a clamp that Show more opens, so a long
+    // description can't push the Related items card down the page.
+    const fixedTop = (model.kind === "assignment" || model.kind === "quiz") && Boolean(facts || sections.length);
+    const details = fixedTop && sections.length
+      ? `<div class="detail-clamp" id="detail-clamp">${sections.join("")}<button class="detail-more" type="button" data-action="detail-more" aria-expanded="false" aria-controls="detail-clamp" hidden>Show more</button></div>`
+      : sections.join("");
+    const content = `${facts}${details}`;
     // A checklist's list is its to-do, so only the other work moves its side
     // card up. That card follows the title in the page too, so keyboards and
     // screen readers reach what to do before the details.
     const todoFirst = work && model.kind !== "checklist";
     const main = content ? `<section class="card detail">${content}</section>` : "";
-    const layout = `<div class="detail-frame"><div class="detail-layout${todoFirst ? " has-todo" : ""}${content ? "" : " no-content"}">
-        <header class="card detail-head">
+    const top = `<header class="card detail-head">
           ${detailMeta(model)}
           <h1 id="detail-content-title">${e(model.title)}</h1>
           ${model.posted ? `<p class="detail-posted">${e(model.posted)}</p>` : ""}
         </header>
-        ${todoFirst ? `${sideCard}${main}` : `${main}${sideCard}`}
+        ${todoFirst ? `${sideCard}${main}` : `${main}${sideCard}`}`;
+    const layout = `<div class="detail-frame"><div class="detail-layout${todoFirst ? " has-todo" : ""}${content ? "" : " no-content"}${fixedTop ? " is-fixed" : ""}">
+        ${fixedTop ? `<div class="detail-top">${top}</div>` : top}
         ${relatedBlock}
       </div></div>`;
     const body = `<div class="page detail-page" data-screen="${e(model.kind)}">${layout}</div>`;

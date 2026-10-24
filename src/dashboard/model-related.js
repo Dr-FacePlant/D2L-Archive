@@ -11,7 +11,7 @@
   const WORK_TYPES = Object.freeze({ quiz: "quizBundle", assignment: "assignmentBundle", discussion: "discussionThread" });
   const WORK_ICONS = Object.freeze({ quiz: "quiz", assignment: "work", discussion: "chat" });
   const WORK_LABELS = Object.freeze({ quiz: "Quiz", assignment: "Assignment", discussion: "Discussion" });
-  const MAX_CONTENT = 8;
+  const MAX_CONTENT = 6;
   const MAX_WORK = 6;
   const MAX_EVENTS = 3;
 

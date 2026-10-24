@@ -180,6 +180,7 @@ const checks = [
   ["course contact edits", [path.join(root, "tests", "test-course-contact-edits.mjs")]],
   ["course contact edit backup", [path.join(root, "tests", "test-course-contact-backup.mjs")]],
   ["related items on assignment and quiz pop-ups", [path.join(root, "tests", "test-related-items.mjs")]],
+  ["fixed top row on assignment and quiz pop-ups", [path.join(root, "tests", "test-detail-top-row.mjs")]],
   ["dashboard extractor fields regression", [path.join(root, "tests", "test-dashboard-extractor-fields.mjs")]],
   ["dashboard lesson deadlines", [path.join(root, "tests", "test-dashboard-lesson-deadlines.mjs")]],
   ["dashboard appearance and settings", [path.join(root, "tests", "test-dashboard-appearance.mjs")]],

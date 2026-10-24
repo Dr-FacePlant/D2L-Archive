@@ -2,7 +2,7 @@
 (function initDashboardAppEvents(global) {
   const dash = global.D2LDashboard ||= {};
   const mod = dash.appModules ||= {};
-  const { $, COURSE_OVERRIDES_KEY, EMBEDDED, READ_KEY, RECREATED_SEEN_KEY, SETTINGS_KEY, adoptLegacyArchive, api, backFromDetail, closeDetailToBase, closeLinkConfirm, closeOverlay, closePreview, detailRoot, exportActivity, fileScope, look, main, moveGradeCarousel, navigateToDetail, openArchivedFile, openConfirmedD2l, openConfirmedLink, previewConfirmedFile, previewFile, recordActivity, redrawAdoptNotice, refreshIfStaleOnFocus, rememberScreen, render, renderSyncStatus, saveLook, setChecklistDone, setWorkMark, showFileOpen, showLinkConfirm, startSync, state, storageSet, toast, updateGradeCarouselControls, wait } = dash.appModules;
+  const { $, COURSE_OVERRIDES_KEY, EMBEDDED, READ_KEY, RECREATED_SEEN_KEY, SETTINGS_KEY, adoptLegacyArchive, api, backFromDetail, closeDetailToBase, closeLinkConfirm, closeOverlay, closePreview, detailRoot, exportActivity, fileScope, look, main, moveGradeCarousel, navigateToDetail, openArchivedFile, openConfirmedD2l, openConfirmedLink, previewConfirmedFile, previewFile, recordActivity, redrawAdoptNotice, refreshIfStaleOnFocus, rememberScreen, render, renderSyncStatus, saveLook, setChecklistDone, setDetailMore, setWorkMark, showFileOpen, showLinkConfirm, startSync, state, storageSet, toast, updateGradeCarouselControls, wait } = dash.appModules;
   // ------------------------------------------------------------- events
 
   function markRead(ids, value = true) {
@@ -435,6 +435,10 @@
       if (!actionNode.dataset.backdrop || event.target === actionNode) closeDetailToBase();
     } else if (action === "grade-prev" || action === "grade-next") {
       moveGradeCarousel(action === "grade-next" ? 1 : -1);
+    } else if (action === "detail-more") {
+      const layout = actionNode.closest(".detail-layout");
+      setDetailMore(layout, !layout?.classList.contains("is-open"));
+      actionNode.scrollIntoView({ block: "nearest" });
     } else if (action === "show-more") {
       // Reveal the next batch of rows; a time heading shows with its first row.
       const step = Number(actionNode.dataset.step) || 20;

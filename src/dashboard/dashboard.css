@@ -726,22 +726,43 @@ p { margin: 0; }
 .detail-meta a { font-weight: 500; }
 .detail-posted { margin-top: 6px; font-size: 13.5px; color: var(--muted); }
 .detail { grid-area: main; min-width: 0; padding: 0 26px 28px; border-top: 0; border-radius: 0 0 12px 12px; }
-.detail-layout > .side-card { grid-area: side; }
+.detail-layout > .side-card, .detail-top > .side-card { grid-area: side; }
 .detail > .facts:last-child { padding-bottom: 0; border-bottom: 0; }
 .detail-lead { margin-top: 16px; }
 .detail-marks { margin-top: 14px; font-size: 13px; color: var(--muted); }
 .detail-marks span + span::before { content: "·"; margin: 0 8px; color: var(--faint); }
+/* Assignment and quiz pop-ups keep a steady top row: the title, the details and
+   the to-do card share one 360px band, so the Related items card starts at the
+   same height on every page. A long body fades out under Show more, and the
+   to-do card grows with it. Narrow frames drop the band; the wrapper steps aside. */
+.detail-top { display: contents; }
+.detail-clamp { min-width: 0; }
+.detail-more { display: inline-block; margin-top: 6px; padding: 0; border: 0; background: none; color: var(--link); font: inherit; font-size: 13px; font-weight: 500; cursor: pointer; }
+.detail-more:hover { color: var(--link-hover); text-decoration: underline; }
+.detail-more[hidden] { display: none; }
+@container detail (min-width: 781px) {
+  .detail-layout.is-fixed { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto; grid-template-areas: "top" "related"; }
+  .detail-layout.is-fixed > .detail-top { grid-area: top; display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); grid-template-areas: "head side" "main side"; column-gap: 16px; height: 360px; align-items: stretch; }
+  .detail-layout.is-fixed.is-open > .detail-top { height: auto; }
+  .detail-layout.is-fixed > .detail-top > .side-card { align-self: stretch; }
+  .detail-layout.is-fixed:not(.is-open) .side-card { overflow: auto; }
+  .detail-layout.is-fixed:not(.is-open) .detail { display: flex; flex-direction: column; overflow: hidden; }
+  .detail-layout.is-fixed:not(.is-open) .detail > * { flex: none; }
+  .detail-layout.is-fixed:not(.is-open) .detail > .detail-clamp { flex: 1 1 0; min-height: 0; position: relative; overflow: hidden; }
+  .detail-layout.is-fixed.is-clipped:not(.is-open) .detail-clamp::after { content: ""; position: absolute; inset: auto 0 0; height: 52px; background: linear-gradient(to bottom, color-mix(in srgb, var(--surface) 0%, transparent), var(--surface) 80%); pointer-events: none; }
+  .detail-layout.is-fixed:not(.is-open) .detail-more { position: absolute; left: 0; bottom: 0; z-index: 2; margin: 0; }
+}
 @container detail (max-width: 780px) {
   .detail-layout { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; grid-template-areas: "head" "side" "main" "related"; row-gap: 12px; }
   .detail-layout:not(.has-todo) { grid-template-areas: "head" "main" "side" "related"; row-gap: 0; }
-  .detail-layout:not(.has-todo) > .side-card, .detail-layout:not(.has-todo) > .related-card { margin-top: 12px; }
+  .detail-layout:not(.has-todo) .side-card, .detail-layout:not(.has-todo) > .related-card { margin-top: 12px; }
   .detail-layout.has-todo > .related-card { margin-top: 0; }
   .detail-head { padding: 18px 18px 2px; }
   .detail-head h1 { font-size: 24px; }
   .detail { padding: 0 18px 22px; }
-  .detail-layout.has-todo > .detail-head { padding-bottom: 18px; border-bottom: 1px solid var(--line); border-radius: 12px; }
-  .detail-layout.has-todo > .detail { padding-top: 2px; border-top: 1px solid var(--line); border-radius: 12px; }
-  .detail-layout.has-todo > .detail > .facts:first-child { margin-top: 0; border-top: 0; }
+  .detail-layout.has-todo .detail-head { padding-bottom: 18px; border-bottom: 1px solid var(--line); border-radius: 12px; }
+  .detail-layout.has-todo .detail { padding-top: 2px; border-top: 1px solid var(--line); border-radius: 12px; }
+  .detail-layout.has-todo .detail > .facts:first-child { margin-top: 0; border-top: 0; }
 }
 .facts { display: flex; flex-wrap: wrap; gap: 12px 28px; margin-top: 16px; padding: 14px 0; border-top: 1px solid var(--line-2); border-bottom: 1px solid var(--line-2); }
 .fact .k { font-size: 12px; color: var(--muted); }

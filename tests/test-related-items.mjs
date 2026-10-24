@@ -85,7 +85,7 @@ check(exactOnly.map((group) => group.id).join(",") === "work,calendar" && exactO
 const many = [entities[0], ...Array.from({ length: 12 }, (_, n) => topic(String(100 + n), `Reading ${n + 1}`)), topic("3", "Reflection Paper", { resourceType: "Link", urls: { download: quickLink("dropbox") } }), entities[6]];
 const crowded = detail(dash.buildIndex({ now: NOW, courses: [course], entities: many }), "assignment", `assignmentBundle:${C}:11`)?.related || [];
 const crowdedContent = groupOf(crowded, "content");
-check(crowdedContent?.items.length === 8 && crowdedContent.more?.count === 4 && crowdedContent.more.route === `#/resources/${C}?module=50`, "a long module should show 8 pills and a +4 more link to the module");
+check(crowdedContent?.items.length === 6 && crowdedContent.more?.count === 6 && crowdedContent.more.route === `#/resources/${C}?module=50`, "a long module should show 6 pills and a +6 more link to the module");
 check(dash.detailPage(detail(dash.buildIndex({ now: NOW, courses: [course], entities: many }), "assignment", `assignmentBundle:${C}:11`), { body: true }).includes('<span class="rel-count">12</span>'), "the count should include the pills folded into +N more");
 
 // Wiring.

@@ -106,12 +106,50 @@
     if (body) body.setAttribute("aria-busy", String(value));
   }
 
+  // Assignment and quiz details keep a steady top row (see .detail-top in the
+  // CSS). Show more appears only when the text is taller than that row.
+  const clampWatch = typeof ResizeObserver === "function" ? new ResizeObserver((entries) => entries.forEach((entry) => markDetailClamp(entry.target))) : null;
+
+  function markDetailClamp(clamp) {
+    const layout = clamp?.closest(".detail-layout");
+    if (!layout || layout.classList.contains("is-open")) return;
+    const clipped = clamp.scrollHeight > clamp.clientHeight + 1;
+    layout.classList.toggle("is-clipped", clipped);
+    const more = clamp.querySelector(".detail-more");
+    if (more) more.hidden = !clipped;
+  }
+
+  function fitDetailClamp(root) {
+    const clamps = [...(root?.querySelectorAll(".detail-clamp") || [])];
+    for (const clamp of clamps) {
+      markDetailClamp(clamp);
+      clampWatch?.observe(clamp);
+    }
+    if (clamps.length) requestAnimationFrame(() => clamps.forEach(markDetailClamp));
+  }
+
+  function setDetailMore(layout, open) {
+    if (!layout) return;
+    layout.classList.toggle("is-open", open);
+    const more = layout.querySelector(".detail-more");
+    if (!more) return;
+    more.setAttribute("aria-expanded", String(open));
+    more.textContent = open ? "Show less" : "Show more";
+    if (open) more.hidden = false;
+    else markDetailClamp(layout.querySelector(".detail-clamp"));
+  }
+
   function updateDetailBody(html, { labelled = false, busy = false } = {}) {
     const root = detailRoot();
     const body = root?.querySelector("[data-detail-body]");
     const panel = root?.querySelector(".detail-panel");
     if (!body || !panel) return;
+    // Redrawing the same item (after Mark as done, say) keeps Show more open.
+    const titleOf = () => body.querySelector("#detail-content-title")?.textContent;
+    const reopen = body.querySelector(".detail-layout.is-open") ? titleOf() : null;
     body.innerHTML = html;
+    if (reopen && titleOf() === reopen) setDetailMore(body.querySelector(".detail-layout"), true);
+    fitDetailClamp(body);
     body.setAttribute("aria-busy", String(busy));
     if (labelled) {
       panel.removeAttribute("aria-label");
@@ -293,6 +331,7 @@
     else node.innerHTML = html;
     node.querySelector(".grade-widget-window")?.addEventListener("scroll", updateGradeCarouselControls, { passive: true });
     requestAnimationFrame(updateGradeCarouselControls);
+    fitDetailClamp(node);
     state.shownHash = hash;
     if (node.classList.contains("is-faded")) {
       void node.offsetHeight;
@@ -435,5 +474,5 @@
     }
   }
 
-  Object.assign(mod, { renderNav, normalizedHash, routeLabel, detailRoot, setBaseInert, hideDetail, detailLoadingBody, detailMessageBody, mountDetailShell, setDetailBusy, updateDetailBody, contextForDetail, navigateToDetail, backFromDetail, closeDetailToBase, renderDetailRoute, fadeOutMain, samePage, sameAttributes, morph, focusKey, patchMain, showMain, updateGradeCarouselControls, moveGradeCarousel, render, NAV, NAV_OF, CRUMBS, FADE_MS, wait, reduceMotion });
+  Object.assign(mod, { renderNav, normalizedHash, routeLabel, detailRoot, setBaseInert, hideDetail, detailLoadingBody, detailMessageBody, mountDetailShell, setDetailBusy, updateDetailBody, setDetailMore, contextForDetail, navigateToDetail, backFromDetail, closeDetailToBase, renderDetailRoute, fadeOutMain, samePage, sameAttributes, morph, focusKey, patchMain, showMain, updateGradeCarouselControls, moveGradeCarousel, render, NAV, NAV_OF, CRUMBS, FADE_MS, wait, reduceMotion });
 })(globalThis);
