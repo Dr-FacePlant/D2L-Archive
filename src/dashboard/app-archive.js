@@ -2,7 +2,7 @@
 (function initDashboardAppArchive(global) {
   const dash = global.D2LDashboard ||= {};
   const mod = dash.appModules ||= {};
-  const { CHECKLIST_KEY, HIDDEN_WORK_KEY, READ_KEY, RECREATED_SEEN_KEY, api, main, state, toast, useChecklistStateForProfile } = dash.appModules;
+  const { CHECKLIST_KEY, COURSE_OVERRIDES_KEY, HIDDEN_WORK_KEY, READ_KEY, RECREATED_SEEN_KEY, api, main, state, toast, useChecklistStateForProfile } = dash.appModules;
   // ------------------------------------------------------------- archive
 
   // Reads the bound account's archive. Nothing is applied here: the binder applies it only if that account is still current.
@@ -28,7 +28,8 @@
       entities: entities.items,
       updates: updates.items,
       sync,
-      settings: state.settings
+      settings: state.settings,
+      courseContactOverrides: state.courseContactOverrides
     });
     dash.appModules.renderSyncStatus();
   }
@@ -45,6 +46,7 @@
     state.checklistDone = {};
     state.checklistStorageKey = CHECKLIST_KEY;
     state.hiddenWork = {};
+    state.courseContactOverrides = {};
     state.search = { query: "", result: null, pending: false };
     state.bundles.clear();
     state.detailContexts.clear();
@@ -58,7 +60,8 @@
     loadScoped: async (accountId, legacyOwnerId) => ({
       read: await dash.accountBinding.loadScoped(chrome.storage.local, READ_KEY, accountId, legacyOwnerId, {}),
       recreatedSeen: await dash.accountBinding.loadScoped(chrome.storage.local, RECREATED_SEEN_KEY, accountId, "", ""),
-      hiddenWork: await dash.accountBinding.loadScoped(chrome.storage.local, HIDDEN_WORK_KEY, accountId, "", {})
+      hiddenWork: await dash.accountBinding.loadScoped(chrome.storage.local, HIDDEN_WORK_KEY, accountId, "", {}),
+      courseContactOverrides: await dash.accountBinding.loadScoped(chrome.storage.local, COURSE_OVERRIDES_KEY, accountId, legacyOwnerId, {})
     }),
     loadArchive: fetchArchive,
     clearView: clearAccountView,
@@ -76,6 +79,7 @@
       state.read = scoped.read || {};
       state.recreatedSeen = scoped.recreatedSeen || "";
       state.hiddenWork = scoped.hiddenWork || {};
+      state.courseContactOverrides = scoped.courseContactOverrides || {};
       applyArchive(archive);
     }
   });

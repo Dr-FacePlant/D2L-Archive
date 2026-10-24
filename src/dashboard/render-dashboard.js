@@ -1,7 +1,7 @@
 // Dashboard overview, course cards, first run and study banner.
 (function initDashboardRenderDashboard(global) {
   const dash = global.D2LDashboard ||= {};
-  const { KIND_ICON, dateBox, emptyState, escapeHtml: e, fmtShortDate, icon, instructorNames } = dash;
+  const { KIND_ICON, dateBox, emptyState, escapeHtml: e, fmtShortDate, icon, instructorNames, plural } = dash;
   // ------------------------------------------------------------ dashboard
 
   function workRow(item, options = {}) {
@@ -170,12 +170,18 @@
   }
   // ----- end TEMP STUDY BANNER -----
 
+  function attentionBar(model) {
+    if (!model.attention) return "";
+    const line = `${plural(model.attention, "graded item")} ${model.attention === 1 ? "needs" : "need"} attention: late, or closing within 3 days and not turned in`;
+    return `<a class="attention-bar" href="#/work?tab=attention">${icon("clock", 18)}<span>${e(line)}</span>${icon("arrowRight", 16)}</a>`;
+  }
+
   function dashboardPage(model, notice = "") {
     if (!model.hasArchive) return firstRunPage(notice);
     return `<div class="page" data-screen="dashboard">
       ${notice}
-      <!-- TEMP: sponsor promo + attention bar replaced by studyBanner (put back via _backup-dashboard-before-study-banner-2026-10-19 or the TEMP study banner block above) -->
       ${studyBanner(model)}
+      ${attentionBar(model)}
       <div class="cols dashboard-overview">
         <section class="card card-pad wide" aria-labelledby="h-next">
           <div class="card-head"><h2 id="h-next">What's next</h2><a class="link-btn" href="#/work">View all ${icon("arrowRight", 15)}</a></div>

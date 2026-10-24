@@ -2,7 +2,7 @@
 (function initDashboardAppEvents(global) {
   const dash = global.D2LDashboard ||= {};
   const mod = dash.appModules ||= {};
-  const { $, EMBEDDED, READ_KEY, RECREATED_SEEN_KEY, SETTINGS_KEY, adoptLegacyArchive, api, backFromDetail, closeDetailToBase, closeLinkConfirm, closeOverlay, closePreview, detailRoot, exportActivity, fileScope, look, main, moveGradeCarousel, navigateToDetail, openArchivedFile, openConfirmedD2l, openConfirmedLink, previewConfirmedFile, previewFile, redrawAdoptNotice, refreshIfStaleOnFocus, rememberScreen, render, renderSyncStatus, saveLook, setChecklistDone, setWorkMark, showFileOpen, showLinkConfirm, startSync, state, storageSet, toast, updateGradeCarouselControls, wait } = dash.appModules;
+  const { $, COURSE_OVERRIDES_KEY, EMBEDDED, READ_KEY, RECREATED_SEEN_KEY, SETTINGS_KEY, adoptLegacyArchive, api, backFromDetail, closeDetailToBase, closeLinkConfirm, closeOverlay, closePreview, detailRoot, exportActivity, fileScope, look, main, moveGradeCarousel, navigateToDetail, openArchivedFile, openConfirmedD2l, openConfirmedLink, previewConfirmedFile, previewFile, recordActivity, redrawAdoptNotice, refreshIfStaleOnFocus, rememberScreen, render, renderSyncStatus, saveLook, setChecklistDone, setWorkMark, showFileOpen, showLinkConfirm, startSync, state, storageSet, toast, updateGradeCarouselControls, wait } = dash.appModules;
   // ------------------------------------------------------------- events
 
   function markRead(ids, value = true) {
@@ -130,6 +130,134 @@
     await storageSet(SETTINGS_KEY, state.settings);
   }
 
+  // Saved to this D2L account's own local bucket, never to D2L. A later sync
+  // cannot overwrite them because they are read after the archive is built.
+  async function saveContactOverride(courseId, contactIndex, field, value) {
+    if (!state.account.id) {
+      toast("That change wasn't saved: the D2L account isn't known yet.");
+      return false;
+    }
+    const previous = state.courseContactOverrides || {};
+    const course = { ...(previous[courseId] || {}) };
+    course[contactIndex] = { ...(course[contactIndex] || {}), [field]: value };
+    const next = { ...previous, [courseId]: course };
+    try {
+      await chrome.storage.local.set({ [dash.accountBinding.scopedKey(COURSE_OVERRIDES_KEY, state.account.id)]: next });
+    } catch {
+      toast("That change wasn't saved locally.");
+      return false;
+    }
+    state.courseContactOverrides = next;
+    if (state.index) state.index.courseContactOverrides = next;
+    return true;
+  }
+
+  // A file is the only way these local edits survive clearing extension data
+  // or moving to another browser. It carries no D2L data.
+  async function exportContactEdits() {
+    const overrides = state.courseContactOverrides || {};
+    const fields = dash.contactEditCount(overrides);
+    if (!fields) {
+      toast("There are no contact edits to export yet.");
+      return;
+    }
+    const body = JSON.stringify(dash.contactBackupDocument(overrides), null, 2);
+    const url = URL.createObjectURL(new Blob([body], { type: "application/json" }));
+    try {
+      await chrome.downloads.download({ url, filename: `D2L Export/contact-edits-${new Date().toISOString().replace(/[:.]/g, "-")}.json`, saveAs: false, conflictAction: "uniquify" });
+    } catch (error) {
+      toast(`Contact edits weren't exported: ${error.message || "the download failed."}`);
+      return;
+    }
+    await recordActivity({ operation: "contacts.export", category: "export", status: "completed", source: "storage-settings", details: { fields, courses: Object.keys(overrides).length } });
+    toast(`Exported ${fields} contact ${fields === 1 ? "edit" : "edits"}.`);
+  }
+
+  async function importContactEdits() {
+    if (!state.account.id) {
+      toast("Those edits weren't imported: the D2L account isn't known yet.");
+      return;
+    }
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "application/json,.json";
+    input.hidden = true;
+    input.addEventListener("cancel", () => input.remove());
+    input.addEventListener("change", async () => {
+      const file = input.files?.[0];
+      input.remove();
+      if (!file) return;
+      const parsed = dash.parseContactBackup(await file.text().catch(() => ""));
+      if (!parsed.ok) {
+        toast(`That file couldn't be imported: ${parsed.error}`);
+        return;
+      }
+      const { next, changed } = dash.mergeContactOverrides(state.courseContactOverrides || {}, parsed.overrides);
+      if (!changed) {
+        toast("Those edits are already saved.");
+        return;
+      }
+      try {
+        await chrome.storage.local.set({ [dash.accountBinding.scopedKey(COURSE_OVERRIDES_KEY, state.account.id)]: next });
+      } catch {
+        toast("Those edits weren't saved locally.");
+        return;
+      }
+      state.courseContactOverrides = next;
+      if (state.index) state.index.courseContactOverrides = next;
+      await recordActivity({ operation: "contacts.import", category: "local-change", status: "saved", source: "storage-settings", details: { fields: parsed.fields, courses: parsed.courses, changed } });
+      render.keepScroll = true;
+      await render();
+      toast(`Imported ${changed} contact ${changed === 1 ? "edit" : "edits"}.`);
+    });
+    document.body.append(input);
+    input.click();
+  }
+
+  const CONTACT_FIELD_LABELS = Object.freeze({ name: "instructor name", email: "instructor email", officeHours: "office hours" });
+
+  function cancelContactEdit(row) {
+    if (!row?.__instructorHTML) return;
+    row.innerHTML = row.__instructorHTML;
+    delete row.__instructorHTML;
+    row.querySelector(".instructor-edit")?.focus();
+  }
+
+  function beginContactEdit(row) {
+    if (!row || row.querySelector("[data-contact-editor]")) return;
+    cancelContactEdit(document.querySelector("[data-contact-editor]")?.closest("[data-contact-row]"));
+    row.__instructorHTML = row.innerHTML;
+    const field = row.dataset.field || "";
+    const label = CONTACT_FIELD_LABELS[field] || field;
+    const value = row.dataset.editValue || "";
+    row.querySelector(".instructor-contact-value")?.remove();
+    row.querySelectorAll(".instructor-copy, .instructor-edit").forEach((node) => node.remove());
+    const form = document.createElement("form");
+    form.className = "instructor-contact-editor";
+    form.dataset.contactEditor = "";
+    const input = document.createElement("input");
+    input.className = "instructor-edit-input";
+    input.name = "value";
+    input.type = "text";
+    input.value = value;
+    input.autocomplete = "off";
+    input.setAttribute("aria-label", `Edit ${label}`);
+    if (field === "email") input.inputMode = "email";
+    const save = document.createElement("button");
+    save.className = "btn btn-primary instructor-save";
+    save.type = "submit";
+    save.textContent = "Save";
+    const cancel = document.createElement("button");
+    cancel.className = "btn instructor-cancel";
+    cancel.type = "button";
+    cancel.dataset.action = "cancel-instructor-edit";
+    cancel.textContent = "Cancel";
+    form.append(input, save, cancel);
+    row.append(form);
+    input.focus();
+    input.select();
+  }
+
   async function copyToClipboard(value) {
     if (navigator.clipboard?.writeText) {
       try {
@@ -226,6 +354,14 @@
     const actionNode = event.target.closest("[data-action]");
     if (!actionNode) return;
     const action = actionNode.dataset.action;
+    if (action === "edit-instructor") {
+      beginContactEdit(actionNode.closest("[data-contact-row]"));
+      return;
+    }
+    if (action === "cancel-instructor-edit") {
+      cancelContactEdit(actionNode.closest("[data-contact-row]"));
+      return;
+    }
     if (action === "copy-instructor") {
       const value = actionNode.dataset.copyValue || "";
       const label = actionNode.dataset.copyLabel || "instructor information";
@@ -250,6 +386,10 @@
       else location.hash = href;
     } else if (action === "export-activity") {
       await exportActivity(actionNode.dataset.format || "json").catch((error) => toast(`Activity export failed: ${error.message}`));
+    } else if (action === "export-contact-edits") {
+      await exportContactEdits();
+    } else if (action === "import-contact-edits") {
+      await importContactEdits();
     } else if (action === "filter-menu-toggle") {
       const open = state.filterMenu === actionNode.getAttribute("aria-controls");
       closeMenu();
@@ -419,6 +559,12 @@
       filterOption.click();
       return;
     }
+    const contactEditor = event.target.closest?.("[data-contact-editor]");
+    if (contactEditor && event.key === "Escape") {
+      event.preventDefault();
+      cancelContactEdit(contactEditor.closest("[data-contact-row]"));
+      return;
+    }
     if (event.key === "Escape" && state.filterMenu) {
       event.preventDefault();
       closeFilterMenu(true);
@@ -497,6 +643,24 @@
 
   document.addEventListener("submit", async (event) => {
     const form = event.target;
+    if (form.matches("[data-contact-editor]")) {
+      event.preventDefault();
+      const row = form.closest("[data-contact-row]");
+      const input = form.querySelector("input[name=value]");
+      if (!row || !input) return;
+      const courseId = row.dataset.courseId || "";
+      const contactIndex = row.dataset.contactIndex || "0";
+      const field = row.dataset.field || "";
+      const value = String(input.value || "").trim();
+      if (!await saveContactOverride(courseId, contactIndex, field, value)) {
+        input.focus();
+        return;
+      }
+      render.keepScroll = true;
+      await render();
+      main()?.querySelector(`[data-contact-row][data-course-id="${CSS.escape(courseId)}"][data-contact-index="${CSS.escape(contactIndex)}"][data-field="${CSS.escape(field)}"] .instructor-edit`)?.focus({ preventScroll: true });
+      return;
+    }
     if (form.matches("[data-action=search]")) {
       event.preventDefault();
       closeSearchPanel();
