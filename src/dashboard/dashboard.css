@@ -683,10 +683,11 @@ p { margin: 0; }
 .instructor-contact-value { flex: 1; min-width: 0; color: inherit; overflow-wrap: anywhere; text-decoration: none; }
 .instructor-email { color: var(--link); }
 .instructor-actions { display: flex; flex: none; align-items: center; gap: 4px; margin-left: auto; }
-.instructor-copy, .instructor-edit, .instructor-visit { display: inline-grid; flex: none; place-items: center; width: 28px; height: 28px; padding: 0; border: 1px solid var(--line-3); border-radius: 6px; background: var(--surface); color: var(--ink-4); text-decoration: none; cursor: pointer; transition: background .12s ease, border-color .12s ease, color .12s ease; }
-.instructor-copy:hover, .instructor-edit:hover, .instructor-visit:hover { border-color: var(--control-line-hover); background: var(--hover); color: var(--ink); text-decoration: none; }
+.instructor-copy, .instructor-edit, .instructor-visit { display: inline-grid; flex: none; place-items: center; width: 28px; height: 28px; padding: 0; border: 1px solid var(--line-3); border-radius: 6px; background: var(--surface); color: var(--ink-2); text-decoration: none; cursor: pointer; transition: background .12s ease; }
+/* Hover matches the Cancel button beside it: a faint fill, the border never changes. */
+.instructor-copy:hover, .instructor-edit:hover, .instructor-visit:hover { background: var(--hover-soft); text-decoration: none; }
 .instructor-copy:disabled, .instructor-visit:disabled { opacity: .4; cursor: default; }
-.instructor-copy:disabled:hover, .instructor-visit:disabled:hover { border-color: var(--line-3); background: var(--surface); color: var(--ink-4); }
+.instructor-copy:disabled:hover, .instructor-visit:disabled:hover { background: var(--surface); }
 .instructor-copy svg, .instructor-edit svg, .instructor-visit svg { flex: none; }
 .instructor-copy.is-copied, .instructor-copy.is-copied:hover { color: var(--good); }
 .instructor-copy.is-failed, .instructor-copy.is-failed:hover { color: var(--bad); }

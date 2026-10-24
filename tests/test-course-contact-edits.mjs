@@ -73,6 +73,9 @@ const unsafeModel = dash.courseHomeModel(unsafeIndex, "1002");
 check(unsafeModel.syllabus === null && !dash.courseHomePage(unsafeModel).includes("javascript:"), "an unsafe saved link should never reach an href");
 
 const events = read("src/dashboard/app-events.js");
+const css = read("src/dashboard/dashboard.css");
+const hoverRule = css.split("\n").find((line) => line.startsWith(".instructor-copy:hover, .instructor-edit:hover, .instructor-visit:hover")) || "";
+check(hoverRule.includes("background: var(--hover-soft)") && !hoverRule.includes("border-color"), "icon buttons should hover like Cancel: a fill, with no border change");
 const archive = read("src/dashboard/app-archive.js");
 check(events.includes("async function saveContactOverride"), "saving a contact edit should be wired");
 check(events.includes("async function saveSyllabusOverride") && events.includes("dash.safeSyllabusUrl(value)"), "saving a syllabus link should be wired and validated");
