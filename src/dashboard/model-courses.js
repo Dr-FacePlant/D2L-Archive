@@ -187,8 +187,14 @@
     // Discussions already in Upcoming work aren't repeated in their own card.
     const discussions = allWork(index).filter((item) => item.courseId === courseId && item.kind === "discussion" && !listed.has(item.id)).sort(byDue);
     const grades = index.list(courseId, "gradeRecord").filter((entity) => entity.kind === "item");
+    // Manual contact edits sit on top of whatever the archive detected. A
+    // course without a detected instructor still gets one editable row.
+    const contactOverrides = index.courseContactOverrides?.[courseId] || {};
+    const contacts = (course.instructorContacts.length ? course.instructorContacts : [{}])
+      .map((contact, index) => ({ name: "", email: "", officeHours: "", ...contact, ...(contactOverrides[index] || {}) }));
     return {
       course,
+      contacts,
       final: finalGradeLabel(course),
       gradedCount: grades.filter(isGradedGrade).length,
       gradeCount: grades.length,

@@ -17,6 +17,7 @@ const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..")
 const port = Number(process.argv[2] || process.env.PORT || 8765);
 const config = JSON.parse(fs.readFileSync(path.join(root, "dashboard-test-exports.json"), "utf8"));
 const exportRoot = config.exportRoot.replace(/^~(?=\/)/, os.homedir());
+const PREVIEW_ACCOUNT_ID = "preview-account";
 
 const hooks = loadBackgroundHooks();
 const repository = hooks.createArchiveRepository(hooks.createMemoryArchiveAdapter());
@@ -123,6 +124,8 @@ http.createServer(async (request, response) => {
     const message = JSON.parse(body || "{}");
     const result = message.type === "D2L_DASHBOARD_PREPARE"
       ? { ok: true, result: { reorganized: false } }
+      : message.method === "system.getAccountContext"
+        ? { protocolVersion: "1", requestId: String(message.requestId || ""), ok: true, data: { accountId: PREVIEW_ACCOUNT_ID, legacyOwnerAccountId: "", canAdoptLegacy: false }, meta: { databaseRevision: 0, generatedAt: new Date().toISOString() } }
       : await hooks.handleAppApiRequest(message, { repository });
     response.writeHead(200, { "content-type": "application/json" });
     response.end(JSON.stringify(result));

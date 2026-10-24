@@ -151,7 +151,10 @@
       courses: state.index?.allCourses || [],
       visible: state.index?.visible || new Set()
     };
-    if (section === "storage") model.storage = await storageUsage();
+    if (section === "storage") {
+      model.storage = await storageUsage();
+      model.contactEdits = dash.contactEditCount(state.courseContactOverrides || {});
+    }
     if (section === "activity") {
       model.activity = await api("activity.list", { limit: 100 }).catch(() => ({ items: [] }));
       model.activitySummary = await api("activity.getSummary", {}).catch(() => ({ total: 0, byStatus: {}, byCategory: {} }));

@@ -75,8 +75,8 @@
   --sync-stale: #E0A800;
   /* Needs-attention bar */
   --attention-ink: #8A4B00;
-  --attention-tint: #FEF3E2;
-  --attention-tint-hover: #FDE9C8;
+  --attention-tint: #FCE6BC;
+  --attention-tint-hover: #F8D89F;
   /* Calendar and pinned items */
   --cal-selected: #F2F7FF;
   --cal-hover: #F6F9FE;
@@ -184,8 +184,8 @@
   --unread: #5B9BFF;
   --sync-stale: #E0A800;
   --attention-ink: #F5B65A;
-  --attention-tint: #33240F;
-  --attention-tint-hover: #3D2B12;
+  --attention-tint: #3B2A11;
+  --attention-tint-hover: #4A3518;
   --cal-selected: #15233A;
   --cal-hover: #182131;
   --cal-out: #5F6875;
@@ -689,6 +689,15 @@ p { margin: 0; }
 .instructor-copy:disabled, .instructor-visit:disabled { opacity: .45; cursor: default; }
 .instructor-copy:disabled:hover, .instructor-visit:disabled:hover { border-color: var(--line-3); background: var(--surface); color: var(--ink-4); }
 .instructor-copy svg, .instructor-visit svg { flex: none; }
+.instructor-edit { display: inline-flex; flex: none; align-items: center; justify-content: center; width: 28px; height: 28px; margin-left: auto; padding: 0; border: 1px solid transparent; border-radius: 6px; background: transparent; color: var(--muted); cursor: pointer; opacity: 0; transition: opacity .12s ease, background .12s ease, border-color .12s ease, color .12s ease; }
+.instructor-copy + .instructor-edit { margin-left: 0; }
+.instructor-contact-row:hover .instructor-edit, .instructor-contact-row:focus-within .instructor-edit, .instructor-edit:focus-visible { opacity: 1; }
+.instructor-edit:hover { border-color: var(--line-3); background: var(--hover); color: var(--ink); }
+@media (hover: none) { .instructor-edit { opacity: .8; } }
+.instructor-contact-editor { display: flex; flex: 1; align-items: center; gap: 6px; min-width: 0; }
+.instructor-edit-input { flex: 1; min-width: 0; height: 30px; padding: 0 8px; border: 1px solid var(--line-3); border-radius: 6px; background: var(--surface); color: var(--ink); font: inherit; font-size: 13px; }
+.instructor-edit-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(var(--accent-rgb), .15); }
+.instructor-save, .instructor-cancel { height: 28px; padding: 0 8px; border-radius: 6px; font-size: 11.5px; }
 /* Items from earlier terms, folded away under a quiet link. */
 .earlier { margin-top: 6px; }
 .earlier > summary { display: inline-flex; align-items: center; gap: 6px; padding: 8px 0; color: var(--link); font-size: 13px; font-weight: 500; cursor: pointer; list-style: none; }

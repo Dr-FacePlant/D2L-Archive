@@ -4,7 +4,7 @@
   const mod = dash.appModules ||= {};
   const {
     state, SETTINGS_KEY, READ_KEY, SYNC_KEY, SYNC_FAILED_KEY, LOGO_KEY, PROFILE_KEY,
-    CHECKLIST_KEY, CHECKLIST_OWNER_KEY, RECREATED_SEEN_KEY, HIDDEN_WORK_KEY,
+    CHECKLIST_KEY, CHECKLIST_OWNER_KEY, RECREATED_SEEN_KEY, HIDDEN_WORK_KEY, COURSE_OVERRIDES_KEY,
     DEFAULT_AVATAR_SVG, SYNC_TIMEOUT_MS, storageGet, storageSet
   } = dash.appState;
 
@@ -144,5 +144,5 @@
     return (first + last).toUpperCase();
   }
 
-  Object.assign(mod, { api, recordActivity, setChecklistDone, setWorkMark, useChecklistStateForProfile, toast, renderSchoolLogo, renderUserProfile, initialsOf, $, main, EMBEDDED, look, state, SETTINGS_KEY, READ_KEY, SYNC_KEY, SYNC_FAILED_KEY, LOGO_KEY, PROFILE_KEY, CHECKLIST_KEY, CHECKLIST_OWNER_KEY, RECREATED_SEEN_KEY, HIDDEN_WORK_KEY, DEFAULT_AVATAR_SVG, SYNC_TIMEOUT_MS, storageGet, storageSet });
+  Object.assign(mod, { api, recordActivity, setChecklistDone, setWorkMark, useChecklistStateForProfile, toast, renderSchoolLogo, renderUserProfile, initialsOf, $, main, EMBEDDED, look, state, SETTINGS_KEY, READ_KEY, SYNC_KEY, SYNC_FAILED_KEY, LOGO_KEY, PROFILE_KEY, CHECKLIST_KEY, CHECKLIST_OWNER_KEY, RECREATED_SEEN_KEY, HIDDEN_WORK_KEY, COURSE_OVERRIDES_KEY, DEFAULT_AVATAR_SVG, SYNC_TIMEOUT_MS, storageGet, storageSet });
 })(globalThis);

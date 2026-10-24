@@ -21,6 +21,19 @@
     return `<button class="instructor-copy" type="button" data-action="copy-instructor" data-copy-value="${e(value)}" data-copy-label="${e(label)}" aria-label="Copy ${e(label)}">${icon("copy", 14)}<span class="copy-label" aria-live="polite">Copy</span></button>`;
   }
 
+  function instructorEditButton(label) {
+    return `<button class="instructor-edit" type="button" data-action="edit-instructor" aria-label="Edit ${e(label)}" title="Edit ${e(label)}">${icon("pen", 14)}</button>`;
+  }
+
+  function instructorContactRow({ courseId, index, field, label, iconName, value, copyLabel, editLabel, valueHtml }) {
+    return `<div class="instructor-contact-row" data-contact-row data-course-id="${e(courseId)}" data-contact-index="${index}" data-field="${e(field)}" data-edit-value="${e(value)}">
+      <span class="ico">${icon(iconName, 16)}</span>
+      <span class="instructor-contact-value">${e(label)}: ${valueHtml || (value ? e(value) : "N/A")}</span>
+      ${value ? instructorCopyButton(value, copyLabel) : ""}
+      ${instructorEditButton(editLabel)}
+    </div>`;
+  }
+
   function syllabusVisitButton(syllabus, courseId) {
     if (!syllabus) return `<button class="instructor-visit" type="button" disabled aria-label="Syllabus not available">${icon("link", 14)}<span>Visit</span></button>`;
     const targetUrl = syllabus.url || (syllabus.id ? `#/resources/${encodeURIComponent(courseId)}?item=${encodeURIComponent(syllabus.id)}` : `#/resources/${encodeURIComponent(courseId)}`);
@@ -28,11 +41,11 @@
   }
 
   function instructorContactCard(contacts = [], syllabus = null, courseId = "") {
-    if (!contacts.length && !syllabus) return "";
-    const rows = contacts.map((contact) => `<div class="instructor-contact-group">
-      ${contact.name ? `<div class="instructor-contact-row"><span class="ico">${icon("user", 16)}</span><span class="instructor-contact-value">Instructor: ${e(contact.name)}</span>${instructorCopyButton(contact.name, "instructor name")}</div>` : ""}
-      <div class="instructor-contact-row"><span class="ico">${icon("mail", 16)}</span><span class="instructor-contact-value">Email: ${contact.email ? `<a class="instructor-email" href="mailto:${e(contact.email)}">${e(contact.email)}</a>` : "N/A"}</span>${instructorCopyButton(contact.email || "N/A", contact.email ? "instructor email" : "email availability")}</div>
-      <div class="instructor-contact-row"><span class="ico">${icon("clock", 16)}</span><span class="instructor-contact-value">Office hours: ${contact.officeHours ? e(contact.officeHours) : "N/A"}</span>${instructorCopyButton(contact.officeHours || "N/A", contact.officeHours ? "instructor office hours" : "office-hours availability")}</div>
+    const people = contacts.length ? contacts : [{}];
+    const rows = people.map((contact, index) => `<div class="instructor-contact-group">
+      ${instructorContactRow({ courseId, index, field: "name", label: "Instructor", iconName: "user", value: contact.name, copyLabel: "instructor name", editLabel: "instructor name" })}
+      ${instructorContactRow({ courseId, index, field: "email", label: "Email", iconName: "mail", value: contact.email, copyLabel: "instructor email", editLabel: "instructor email", valueHtml: contact.email ? `<a class="instructor-email" href="mailto:${e(contact.email)}">${e(contact.email)}</a>` : "" })}
+      ${instructorContactRow({ courseId, index, field: "officeHours", label: "Office hours", iconName: "clock", value: contact.officeHours, copyLabel: "instructor office hours", editLabel: "office hours" })}
     </div>`).join("");
     const syllabusRow = `<div class="instructor-contact-row instructor-syllabus-row"><span class="ico">${icon("book", 16)}</span><span class="instructor-contact-value">Syllabus: ${syllabus ? e(syllabus.title) : "N/A"}</span>${syllabusVisitButton(syllabus, courseId)}</div>`;
     return `<section class="card instructor-contact-card" aria-label="Instructor and course information">${rows}${syllabusRow}</section>`;
@@ -65,7 +78,7 @@
           </section>
         </div>
         <div class="course-side-column stack">
-          ${instructorContactCard(c.instructorContacts, model.syllabus, c.courseId)}
+          ${instructorContactCard(model.contacts, model.syllabus, c.courseId)}
           <section class="card card-pad sec-announcements">
             ${cardHead("Announcements", model.announcementTotal ? { href: `#/updates?course=${encodeURIComponent(c.courseId)}`, label: "View all" } : null, model.announcementTotal ? plural(model.announcementTotal, "announcement") : "")}
             ${model.announcements.length ? model.announcements.map(announcementRow).join("") : emptyState("", model.earlierAnnouncements.length ? "No announcements this term yet." : "This course has no announcements.")}

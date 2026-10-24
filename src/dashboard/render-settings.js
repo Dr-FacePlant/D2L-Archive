@@ -83,8 +83,14 @@
 
   function storageSection(model) {
     const previews = model.storage?.previews;
+    const edits = Number(model.contactEdits) || 0;
     return `<h2>Storage</h2>
-      <div class="setting"><div class="l"><b>Saved previews</b><span>${previews ? `${e(plural(previews.count, "file"))} · ${sizeLabel(previews.bytes)}. ` : ""}Files you open in Preview are kept on this computer so they open faster. The oldest go first after 300 MB.</span></div><button class="btn" type="button" data-action="clear-previews" ${previews?.count ? "" : "disabled"}>Clear</button></div>`;
+      <div class="setting"><div class="l"><b>Saved previews</b><span>${previews ? `${e(plural(previews.count, "file"))} · ${sizeLabel(previews.bytes)}. ` : ""}Files you open in Preview are kept on this computer so they open faster. The oldest go first after 300 MB.</span></div><button class="btn" type="button" data-action="clear-previews" ${previews?.count ? "" : "disabled"}>Clear</button></div>
+      <div class="setting"><div class="l"><b>Contact edits</b><span>${edits ? `${e(plural(edits, "field"))} you changed by hand` : "No hand-edited instructor names, emails, or office hours"}. Saved on this computer for this D2L account only.</span></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn" type="button" data-action="export-contact-edits" ${edits ? "" : "disabled"}>Export edits</button>
+          <button class="btn" type="button" data-action="import-contact-edits">Import edits</button>
+        </div></div>`;
   }
 
   function activitySection(model) {

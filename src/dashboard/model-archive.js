@@ -131,7 +131,7 @@
     const courses = allCourses.filter((course) => !hidden.has(course.courseId) && (!course.defaultHidden || shown.has(course.courseId)));
     const courseById = new Map(allCourses.map((course) => [course.courseId, course]));
     const visible = new Set(courses.map((course) => course.courseId));
-    const index = { raw, now, entities, byId, list, allCourses, courses, courseById, visible, lessonDue: lessonDeadlines(entities, byId) };
+    const index = { raw, now, entities, byId, list, allCourses, courses, courseById, visible, courseContactOverrides: raw.courseContactOverrides || {}, lessonDue: lessonDeadlines(entities, byId) };
     index.checklistLinks = checklistLinks(index);
     return index;
   }
