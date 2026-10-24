@@ -57,6 +57,19 @@ check(merged.next["1002"][0].email === "gov@kennesaw.edu", "untouched courses sh
 const same = dash.mergeContactOverrides(overrides, overrides);
 check(same.changed === 0, "re-importing the same edits should change nothing");
 
+// A saved syllabus link travels in the same backup, web links only.
+const withSyllabus = { "1001": { 0: { name: "Sarah Carrico" }, syllabus: { url: "https://simplesyllabus.com/doc/abc" } } };
+check(dash.contactEditCount(withSyllabus) === 2, "a syllabus link should count as one edit");
+const syllabusRoundTrip = dash.parseContactBackup(JSON.stringify(dash.contactBackupDocument(withSyllabus)));
+check(syllabusRoundTrip.ok === true && syllabusRoundTrip.overrides["1001"].syllabus.url === "https://simplesyllabus.com/doc/abc", "a syllabus link should survive the round trip");
+const unsafe = dash.parseContactBackup(JSON.stringify({ overrides: { "1001": { syllabus: { url: "javascript:alert(1)" } } } }));
+check(unsafe.ok === false, "a backup holding only an unsafe syllabus link should be refused");
+check(dash.safeSyllabusUrl("ftp://example.edu/x") === "" && dash.safeSyllabusUrl("not a link") === "" && dash.safeSyllabusUrl("") === "", "only http and https links should pass");
+check(dash.safeSyllabusUrl("  https://example.edu/syllabus  ") === "https://example.edu/syllabus", "a pasted link should be trimmed");
+const syllabusMerge = dash.mergeContactOverrides(withSyllabus, { "1001": { syllabus: { url: "https://example.edu/new" } } });
+check(syllabusMerge.changed === 1 && syllabusMerge.next["1001"].syllabus.url === "https://example.edu/new", "an imported syllabus link should win");
+check(syllabusMerge.next["1001"][0].name === "Sarah Carrico", "a syllabus import should leave contacts alone");
+
 const settings = read("src/dashboard/render-settings.js");
 const events = read("src/dashboard/app-events.js");
 const appearance = read("src/dashboard/app-appearance.js");

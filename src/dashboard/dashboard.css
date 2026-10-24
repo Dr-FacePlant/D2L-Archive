@@ -682,18 +682,15 @@ p { margin: 0; }
 .instructor-contact-row > .ico { width: 18px; height: 18px; flex: none; display: grid; place-items: center; color: var(--muted); }
 .instructor-contact-value { flex: 1; min-width: 0; color: inherit; overflow-wrap: anywhere; text-decoration: none; }
 .instructor-email { color: var(--link); }
-.instructor-copy, .instructor-visit { display: inline-flex; flex: none; align-items: center; justify-content: center; gap: 5px; min-height: 28px; margin-left: auto; padding: 4px 7px; border: 1px solid var(--line-3); border-radius: 6px; background: var(--surface); color: var(--ink-4); font: inherit; font-size: 11.5px; font-weight: 500; line-height: 1; white-space: nowrap; cursor: pointer; }
-.instructor-copy:hover, .instructor-visit:hover { border-color: var(--control-line-hover); background: var(--hover); color: var(--ink); }
-.instructor-visit { text-decoration: none; }
-.instructor-visit:hover { text-decoration: none; }
-.instructor-copy:disabled, .instructor-visit:disabled { opacity: .45; cursor: default; }
+.instructor-actions { display: flex; flex: none; align-items: center; gap: 4px; margin-left: auto; }
+.instructor-copy, .instructor-edit, .instructor-visit { display: inline-grid; flex: none; place-items: center; width: 28px; height: 28px; padding: 0; border: 1px solid var(--line-3); border-radius: 6px; background: var(--surface); color: var(--ink-4); text-decoration: none; cursor: pointer; transition: background .12s ease, border-color .12s ease, color .12s ease; }
+.instructor-copy:hover, .instructor-edit:hover, .instructor-visit:hover { border-color: var(--control-line-hover); background: var(--hover); color: var(--ink); text-decoration: none; }
+.instructor-copy:disabled, .instructor-visit:disabled { opacity: .4; cursor: default; }
 .instructor-copy:disabled:hover, .instructor-visit:disabled:hover { border-color: var(--line-3); background: var(--surface); color: var(--ink-4); }
-.instructor-copy svg, .instructor-visit svg { flex: none; }
-.instructor-edit { display: inline-flex; flex: none; align-items: center; justify-content: center; width: 28px; height: 28px; margin-left: auto; padding: 0; border: 1px solid transparent; border-radius: 6px; background: transparent; color: var(--muted); cursor: pointer; opacity: 0; transition: opacity .12s ease, background .12s ease, border-color .12s ease, color .12s ease; }
-.instructor-copy + .instructor-edit { margin-left: 0; }
-.instructor-contact-row:hover .instructor-edit, .instructor-contact-row:focus-within .instructor-edit, .instructor-edit:focus-visible { opacity: 1; }
-.instructor-edit:hover { border-color: var(--line-3); background: var(--hover); color: var(--ink); }
-@media (hover: none) { .instructor-edit { opacity: .8; } }
+.instructor-copy svg, .instructor-edit svg, .instructor-visit svg { flex: none; }
+.instructor-copy.is-copied, .instructor-copy.is-copied:hover { color: var(--good); }
+.instructor-copy.is-failed, .instructor-copy.is-failed:hover { color: var(--bad); }
+@media (pointer: coarse) { .instructor-copy, .instructor-edit, .instructor-visit { width: 36px; height: 36px; } }
 .instructor-contact-editor { display: flex; flex: 1; align-items: center; gap: 6px; min-width: 0; }
 .instructor-edit-input { flex: 1; min-width: 0; height: 30px; padding: 0 8px; border: 1px solid var(--line-3); border-radius: 6px; background: var(--surface); color: var(--ink); font: inherit; font-size: 13px; }
 .instructor-edit-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(var(--accent-rgb), .15); }

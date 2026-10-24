@@ -190,6 +190,8 @@
     // Manual contact edits sit on top of whatever the archive detected. A
     // course without a detected instructor still gets one editable row.
     const contactOverrides = index.courseContactOverrides?.[courseId] || {};
+    // A link the user saved replaces whatever syllabus the archive detected.
+    const syllabusLink = dash.safeSyllabusUrl?.(contactOverrides.syllabus?.url) || "";
     const contacts = (course.instructorContacts.length ? course.instructorContacts : [{}])
       .map((contact, index) => ({ name: "", email: "", officeHours: "", ...contact, ...(contactOverrides[index] || {}) }));
     return {
@@ -204,7 +206,8 @@
       announcements: announcements.slice(0, 5),
       announcementTotal: announcements.length,
       earlierAnnouncements,
-      syllabus: syllabus ? { id: syllabus.id, title: syllabus.title, from: syllabus.from || "Content" } : null,
+      syllabus: syllabusLink ? { id: "", title: "Custom link", from: "Custom", url: syllabusLink } : syllabus ? { id: syllabus.id, title: syllabus.title, from: syllabus.from || "Content" } : null,
+      syllabusOverride: syllabusLink,
       modules: modules.map((module) => ({ title: module.title, topics: module.topics, completion: module.completion, route: `#/resources/${encodeURIComponent(courseId)}?module=${encodeURIComponent(module.id)}` })),
       discussions: discussions.slice(0, 6),
       discussionTotal: discussions.length,

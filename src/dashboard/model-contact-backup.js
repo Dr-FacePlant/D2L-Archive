@@ -1,4 +1,4 @@
-// Portable backup of the manual instructor-contact edits. The edits live in
+// Portable backup of the manual instructor-contact and syllabus-link edits. The edits live in
 // this browser's storage, so this document is the only way to carry them to
 // another browser or back after a reinstall. It never contains D2L data.
 (function initDashboardContactBackup(global) {
@@ -10,9 +10,24 @@
   const FIELD_LIMITS = Object.freeze({ name: 200, email: 320, officeHours: 500 });
   const MAX_COURSES = 200;
   const MAX_CONTACTS = 50;
+  const SYLLABUS_KEY = "syllabus";
+  const MAX_URL_LENGTH = 2000;
   const UNSAFE_KEYS = new Set(["__proto__", "constructor", "prototype"]);
 
   const clean = (value) => String(value ?? "").trim();
+
+  // A syllabus link the user typed. Only web links are kept, so a pasted
+  // "javascript:" address can never reach an href.
+  function safeSyllabusUrl(value) {
+    const text = clean(value);
+    if (!text || text.length > MAX_URL_LENGTH) return "";
+    try {
+      const url = new URL(text);
+      return url.protocol === "http:" || url.protocol === "https:" ? url.href : "";
+    } catch {
+      return "";
+    }
+  }
 
   function normalizeOverrides(input) {
     const overrides = {};
@@ -25,6 +40,11 @@
       const kept = {};
       for (const [rawIndex, values] of Object.entries(contacts)) {
         if (Object.keys(kept).length >= MAX_CONTACTS) break;
+        if (rawIndex === SYLLABUS_KEY) {
+          const url = safeSyllabusUrl(values?.url);
+          if (url) kept[SYLLABUS_KEY] = { url };
+          continue;
+        }
         if (!/^\d{1,2}$/.test(rawIndex) || Number(rawIndex) >= MAX_CONTACTS) continue;
         if (!values || typeof values !== "object" || Array.isArray(values)) continue;
         const fields = {};
@@ -107,6 +127,7 @@
   Object.assign(dash, {
     CONTACT_BACKUP_KIND: KIND,
     normalizeContactOverrides: normalizeOverrides,
+    safeSyllabusUrl,
     contactEditCount,
     contactBackupDocument,
     parseContactBackup,

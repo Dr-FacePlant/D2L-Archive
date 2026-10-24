@@ -39,7 +39,10 @@ check(edited.contacts[0].officeHours === "", "a manual empty value should replac
 const editedHtml = dash.courseHomePage(edited);
 check(editedHtml.includes("Instructor: Sarah Carrico"), "the edited name should render");
 check(editedHtml.includes("manual@kennesaw.edu"), "the edited email should render");
-check((editedHtml.match(/data-action="edit-instructor"/g) || []).length === 3, "name, email and office hours should each have an edit pencil");
+check((editedHtml.match(/data-action="edit-instructor"/g) || []).length === 4, "name, email, office hours and syllabus should each have an edit pencil");
+check(!/<span>(?:Copy|Visit)<\/span>/.test(editedHtml) && !editedHtml.includes('class="copy-label"'), "copy and visit should be icon-only, with no text label");
+check(editedHtml.includes('aria-label="Edit syllabus link"'), "the syllabus pencil should name what it edits");
+check(editedHtml.includes('class="instructor-actions"'), "each row should group its action buttons");
 check(editedHtml.includes('data-field="email"'), "the email row should carry its edit field");
 check(editedHtml.includes('data-edit-value="manual@kennesaw.edu"'), "the editor should start from the saved value");
 check(editedHtml.includes('aria-label="Edit instructor name"'), "the pencil should name the field it edits");
@@ -53,11 +56,27 @@ const emptyHtml = dash.courseHomePage(empty);
 check(emptyHtml.includes("Instructor: N/A"), "a missing instructor name should read N/A");
 check(emptyHtml.includes("Email: N/A"), "a missing email should read N/A");
 check(emptyHtml.includes("Office hours: N/A"), "missing office hours should read N/A");
-check((emptyHtml.match(/data-action="edit-instructor"/g) || []).length === 3, "missing values should still be editable");
+check((emptyHtml.match(/data-action="edit-instructor"/g) || []).length === 4, "missing values and a missing syllabus should still be editable");
+check((emptyHtml.match(/class="instructor-copy"[^>]*disabled/g) || []).length === 3, "copy should stay visible but disabled when a row has no value");
+check(/class="instructor-visit"[^>]*disabled/.test(emptyHtml), "visit should stay visible but disabled when no syllabus is found");
+
+// A saved syllabus link replaces the detected syllabus and drives the Visit button.
+const link = "https://simplesyllabus.com/doc/abc";
+const linkedIndex = dash.buildIndex({ now: NOW, courses, entities, settings: {}, courseContactOverrides: { "1002": { syllabus: { url: link } } } });
+const linked = dash.courseHomeModel(linkedIndex, "1002");
+check(linked.syllabus?.url === link && linked.syllabusOverride === link, "a saved syllabus link should become the course syllabus");
+const linkedHtml = dash.courseHomePage(linked);
+check(linkedHtml.includes(`href="${link}"`), "Visit should point at the saved link");
+check(linkedHtml.includes('data-field="syllabus"') && linkedHtml.includes(`data-edit-value="${link}"`), "the syllabus editor should start from the saved link");
+const unsafeIndex = dash.buildIndex({ now: NOW, courses, entities, settings: {}, courseContactOverrides: { "1002": { syllabus: { url: "javascript:alert(1)" } } } });
+const unsafeModel = dash.courseHomeModel(unsafeIndex, "1002");
+check(unsafeModel.syllabus === null && !dash.courseHomePage(unsafeModel).includes("javascript:"), "an unsafe saved link should never reach an href");
 
 const events = read("src/dashboard/app-events.js");
 const archive = read("src/dashboard/app-archive.js");
 check(events.includes("async function saveContactOverride"), "saving a contact edit should be wired");
+check(events.includes("async function saveSyllabusOverride") && events.includes("dash.safeSyllabusUrl(value)"), "saving a syllabus link should be wired and validated");
+check(events.includes('dash.icon(copied ? "check" : "close", 15)'), "copy feedback should swap the icon, not a text label");
 check(events.includes("dash.accountBinding.scopedKey(COURSE_OVERRIDES_KEY, state.account.id)"), "edits should be stored per D2L account");
 check(events.includes('save.type = "submit"') && events.includes('cancel.textContent = "Cancel"'), "the inline editor should offer Save and Cancel");
 check(archive.includes("courseContactOverrides: await dash.accountBinding.loadScoped"), "the account binder should load saved edits");

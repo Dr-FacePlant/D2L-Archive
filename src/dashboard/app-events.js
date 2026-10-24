@@ -132,15 +132,11 @@
 
   // Saved to this D2L account's own local bucket, never to D2L. A later sync
   // cannot overwrite them because they are read after the archive is built.
-  async function saveContactOverride(courseId, contactIndex, field, value) {
+  async function persistContactOverrides(next) {
     if (!state.account.id) {
       toast("That change wasn't saved: the D2L account isn't known yet.");
       return false;
     }
-    const previous = state.courseContactOverrides || {};
-    const course = { ...(previous[courseId] || {}) };
-    course[contactIndex] = { ...(course[contactIndex] || {}), [field]: value };
-    const next = { ...previous, [courseId]: course };
     try {
       await chrome.storage.local.set({ [dash.accountBinding.scopedKey(COURSE_OVERRIDES_KEY, state.account.id)]: next });
     } catch {
@@ -150,6 +146,32 @@
     state.courseContactOverrides = next;
     if (state.index) state.index.courseContactOverrides = next;
     return true;
+  }
+
+  async function saveContactOverride(courseId, contactIndex, field, value) {
+    const previous = state.courseContactOverrides || {};
+    const course = { ...(previous[courseId] || {}) };
+    course[contactIndex] = { ...(course[contactIndex] || {}), [field]: value };
+    return persistContactOverrides({ ...previous, [courseId]: course });
+  }
+
+  // The syllabus link lives beside the contact edits so it shares their
+  // per-account bucket and backup file. An empty value goes back to the
+  // syllabus the archive detected.
+  async function saveSyllabusOverride(courseId, value) {
+    const url = dash.safeSyllabusUrl(value);
+    if (value && !url) {
+      toast("Enter a full web link that starts with http:// or https://.");
+      return false;
+    }
+    const previous = state.courseContactOverrides || {};
+    const course = { ...(previous[courseId] || {}) };
+    if (url) course.syllabus = { url };
+    else delete course.syllabus;
+    const next = { ...previous };
+    if (Object.keys(course).length) next[courseId] = course;
+    else delete next[courseId];
+    return persistContactOverrides(next);
   }
 
   // A file is the only way these local edits survive clearing extension data
@@ -214,7 +236,7 @@
     input.click();
   }
 
-  const CONTACT_FIELD_LABELS = Object.freeze({ name: "instructor name", email: "instructor email", officeHours: "office hours" });
+  const CONTACT_FIELD_LABELS = Object.freeze({ name: "instructor name", email: "instructor email", officeHours: "office hours", syllabus: "syllabus link" });
 
   function cancelContactEdit(row) {
     if (!row?.__instructorHTML) return;
@@ -231,7 +253,7 @@
     const label = CONTACT_FIELD_LABELS[field] || field;
     const value = row.dataset.editValue || "";
     row.querySelector(".instructor-contact-value")?.remove();
-    row.querySelectorAll(".instructor-copy, .instructor-edit").forEach((node) => node.remove());
+    row.querySelector(".instructor-actions")?.remove();
     const form = document.createElement("form");
     form.className = "instructor-contact-editor";
     form.dataset.contactEditor = "";
@@ -243,6 +265,10 @@
     input.autocomplete = "off";
     input.setAttribute("aria-label", `Edit ${label}`);
     if (field === "email") input.inputMode = "email";
+    if (field === "syllabus") {
+      input.inputMode = "url";
+      input.placeholder = "Paste a link, or leave empty to use the detected one";
+    }
     const save = document.createElement("button");
     save.className = "btn btn-primary instructor-save";
     save.type = "submit";
@@ -365,20 +391,24 @@
     if (action === "copy-instructor") {
       const value = actionNode.dataset.copyValue || "";
       const label = actionNode.dataset.copyLabel || "instructor information";
-      const text = actionNode.querySelector(".copy-label");
-      if (!value || !text) return;
+      if (!value) return;
       clearTimeout(actionNode.copyFeedbackTimer);
-      await copyToClipboard(value).then(() => {
-        text.textContent = "Copied";
-        actionNode.setAttribute("aria-label", `Copied ${label}`);
-      }).catch(() => {
-        text.textContent = "Failed";
-        actionNode.setAttribute("aria-label", `Couldn't copy ${label}`);
-      });
+      const copied = await copyToClipboard(value).then(() => true, () => false);
+      const status = actionNode.parentElement?.querySelector("[data-copy-status]");
+      const message = copied ? `Copied ${label}` : `Couldn't copy ${label}`;
+      actionNode.innerHTML = dash.icon(copied ? "check" : "close", 15);
+      actionNode.classList.toggle("is-copied", copied);
+      actionNode.classList.toggle("is-failed", !copied);
+      actionNode.setAttribute("aria-label", message);
+      actionNode.title = message;
+      if (status) status.textContent = message;
       actionNode.copyFeedbackTimer = setTimeout(() => {
         if (!actionNode.isConnected) return;
-        text.textContent = "Copy";
+        actionNode.innerHTML = dash.icon("copy", 15);
+        actionNode.classList.remove("is-copied", "is-failed");
         actionNode.setAttribute("aria-label", `Copy ${label}`);
+        actionNode.title = `Copy ${label}`;
+        if (status) status.textContent = "";
       }, 1400);
     } else if (action === "nav") {
       const href = actionNode.dataset.href;
@@ -652,7 +682,10 @@
       const contactIndex = row.dataset.contactIndex || "0";
       const field = row.dataset.field || "";
       const value = String(input.value || "").trim();
-      if (!await saveContactOverride(courseId, contactIndex, field, value)) {
+      const saved = field === "syllabus"
+        ? await saveSyllabusOverride(courseId, value)
+        : await saveContactOverride(courseId, contactIndex, field, value);
+      if (!saved) {
         input.focus();
         return;
       }
