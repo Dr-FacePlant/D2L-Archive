@@ -19,11 +19,11 @@ const quickLink = (type) => `https://kennesaw.view.usg.edu/d2l/common/dialogs/qu
 const topic = (id, title, extra = {}) => ({ entityId: `resource:${C}:${id}`, entityType: "learningResource", courseId: C, canonicalTitle: title, resourceType: "File", moduleId: "50", moduleTitle: "Week 3", order: Number(id), urls: {}, ...extra });
 const entities = [
   { entityId: `resource:${C}:50`, entityType: "learningResource", courseId: C, canonicalTitle: "Week 3", isModule: true, moduleId: "50" },
-  topic("1", "Week 3 Reading: Policing in America", { description: "Chapter 5 and two linked articles." }),
+  topic("1", "Week 3 Reading: Policing in America", { description: "Chapter 5 and two linked articles.", urls: { d2l: `https://kennesaw.view.usg.edu/d2l/le/content/${C}/viewContent/1/View` } }),
   topic("2", "Lecture: Police Discretion", { resourceType: "Link", progress: { visited: true } }),
   topic("3", "Reflection Paper", { resourceType: "Link", urls: { download: quickLink("dropbox") } }),
   topic("4", "Week 3 Quiz", { resourceType: "Link", urls: { download: quickLink("quiz") } }),
-  topic("5", "<img src=x onerror=alert(1)> Reading"),
+  topic("5", "<img src=x onerror=alert(1)> Reading", { urls: { d2l: "javascript:alert(1)" } }),
   { entityId: `assignmentBundle:${C}:11`, entityType: "assignmentBundle", courseId: C, canonicalTitle: "Reflection Paper", summary: "Write two pages on police discretion.", dates: { dueAt: "2026-10-28T03:59:00.000Z" }, gradeEntityId: `grade:${C}:7`, urls: {} },
   { entityId: `quizBundle:${C}:12`, entityType: "quizBundle", courseId: C, canonicalTitle: "Week 3 Quiz", description: "Ten questions.", dates: { dueAt: "2026-10-30T03:59:00.000Z" }, attempts: { completed: 0 }, urls: {} },
   { entityId: `grade:${C}:7`, entityType: "gradeRecord", courseId: C, canonicalTitle: "Reflection Paper", kind: "item", status: "pending", grade: {} },
@@ -40,11 +40,13 @@ const detail = (idx, name, id) => dash.detailFor(idx, { name, id }, {});
 // Assignment: content neighbors, work neighbors plus the grade, and a calendar event.
 const assignment = detail(index, "assignment", `assignmentBundle:${C}:11`);
 const groups = assignment?.related || [];
-check(groups.map((group) => group.id).join(",") === "content,work,calendar", `an assignment should list Content, Work & grades and Calendar, got ${groups.map((group) => group.id)}`);
+check(groups.map((group) => group.id).join(",") === "work,content,calendar", `an assignment should list Work & grades, Content and Calendar, got ${groups.map((group) => group.id)}`);
 const content = groupOf(groups, "content");
 check(content?.items.map((item) => item.title).join("|").startsWith("Week 3 Reading: Policing in America|Lecture: Police Discretion"), "content neighbors should follow the module's order");
 check(!content?.items.some((item) => item.title === "Reflection Paper" || item.title === "Week 3 Quiz"), "a topic that opens work should not be listed as content");
-check(content?.items[0].route === `#/resources/${C}?item=${encodeURIComponent(`resource:${C}:1`)}`, "a content pill should open the resource in the Content screen");
+check(content?.items[0].d2lUrl === `https://kennesaw.view.usg.edu/d2l/le/content/${C}/viewContent/1/View` && content.items[0].open === "Open in D2L", "a content pill should point at the item in D2L");
+check(content?.items[1].d2lUrl === "" && content.items[1].open === "Open content" && content.items[1].route === `#/resources/${C}?item=${encodeURIComponent(`resource:${C}:2`)}`, "a content item with no D2L link should fall back to the Content screen");
+check(!content?.items.some((item) => String(item.d2lUrl).startsWith("javascript:")), "a content link that is not a web address should never become an href");
 check(content?.items[1].facts[0]?.v === "Viewed", "a topic D2L reports as visited should say Viewed");
 check(content?.items[0].facts.length === 0, "a topic with no progress record should not claim it is unseen");
 const work = groupOf(groups, "work");
@@ -68,7 +70,11 @@ check(html.includes('<h2>Related items <span class="rel-count">6</span></h2>') &
 const detailCard = html.match(/<section class="card detail">([\s\S]*?)<\/section>/)?.[1] || "";
 check(html.includes('<section class="card related-card">') && !detailCard.includes("Related items"), "Related items should be its own card, not part of the content card");
 check(html.indexOf('class="card related-card"') > html.indexOf('class="card side-card"') && html.indexOf('class="card related-card"') > html.indexOf('class="card detail"'), "the Related items card should come after the content and to-do cards");
-check(/<a class="rel-pill" href="[^"]+" aria-describedby="(rel-tip-\d+)">[\s\S]*?role="tooltip" id="\1"/.test(html), "each hover card should be described by its own pill");
+check(/<a class="rel-pill" [^>]*aria-describedby="(rel-tip-\d+)">[\s\S]*?role="tooltip" id="\1"/.test(html), "each hover card should be described by its own pill");
+check(html.includes(`<a class="rel-pill" href="https://kennesaw.view.usg.edu/d2l/le/content/${C}/viewContent/1/View" rel="noopener noreferrer" data-d2l-link data-confirm-title="Week 3 Reading: Policing in America"`), "a content pill should be a D2L link that asks Open in D2L? first");
+check(html.includes(`<a class="rel-pill" href="#/resources/${C}?item=${encodeURIComponent(`resource:${C}:2`)}" aria-describedby=`) && html.includes("<span>Open in D2L</span>") && html.includes("<span>Open content</span>"), "a content item with no D2L link should still open the Content screen");
+check(!html.includes("javascript:"), "an unsafe link should never reach the page");
+check(html.indexOf('class="rel-label">Work &amp; grades<') < html.indexOf('class="rel-label">Content<') && html.indexOf('class="rel-label">Content<') < html.indexOf('class="rel-label">Calendar<'), "the groups should read Work & grades, Content, then Calendar");
 check(html.includes('class="rel-tile"') && html.includes("Open quiz"), "each pill should lead with an icon tile and its card should say what opens");
 check(!html.includes("<img src=x") && html.includes("&lt;img src=x"), "a topic title with markup should be escaped");
 check(html.indexOf("Related items") > html.indexOf("Instructions"), "Related items should sit below the instructions");

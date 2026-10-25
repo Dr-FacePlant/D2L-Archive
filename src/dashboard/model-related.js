@@ -50,8 +50,11 @@
     return { k: "Status", v, tone };
   }
 
+  // A content pill opens the item in D2L (through the usual "Open in D2L?"
+  // prompt). A topic with no web link falls back to the Content screen.
   function contentItem(index, topic, moduleTitle) {
     const resource = dash.resourceItem(index, topic);
+    const d2lUrl = /^https?:\/\//i.test(resource.d2lUrl) ? resource.d2lUrl : "";
     return {
       id: topic.entityId,
       kind: "content",
@@ -62,7 +65,8 @@
       // Only a topic D2L reports as visited says so; no record is not "unseen".
       facts: topic.progress ? [chip("Viewed", "good")] : [],
       route: dash.routeFor(topic),
-      open: "Open content"
+      d2lUrl,
+      open: d2lUrl ? "Open in D2L" : "Open content"
     };
   }
 
@@ -135,7 +139,7 @@
       });
   }
 
-  // Groups, in the order the pop-up lists them: Content, Work & grades, Calendar.
+  // Groups, in the order the pop-up lists them: Work & grades, Content, Calendar.
   // An empty group is dropped, so an archive with no module data shows only
   // what links exactly, and an item with nothing related shows no section.
   function relatedItems(index, entity, kind) {
@@ -151,8 +155,8 @@
     }
     const grade = gradeItem(index, entity);
     const groups = [
-      { id: "content", label: "Content", items: content.slice(0, MAX_CONTENT), more: content.length > MAX_CONTENT ? { count: content.length - MAX_CONTENT, route: `#/resources/${encodeURIComponent(entity.courseId)}?module=${encodeURIComponent(near.moduleId)}` } : null },
       { id: "work", label: "Work & grades", items: [...work.slice(0, MAX_WORK), grade].filter(Boolean), more: null },
+      { id: "content", label: "Content", items: content.slice(0, MAX_CONTENT), more: content.length > MAX_CONTENT ? { count: content.length - MAX_CONTENT, route: `#/resources/${encodeURIComponent(entity.courseId)}?module=${encodeURIComponent(near.moduleId)}` } : null },
       { id: "calendar", label: "Calendar", items: eventItems(index, entity), more: null }
     ];
     return groups.filter((group) => group.items.length);
