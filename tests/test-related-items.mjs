@@ -99,7 +99,7 @@ check(dash.detailPage(detail(dash.buildIndex({ now: NOW, courses: [course], enti
 // Wiring.
 const css = read("src/dashboard/dashboard.css");
 const events = read("src/dashboard/app-events.js");
-check(/\.rel:hover \.rel-tip, \.rel:focus-within \.rel-tip/.test(css), "the card should open on hover and on keyboard focus");
+check(/\.rel:hover \.rel-tip, \.rel:has\(:focus-visible\) \.rel-tip/.test(css), "the card should open on hover and on keyboard focus");
 check(css.includes("@media (hover: none) { .rel-tip { display: none; } }"), "touch screens should skip the hover card");
 check(css.includes('grid-template-areas: "head side" "main side" "related related"'), "the Related items card should span both columns under the content and to-do cards");
 check(css.includes('"head" "side" "main" "related"') && css.includes('"head" "main" "side" "related"'), "in a narrow pop-up the Related items card should come last");

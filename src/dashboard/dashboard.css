@@ -639,6 +639,8 @@ p { margin: 0; }
 .peek-text { margin: 16px 0 0; max-width: 68ch; font-size: 14px; line-height: 1.6; color: var(--ink-3); overflow-wrap: anywhere; }
 .peek-text.none { color: var(--muted); }
 @keyframes peekIn { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: none; } }
+/* The panel slides in once. Loading a file or stepping to the next item swaps its contents in place. */
+#related-peek.open .peek, #related-peek.open .peek-scrim { animation: none; }
 @media (max-width: 760px) { .peek { width: 100%; } }
 @media (prefers-reduced-motion: reduce) { .peek, .peek-scrim { animation: none; } }
 
@@ -850,7 +852,7 @@ button.rel-pill { font-family: inherit; cursor: pointer; }
 .rel-tip { position: absolute; left: 0; bottom: calc(100% + 8px); z-index: 6; width: max-content; max-width: min(300px, calc(100vw - 32px)); padding: 8px 12px; font-size: 12.5px; line-height: 1.4; border: 1px solid var(--line-3); border-radius: 10px; background: var(--surface); box-shadow: var(--shadow-pop); color: var(--ink-3); text-align: left; white-space: normal; opacity: 0; visibility: hidden; transform: translateY(3px); transition: opacity .12s ease, transform .12s ease, visibility .12s; pointer-events: none; }
 .rel.below .rel-tip { bottom: auto; top: calc(100% + 8px); transform: translateY(-3px); }
 .rel.end .rel-tip { left: auto; right: 0; }
-.rel:hover .rel-tip, .rel:focus-within .rel-tip { opacity: 1; visibility: visible; transform: none; }
+.rel:hover .rel-tip, .rel:has(:focus-visible) .rel-tip { opacity: 1; visibility: visible; transform: none; }
 @container detail (max-width: 560px) {
   .rel-group { display: block; }
   .rel-label { width: auto; padding: 0 0 6px; }

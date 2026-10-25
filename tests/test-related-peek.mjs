@@ -62,6 +62,8 @@ const render = read("src/dashboard/app-render.js");
 check(/\.detail-panel \{ position: relative;/.test(css) && /#related-peek \{ position: absolute; inset: 54px 0 0; z-index: 30; \}/.test(css), "the panel should sit inside the pop-up, under its header");
 check(/\.peek \{[^}]*width: 48%;/.test(css) && /\.rel-pill\.sel \{/.test(css) && /@media \(max-width: 760px\) \{ \.peek \{ width: 100%; \} \}/.test(css), "the panel should take about half the pop-up, the open pill should stay lit, and a narrow screen should fill it");
 check(!/\.rel-tip-(facts|foot|body|title|meta)|\.rel-chip/.test(css), "the old rich hover card styles should be gone");
+check(css.includes(".rel:has(:focus-visible) .rel-tip") && !css.includes(".rel:focus-within .rel-tip"), "closing the panel hands focus back to the pill, which should not pop its hover tip unless the keyboard is in use");
+check(/#related-peek\.open \.peek, #related-peek\.open \.peek-scrim \{ animation: none; \}/.test(css) && preview.includes('node.classList.toggle("open", !fresh)'), "the panel should slide in once; loading a file or stepping should swap its contents without replaying the slide");
 check(preview.includes("async function loadFile") && preview.includes("const shown = await loadFile(base);") && preview.includes("await loadFile({ ...item, name: \"\" })"), "the panel and the Content screen's viewer should share one file loader");
 check(preview.includes("part.inert = true") && preview.includes("part.inert = false"), "the pop-up behind the panel should be inert while it is open");
 check(preview.includes("state.peek?.ticket !== ticket") && preview.includes("URL.revokeObjectURL"), "a slow load should not replace a newer item, and old file URLs should be released");

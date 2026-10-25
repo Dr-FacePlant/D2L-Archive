@@ -184,14 +184,16 @@
     if (state.peek?.view?.src) URL.revokeObjectURL(state.peek.view.src);
     state.peek = { ...state.peek, view };
     let node = document.getElementById("related-peek");
+    const fresh = !node;
     const kept = node?.contains(document.activeElement) ? document.activeElement : null;
-    if (!node) {
+    if (fresh) {
       node = document.createElement("div");
       node.id = "related-peek";
       host.append(node);
       for (const part of host.children) if (part !== node) part.inert = true;
       node.style.top = `${host.querySelector(".detail-layer-head")?.offsetHeight || 54}px`;
     }
+    node.classList.toggle("open", !fresh);
     node.innerHTML = dash.relatedPeek(view);
     peekPills().forEach((pill, at) => pill.classList.toggle("sel", at === view.at));
     const again = kept && node.querySelector(`[data-action="${kept.dataset.action}"][data-step="${kept.dataset.step}"]:not([disabled])`);
