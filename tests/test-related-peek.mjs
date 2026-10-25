@@ -27,6 +27,7 @@ check(panel({ state: "ready", kind: "pdf", src: "blob:x", meta: "Museum visit ·
 check(pdf.includes('data-action="peek-step" data-step="-1"') && pdf.includes("2 of 6") && !/data-step="(-1|1)"[^>]*disabled/.test(pdf), "the arrows and position should show, both enabled in the middle");
 check(/data-step="-1"[^>]*disabled/.test(panel({ state: "page", at: 0 })) && /data-step="1"[^>]*disabled/.test(panel({ state: "page", at: 5 })), "the first item should have no previous arrow and the last no next arrow");
 check(!panel({ state: "page", count: 1, at: 0 }).includes("peek-pager"), "a lone item should show no arrows");
+check(pdf.includes('<b title="Step 2 Validation Form: Take to Museum">') && pdf.includes('<span title="Museum visit · File">'), "a title or line that is cut short should still show in full on hover");
 check(!panel({ state: "loading" }).includes("download=") && panel({ state: "loading" }).includes("Opening the file…"), "a loading file should say so and offer no Download");
 
 // Things the panel can't show say so, and still offer Open in D2L.
@@ -63,6 +64,7 @@ check(/\.detail-panel \{ position: relative;/.test(css) && /#related-peek \{ pos
 check(/\.peek \{[^}]*width: 48%;/.test(css) && /\.rel-pill\.sel \{/.test(css) && /@media \(max-width: 760px\) \{ \.peek \{ width: 100%; \} \}/.test(css), "the panel should take about half the pop-up, the open pill should stay lit, and a narrow screen should fill it");
 check(!/\.rel-tip-(facts|foot|body|title|meta)|\.rel-chip/.test(css), "the old rich hover card styles should be gone");
 check(css.includes(".rel:has(:focus-visible) .rel-tip") && !css.includes(".rel:focus-within .rel-tip"), "closing the panel hands focus back to the pill, which should not pop its hover tip unless the keyboard is in use");
+check(/\.peek-tt \{[^}]*min-height: calc\(2\.6 \* 15px \+ 2px \+ 17px\)/.test(css) && /\.peek-tt b \{[^}]*-webkit-line-clamp: 2;/.test(css) && /\.peek-tt span \{[^}]*text-overflow: ellipsis;/.test(css), "the panel header should always be two title lines tall, with longer titles cut, so nothing below it shifts");
 check(/#related-peek\.open \.peek, #related-peek\.open \.peek-scrim \{ animation: none; \}/.test(css) && preview.includes('node.classList.toggle("open", !fresh)'), "the panel should slide in once; loading a file or stepping should swap its contents without replaying the slide");
 check(preview.includes("async function loadFile") && preview.includes("const shown = await loadFile(base);") && preview.includes("await loadFile({ ...item, name: \"\" })"), "the panel and the Content screen's viewer should share one file loader");
 check(preview.includes("part.inert = true") && preview.includes("part.inert = false"), "the pop-up behind the panel should be inert while it is open");

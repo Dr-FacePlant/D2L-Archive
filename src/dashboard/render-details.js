@@ -304,7 +304,7 @@
       <aside class="peek" role="dialog" aria-modal="true" aria-label="${e(`Preview of ${view.title}`)}">
         <div class="peek-head">
           <span class="rel-tile big">${icon(view.icon || "doc", 16)}</span>
-          <div class="peek-tt"><b>${title}</b>${view.meta ? `<span>${e(view.meta)}</span>` : ""}</div>
+          <div class="peek-tt"><b title="${title}">${title}</b>${view.meta ? `<span title="${e(view.meta)}">${e(view.meta)}</span>` : ""}</div>
           <button class="icon-btn" type="button" data-action="close-peek" aria-label="Close preview">${icon("close", 18)}</button>
         </div>
         <div class="peek-bar">${open}${full}${save}${pager}</div>
