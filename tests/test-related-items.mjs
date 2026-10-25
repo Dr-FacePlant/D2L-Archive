@@ -1,5 +1,4 @@
-// Related items on an assignment or quiz pop-up: the grade record and calendar
-// events link by id, module neighbors by title plus tool kind. Nothing is
+// Related items on an assignment or quiz pop-up: the grade record links by id, module neighbors by title plus tool kind. Nothing is
 // listed when nothing links, and every title is escaped.
 process.env.TZ = "America/New_York";
 
@@ -28,7 +27,7 @@ const entities = [
   { entityId: `quizBundle:${C}:12`, entityType: "quizBundle", courseId: C, canonicalTitle: "Week 3 Quiz", description: "Ten questions.", dates: { dueAt: "2026-10-30T03:59:00.000Z" }, attempts: { completed: 0 }, urls: {} },
   { entityId: `grade:${C}:7`, entityType: "gradeRecord", courseId: C, canonicalTitle: "Reflection Paper", kind: "item", status: "pending", grade: {} },
   { entityId: `grade:${C}:8`, entityType: "gradeRecord", courseId: C, canonicalTitle: "Week 3 Quiz", kind: "item", status: "graded", sourceEntityId: `quizBundle:${C}:12`, grade: { pointsEarned: 9, pointsPossible: 10, displayed: "9 / 10" } },
-  // The item's own due date repeated on the calendar adds nothing; a different date does.
+  // Calendar events that target the item are left out of Related items.
   { entityId: `calendar:${C}:1`, entityType: "calendarEvent", courseId: C, canonicalTitle: "Reflection Paper - Due", eventLabel: "Due", targetEntityId: `assignmentBundle:${C}:11`, dates: { dueAt: "2026-10-28T03:59:00.000Z" } },
   { entityId: `calendar:${C}:2`, entityType: "calendarEvent", courseId: C, canonicalTitle: "Reflection Paper - Peer review", eventLabel: "Peer review", targetEntityId: `assignmentBundle:${C}:11`, dates: { startAt: "2026-10-29T14:00:00.000Z" } }
 ];
@@ -37,10 +36,10 @@ const index = dash.buildIndex({ now: NOW, courses: [course], entities });
 const groupOf = (groups, id) => groups.find((group) => group.id === id);
 const detail = (idx, name, id) => dash.detailFor(idx, { name, id }, {});
 
-// Assignment: content neighbors, work neighbors plus the grade, and a calendar event.
+// Assignment: content neighbors, work neighbors plus the grade. Calendar events are not listed.
 const assignment = detail(index, "assignment", `assignmentBundle:${C}:11`);
 const groups = assignment?.related || [];
-check(groups.map((group) => group.id).join(",") === "work,content,calendar", `an assignment should list Work & grades, Content and Calendar, got ${groups.map((group) => group.id)}`);
+check(groups.map((group) => group.id).join(",") === "work,content", `an assignment should list Work & grades, then Content, and no Calendar, got ${groups.map((group) => group.id)}`);
 const content = groupOf(groups, "content");
 check(content?.items.map((item) => item.title).join("|").startsWith("Week 3 Reading: Policing in America|Lecture: Police Discretion"), "content neighbors should follow the module's order");
 check(!content?.items.some((item) => item.title === "Reflection Paper" || item.title === "Week 3 Quiz"), "a topic that opens work should not be listed as content");
@@ -58,9 +57,7 @@ const quizPill = work?.items[0];
 check(quizPill?.peek?.mode === "summary" && quizPill.peek.route === quizPill.route && quizPill.peek.meta === "Quiz · Week 3" && quizPill.peek.text === "Ten questions.", "a quiz pill should open a summary that links to its own pop-up");
 check(quizPill?.peek?.facts.map((fact) => fact.k).join(",") === "Due,Status" && quizPill.peek.facts[0].v.includes("Oct 29") && quizPill.peek.facts.at(-1).v === "Open", `a quiz summary should list its due date and status, got ${JSON.stringify(quizPill?.peek?.facts)}`);
 check(grade?.peek?.mode === "summary" && grade.peek.facts[0].v === "Not graded yet" && grade.peek.text === "D2L hasn't posted a grade yet.", "a grade pill should open a summary of where it stands");
-const calendar = groupOf(groups, "calendar");
-check(calendar?.items.length === 1 && calendar.items[0].title === "Reflection Paper - Peer review", "only a calendar event with a different date should be listed");
-check(calendar.items.every((item) => !item.peek), "a calendar pill should stay a plain link");
+check(!groupOf(groups, "calendar"), "calendar events should not be listed, even when one targets the item");
 
 // Quiz: its grade is found from the grade record's source when the quiz has no gradeEntityId.
 const quizModel = detail(index, "quiz", `quizBundle:${C}:12`);
@@ -71,7 +68,7 @@ check(groupOf(quizGroups, "work")?.items.some((item) => item.kind === "assignmen
 
 // Rendering: side labels, icon-tile pill, hover card tied to its pill, escaped titles.
 const html = dash.detailPage(assignment, { body: true });
-check(html.includes('<h2>Related items <span class="rel-count">6</span></h2>') && html.includes('class="rel-label">Content<'), "the page should show a Related items card with a count and side labels");
+check(html.includes('<h2>Related items <span class="rel-count">5</span></h2>') && html.includes('class="rel-label">Content<'), "the page should show a Related items card with a count and side labels");
 const detailCard = html.match(/<section class="card detail">([\s\S]*?)<\/section>/)?.[1] || "";
 check(html.includes('<section class="card related-card">') && !detailCard.includes("Related items"), "Related items should be its own card, not part of the content card");
 check(html.indexOf('class="card related-card"') > html.indexOf('class="card side-card"') && html.indexOf('class="card related-card"') > html.indexOf('class="card detail"'), "the Related items card should come after the content and to-do cards");
@@ -79,7 +76,7 @@ check(/<(?:a|button) class="rel-pill" [^>]*aria-describedby="(rel-tip-\d+)">[\s\
 check(html.includes('<button class="rel-pill" type="button" data-action="peek-item" data-peek="') && html.includes(`&quot;d2lUrl&quot;:&quot;https://kennesaw.view.usg.edu/d2l/le/content/${C}/viewContent/1/View&quot;`), "a content pill should open the side panel and carry its D2L link");
 check(html.includes(`<a class="rel-pill" href="#/resources/${C}?item=${encodeURIComponent(`resource:${C}:2`)}" aria-describedby=`), "a content item with nothing to show should still open the Content screen");
 check(!html.includes("javascript:"), "an unsafe link should never reach the page");
-check(html.indexOf('class="rel-label">Work &amp; grades<') < html.indexOf('class="rel-label">Content<') && html.indexOf('class="rel-label">Content<') < html.indexOf('class="rel-label">Calendar<'), "the groups should read Work & grades, Content, then Calendar");
+check(html.indexOf('class="rel-label">Work &amp; grades<') < html.indexOf('class="rel-label">Content<') && !html.includes('class="rel-label">Calendar<') && !html.includes("Peer review"), "the page should read Work & grades, then Content, with no Calendar");
 check(html.includes('class="rel-tile"') && html.includes('role="tooltip" id="rel-tip-1">Quiz · Week 3 · ') && !html.includes("rel-tip-foot") && !html.includes("rel-tip-facts"), "each pill should lead with an icon tile and show a one-line hover card");
 check(!html.includes("<img src=x") && html.includes("&lt;img src=x"), "a topic title with markup should be escaped");
 check(html.indexOf("Related items") > html.indexOf("Instructions"), "Related items should sit below the instructions");
@@ -90,7 +87,7 @@ const bareModel = detail(bare, "assignment", `assignmentBundle:${C}:11`);
 check((bareModel?.related || []).length === 0 && !dash.detailPage(bareModel, { body: true }).includes("Related items"), "an item with nothing related should show no section");
 const noModules = dash.buildIndex({ now: NOW, courses: [course], entities: entities.filter((entity) => entity.entityType !== "learningResource") });
 const exactOnly = detail(noModules, "assignment", `assignmentBundle:${C}:11`)?.related || [];
-check(exactOnly.map((group) => group.id).join(",") === "work,calendar" && exactOnly[0].items.length === 1, "without module data only the grade and calendar links should remain");
+check(exactOnly.map((group) => group.id).join(",") === "work" && exactOnly[0].items.length === 1, "without module data only the grade link should remain");
 
 // A long module folds into "+N more" that opens the module.
 const many = [entities[0], ...Array.from({ length: 12 }, (_, n) => topic(String(100 + n), `Reading ${n + 1}`)), topic("3", "Reflection Paper", { resourceType: "Link", urls: { download: quickLink("dropbox") } }), entities[6]];
@@ -115,4 +112,4 @@ if (failures.length) {
   for (const failure of failures) console.error(`FAIL: ${failure}`);
   process.exit(1);
 }
-console.log("Related items link the grade and calendar by id, module neighbors by title, and hide when empty.");
+console.log("Related items link the grade by id, module neighbors by title, and hide when empty.");

@@ -1,7 +1,7 @@
 // "Related items" at the bottom of an assignment or quiz pop-up.
 //
-// What D2L links by id, and so is exact: the item's grade record and any
-// calendar event that targets it. What it doesn't: a content module names an
+// What D2L links by id, and so is exact: the item's grade record. What it
+// doesn't: a content module names an
 // assignment or quiz only by title and tool kind, so module neighbors are found
 // the way lesson deadlines are (title plus kind) and left out when nothing
 // matches. Announcements carry no link to an item, so they are not listed.
@@ -13,7 +13,6 @@
   const WORK_LABELS = Object.freeze({ quiz: "Quiz", assignment: "Assignment", discussion: "Discussion" });
   const MAX_CONTENT = 6;
   const MAX_WORK = 6;
-  const MAX_EVENTS = 3;
 
   const norm = (title) => String(title || "").replace(/\s+/g, " ").trim().toLowerCase();
   const byOrder = (a, b) => (a.order ?? 1e9) - (b.order ?? 1e9) || String(a.canonicalTitle).localeCompare(String(b.canonicalTitle));
@@ -51,7 +50,7 @@
   // Work, grade and content pills open the side panel; `peek` carries what it
   // needs. Work and grades get a short summary. A content topic shows its file,
   // or is described when there is none, and falls back to the Content screen
-  // when there is nothing behind it at all. Calendar pills stay plain links.
+  // when there is nothing behind it at all.
   function contentItem(index, topic, moduleTitle) {
     const resource = dash.resourceItem(index, topic);
     const peek = {
@@ -142,28 +141,7 @@
     };
   }
 
-  // A calendar event that only repeats the item's own due date adds nothing.
-  function eventItems(index, entity) {
-    const own = entity.dates?.dueAt ? dash.time(entity.dates.dueAt) : NaN;
-    return index.list(entity.courseId, "calendarEvent")
-      .filter((event) => event.targetEntityId === entity.entityId)
-      .filter((event) => !(event.eventLabel === "Due" && dash.time(event.dates?.dueAt || event.dates?.startAt) === own))
-      .slice(0, MAX_EVENTS)
-      .map((event) => {
-        const at = event.dates?.dueAt || event.dates?.startAt || null;
-        const when = at ? dash.fmtDateTime(at, index.now) : "";
-        return {
-          id: event.entityId,
-          kind: "event",
-          icon: "calendar",
-          title: event.canonicalTitle,
-          line: ["Calendar", event.eventLabel || "Event", when].filter(Boolean).join(" · "),
-          route: dash.routeFor(event)
-        };
-      });
-  }
-
-  // Groups, in the order the pop-up lists them: Work & grades, Content, Calendar.
+  // Groups, in the order the pop-up lists them: Work & grades, then Content.
   // An empty group is dropped, so an archive with no module data shows only
   // what links exactly, and an item with nothing related shows no section.
   function relatedItems(index, entity, kind) {
@@ -180,8 +158,7 @@
     const grade = gradeItem(index, entity);
     const groups = [
       { id: "work", label: "Work & grades", items: [...work.slice(0, MAX_WORK), grade].filter(Boolean), more: null },
-      { id: "content", label: "Content", items: content.slice(0, MAX_CONTENT), more: content.length > MAX_CONTENT ? { count: content.length - MAX_CONTENT, route: `#/resources/${encodeURIComponent(entity.courseId)}?module=${encodeURIComponent(near.moduleId)}` } : null },
-      { id: "calendar", label: "Calendar", items: eventItems(index, entity), more: null }
+      { id: "content", label: "Content", items: content.slice(0, MAX_CONTENT), more: content.length > MAX_CONTENT ? { count: content.length - MAX_CONTENT, route: `#/resources/${encodeURIComponent(entity.courseId)}?module=${encodeURIComponent(near.moduleId)}` } : null }
     ];
     return groups.filter((group) => group.items.length);
   }

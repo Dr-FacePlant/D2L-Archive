@@ -95,7 +95,7 @@
 
   // Related items: side labels and an icon-tile pill per item, with a one-line
   // hover card (also shown on keyboard focus). A pill with something to show
-  // opens the side panel; a calendar pill is a plain link.
+  // opens the side panel; one with nothing behind it is a plain link.
   function relatedPill(item, id) {
     const label = `<span class="rel-tile">${icon(item.icon, 13)}</span><span class="rel-name">${e(item.title)}</span>`;
     const pill = item.peek
