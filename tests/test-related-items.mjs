@@ -44,16 +44,16 @@ check(groups.map((group) => group.id).join(",") === "work,content,calendar", `an
 const content = groupOf(groups, "content");
 check(content?.items.map((item) => item.title).join("|").startsWith("Week 3 Reading: Policing in America|Lecture: Police Discretion"), "content neighbors should follow the module's order");
 check(!content?.items.some((item) => item.title === "Reflection Paper" || item.title === "Week 3 Quiz"), "a topic that opens work should not be listed as content");
-check(content?.items[0].d2lUrl === `https://kennesaw.view.usg.edu/d2l/le/content/${C}/viewContent/1/View` && content.items[0].open === "Open in D2L", "a content pill should point at the item in D2L");
-check(content?.items[1].d2lUrl === "" && content.items[1].open === "Open content" && content.items[1].route === `#/resources/${C}?item=${encodeURIComponent(`resource:${C}:2`)}`, "a content item with no D2L link should fall back to the Content screen");
-check(!content?.items.some((item) => String(item.d2lUrl).startsWith("javascript:")), "a content link that is not a web address should never become an href");
-check(content?.items[1].facts[0]?.v === "Viewed", "a topic D2L reports as visited should say Viewed");
-check(content?.items[0].facts.length === 0, "a topic with no progress record should not claim it is unseen");
+check(content?.items[0].peek?.d2lUrl === `https://kennesaw.view.usg.edu/d2l/le/content/${C}/viewContent/1/View` && content.items[0].peek.title === "Week 3 Reading: Policing in America", "a content pill should carry the item's D2L link for the side panel");
+check(content?.items[1].peek === null && content.items[1].route === `#/resources/${C}?item=${encodeURIComponent(`resource:${C}:2`)}`, "a content item with nothing to show should fall back to the Content screen");
+check(!content?.items.some((item) => String(item.peek?.d2lUrl).startsWith("javascript:")) && content?.items.find((item) => item.title.startsWith("<img"))?.peek === null, "a content link that is not a web address should never reach the panel");
+check(content?.items[1].line === "Link · Week 3 · Viewed", `a topic D2L reports as visited should say Viewed in its hover line, got ${content?.items[1].line}`);
+check(content?.items[0].line === "File · Week 3" && !content.items[0].line.includes("Viewed"), "a topic with no progress record should not claim it is unseen");
 const work = groupOf(groups, "work");
 check(work?.items[0]?.kind === "quiz" && work.items[0].route === `#/quiz/${encodeURIComponent(`quizBundle:${C}:12`)}`, "a quiz in the same module should open its own pop-up");
 check(!work?.items.some((item) => item.kind === "assignment"), "the item should not list itself");
 const grade = work?.items.find((item) => item.kind === "grade");
-check(grade?.route === `#/grade/${encodeURIComponent(`grade:${C}:7`)}` && grade.facts[0].v === "Not graded yet", "the grade pill should link by id and say it isn't graded yet");
+check(grade?.route === `#/grade/${encodeURIComponent(`grade:${C}:7`)}` && grade.line === "Grade item · Not graded yet", "the grade pill should link by id and say it isn't graded yet");
 const calendar = groupOf(groups, "calendar");
 check(calendar?.items.length === 1 && calendar.items[0].title === "Reflection Paper - Peer review", "only a calendar event with a different date should be listed");
 
@@ -61,7 +61,7 @@ check(calendar?.items.length === 1 && calendar.items[0].title === "Reflection Pa
 const quizModel = detail(index, "quiz", `quizBundle:${C}:12`);
 const quizGroups = quizModel?.related || [];
 const quizGrade = groupOf(quizGroups, "work")?.items.find((item) => item.kind === "grade");
-check(quizGrade?.facts[0].v === "Graded · 9 / 10" && quizGrade.facts[0].tone === "good", `a graded quiz should show its score, got ${quizGrade?.facts[0]?.v}`);
+check(quizGrade?.line === "Grade item · Graded · 9 / 10", `a graded quiz should show its score, got ${quizGrade?.line}`);
 check(groupOf(quizGroups, "work")?.items.some((item) => item.kind === "assignment"), "a quiz should list the assignment in its module");
 
 // Rendering: side labels, icon-tile pill, hover card tied to its pill, escaped titles.
@@ -70,12 +70,12 @@ check(html.includes('<h2>Related items <span class="rel-count">6</span></h2>') &
 const detailCard = html.match(/<section class="card detail">([\s\S]*?)<\/section>/)?.[1] || "";
 check(html.includes('<section class="card related-card">') && !detailCard.includes("Related items"), "Related items should be its own card, not part of the content card");
 check(html.indexOf('class="card related-card"') > html.indexOf('class="card side-card"') && html.indexOf('class="card related-card"') > html.indexOf('class="card detail"'), "the Related items card should come after the content and to-do cards");
-check(/<a class="rel-pill" [^>]*aria-describedby="(rel-tip-\d+)">[\s\S]*?role="tooltip" id="\1"/.test(html), "each hover card should be described by its own pill");
-check(html.includes(`<a class="rel-pill" href="https://kennesaw.view.usg.edu/d2l/le/content/${C}/viewContent/1/View" rel="noopener noreferrer" data-d2l-link data-confirm-title="Week 3 Reading: Policing in America"`), "a content pill should be a D2L link that asks Open in D2L? first");
-check(html.includes(`<a class="rel-pill" href="#/resources/${C}?item=${encodeURIComponent(`resource:${C}:2`)}" aria-describedby=`) && html.includes("<span>Open in D2L</span>") && html.includes("<span>Open content</span>"), "a content item with no D2L link should still open the Content screen");
+check(/<(?:a|button) class="rel-pill" [^>]*aria-describedby="(rel-tip-\d+)">[\s\S]*?<div class="rel-tip" role="tooltip" id="\1">[^<]+<\/div>/.test(html), "each pill should be described by its own one-line hover card");
+check(html.includes('<button class="rel-pill" type="button" data-action="peek-content" data-peek="') && html.includes(`&quot;d2lUrl&quot;:&quot;https://kennesaw.view.usg.edu/d2l/le/content/${C}/viewContent/1/View&quot;`), "a content pill should open the side panel and carry its D2L link");
+check(html.includes(`<a class="rel-pill" href="#/resources/${C}?item=${encodeURIComponent(`resource:${C}:2`)}" aria-describedby=`), "a content item with nothing to show should still open the Content screen");
 check(!html.includes("javascript:"), "an unsafe link should never reach the page");
 check(html.indexOf('class="rel-label">Work &amp; grades<') < html.indexOf('class="rel-label">Content<') && html.indexOf('class="rel-label">Content<') < html.indexOf('class="rel-label">Calendar<'), "the groups should read Work & grades, Content, then Calendar");
-check(html.includes('class="rel-tile"') && html.includes("Open quiz"), "each pill should lead with an icon tile and its card should say what opens");
+check(html.includes('class="rel-tile"') && html.includes('role="tooltip" id="rel-tip-1">Quiz · Week 3 · ') && !html.includes("rel-tip-foot") && !html.includes("rel-tip-facts"), "each pill should lead with an icon tile and show a one-line hover card");
 check(!html.includes("<img src=x") && html.includes("&lt;img src=x"), "a topic title with markup should be escaped");
 check(html.indexOf("Related items") > html.indexOf("Instructions"), "Related items should sit below the instructions");
 

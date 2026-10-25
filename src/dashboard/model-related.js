@@ -18,12 +18,6 @@
   const norm = (title) => String(title || "").replace(/\s+/g, " ").trim().toLowerCase();
   const byOrder = (a, b) => (a.order ?? 1e9) - (b.order ?? 1e9) || String(a.canonicalTitle).localeCompare(String(b.canonicalTitle));
 
-  function excerpt(text, max = 120) {
-    const clean = dash.plainText(text || "").replace(/\s+/g, " ").trim();
-    if (clean.length <= max) return clean;
-    return `${clean.slice(0, max).replace(/\s+\S*$/, "")}…`;
-  }
-
   // D2L's quick link says which tool a content topic opens (type=quiz, ...).
   function topicKind(topic) {
     const type = String(topic.urls?.download || topic.urls?.external || "").match(/[?&]type=(discuss|quiz|dropbox)\b/)?.[1];
@@ -46,43 +40,45 @@
     };
   }
 
-  function chip(v, tone = "neutral") {
-    return { k: "Status", v, tone };
-  }
+  const web = (url) => /^https?:\/\//i.test(url || "") ? url : "";
 
-  // A content pill opens the item in D2L (through the usual "Open in D2L?"
-  // prompt). A topic with no web link falls back to the Content screen.
+  // A content pill opens the side panel when there is something behind it to
+  // show (a file, a D2L page, a link). `peek` carries what the panel needs. A
+  // topic with none of those falls back to the Content screen.
   function contentItem(index, topic, moduleTitle) {
     const resource = dash.resourceItem(index, topic);
-    const d2lUrl = /^https?:\/\//i.test(resource.d2lUrl) ? resource.d2lUrl : "";
+    const peek = {
+      title: topic.canonicalTitle,
+      icon: resource.icon,
+      type: resource.type,
+      module: moduleTitle,
+      // Only a topic D2L reports as visited says so; no record is not "unseen".
+      visited: resource.visited,
+      d2lUrl: web(resource.d2lUrl),
+      downloadUrl: web(resource.downloadUrl),
+      localPath: resource.localPath,
+      external: web(resource.external)
+    };
     return {
       id: topic.entityId,
       kind: "content",
       icon: resource.icon,
       title: topic.canonicalTitle,
-      meta: [resource.type, moduleTitle].filter(Boolean).join(" · "),
-      text: excerpt(topic.description),
-      // Only a topic D2L reports as visited says so; no record is not "unseen".
-      facts: topic.progress ? [chip("Viewed", "good")] : [],
-      route: dash.routeFor(topic),
-      d2lUrl,
-      open: d2lUrl ? "Open in D2L" : "Open content"
+      line: [resource.type, moduleTitle, resource.visited ? "Viewed" : ""].filter(Boolean).join(" · "),
+      peek: peek.d2lUrl || peek.downloadUrl || peek.localPath || peek.external ? peek : null,
+      route: dash.routeFor(topic)
     };
   }
 
   function workItemFor(index, entity, kind, moduleTitle) {
     const item = dash.workItem(index, entity);
-    const due = item.dueAt ? dash.fmtDateTime(item.dueAt, index.now) : "";
     return {
       id: entity.entityId,
       kind,
       icon: WORK_ICONS[kind],
       title: entity.canonicalTitle,
-      meta: [WORK_LABELS[kind], moduleTitle].filter(Boolean).join(" · "),
-      text: excerpt(entity.summary || entity.description || entity.prompt),
-      facts: [due ? { k: "Due", v: due } : null, chip(item.status.label, item.status.tone)].filter(Boolean),
-      route: dash.routeFor(entity),
-      open: `Open ${kind}`
+      line: [WORK_LABELS[kind], moduleTitle, item.status.label].filter(Boolean).join(" · "),
+      route: dash.routeFor(entity)
     };
   }
 
@@ -107,11 +103,8 @@
       kind: "grade",
       icon: "grade",
       title: grade.canonicalTitle,
-      meta: "Grade item · Grades",
-      text: graded ? (score ? `Your score: ${score}.` : "D2L has graded this.") : "D2L hasn't posted a grade yet.",
-      facts: [graded ? chip(score ? `Graded · ${score}` : "Graded", "good") : chip("Not graded yet")],
-      route: dash.routeFor(grade),
-      open: "Open grade"
+      line: `Grade item · ${graded ? (score ? `Graded · ${score}` : "Graded") : "Not graded yet"}`,
+      route: dash.routeFor(grade)
     };
   }
 
@@ -130,11 +123,8 @@
           kind: "event",
           icon: "calendar",
           title: event.canonicalTitle,
-          meta: `Calendar · ${event.eventLabel || "Event"}`,
-          text: when,
-          facts: [],
-          route: dash.routeFor(event),
-          open: "Open event"
+          line: ["Calendar", event.eventLabel || "Event", when].filter(Boolean).join(" · "),
+          route: dash.routeFor(event)
         };
       });
   }

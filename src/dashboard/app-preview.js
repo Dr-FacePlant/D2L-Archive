@@ -114,31 +114,129 @@
     if (focus?.isConnected) focus.focus({ preventScroll: true });
   }
 
-  async function previewFile(node) {
-    const base = { name: node.dataset.name || "File", localPath: node.dataset.path || "", d2lUrl: node.dataset.d2l || "", downloadUrl: node.dataset.download || "" };
-    if (!extensionAlive()) return showPreview({ ...base, state: "stale" });
+  // Loads a file for preview and says what to show: the file itself, or why not.
+  async function loadFile(base) {
     const named = base.localPath || base.name;
     let match = PREVIEW_KINDS.find(([pattern]) => pattern.test(named));
     // A file whose name says it can't be shown (a .zip, a Word file) isn't downloaded.
-    if (!match && /\.[a-z0-9]{2,5}$/i.test(named)) return showPreview({ ...base, state: "unsupported" });
+    if (!match && /\.[a-z0-9]{2,5}$/i.test(named)) return { state: "unsupported" };
+    const found = await fileFromD2l(base.downloadUrl) || await fileFromComputer(base.localPath);
+    if (typeof found === "string") return { state: found };
+    match ||= PREVIEW_TYPES.find(([pattern]) => pattern.test(found.type || ""));
+    if (!match) return { state: "unsupported" };
+    const [, kind, type] = match;
+    if (kind === "text") return { state: "ready", kind, text: (await found.text()).slice(0, 200000) };
+    const typed = type && found.type !== type ? new Blob([found], { type }) : found;
+    return { state: "ready", kind, mime: typed.type, src: URL.createObjectURL(typed) };
+  }
+
+  function loadFailure(error) {
+    return !extensionAlive() || /context invalidated/i.test(error?.message || "")
+      ? { state: "stale" }
+      : { state: "error", message: `The file couldn't be read: ${error.message}` };
+  }
+
+  async function previewFile(node) {
+    const base = { name: node.dataset.name || "File", localPath: node.dataset.path || "", d2lUrl: node.dataset.d2l || "", downloadUrl: node.dataset.download || "" };
+    if (!extensionAlive()) return showPreview({ ...base, state: "stale" });
     const ticket = previewFile.ticket = (previewFile.ticket || 0) + 1;
     showPreview({ ...base, state: "loading" });
     try {
-      const found = await fileFromD2l(base.downloadUrl) || await fileFromComputer(base.localPath);
+      const shown = await loadFile(base);
       if (!state.preview || previewFile.ticket !== ticket) return;
-      if (typeof found === "string") return showPreview({ ...base, state: found });
-      match ||= PREVIEW_TYPES.find(([pattern]) => pattern.test(found.type || ""));
-      if (!match) return showPreview({ ...base, state: "unsupported" });
-      const [, kind, type] = match;
-      if (kind === "text") return showPreview({ ...base, state: "ready", kind, text: (await found.text()).slice(0, 200000) });
-      const typed = type && found.type !== type ? new Blob([found], { type }) : found;
-      showPreview({ ...base, state: "ready", kind, src: URL.createObjectURL(typed) });
+      showPreview({ ...base, ...shown });
     } catch (error) {
       if (!state.preview || previewFile.ticket !== ticket) return;
-      if (!extensionAlive() || /context invalidated/i.test(error?.message || "")) return showPreview({ ...base, state: "stale" });
-      showPreview({ ...base, state: "error", message: `The file couldn't be read: ${error.message}` });
+      showPreview({ ...base, ...loadFailure(error) });
     }
   }
 
-  Object.assign(mod, { extensionAlive, fileUrlOf, readLocalFile, isD2lFileUrl, blobFromDataUrl, fileScope, fileFromD2l, fileFromComputer, showPreview, closePreview, previewFile, PREVIEW_KINDS, PREVIEW_TYPES });
+  // ------------------------------------------- side panel for a Content item
+  // A Content pill in Related items opens a panel over the right half of the
+  // pop-up. It shows the item when it can (a PDF, an image, a video, plain
+  // text) and otherwise says so, with Open in D2L. The arrows step through the
+  // Content pills on screen.
+
+  function peekHost() {
+    return document.getElementById("detail-root")?.querySelector(".detail-panel");
+  }
+
+  function peekPills() {
+    return [...document.querySelectorAll(".related-card [data-action='peek-content']")];
+  }
+
+  function peekItem(pill) {
+    try { return JSON.parse(pill.dataset.peek); } catch { return null; }
+  }
+
+  // What the panel can do with an item: load a file, or only describe it.
+  function peekKind(item) {
+    if (item.localPath || isD2lFileUrl(item.downloadUrl)) return "file";
+    return item.external ? "link" : "page";
+  }
+
+  function showPeek(view) {
+    const host = peekHost();
+    if (!host) return;
+    if (state.peek?.view?.src) URL.revokeObjectURL(state.peek.view.src);
+    state.peek = { ...state.peek, view };
+    let node = document.getElementById("content-peek");
+    const kept = node?.contains(document.activeElement) ? document.activeElement : null;
+    if (!node) {
+      node = document.createElement("div");
+      node.id = "content-peek";
+      host.append(node);
+      for (const part of host.children) if (part !== node) part.inert = true;
+      node.style.top = `${host.querySelector(".detail-layer-head")?.offsetHeight || 54}px`;
+    }
+    node.innerHTML = dash.contentPeek(view);
+    peekPills().forEach((pill, at) => pill.classList.toggle("sel", at === view.at));
+    const again = kept && node.querySelector(`[data-action="${kept.dataset.action}"][data-step="${kept.dataset.step}"]:not([disabled])`);
+    (again || node.querySelector("[aria-label='Close preview']"))?.focus();
+  }
+
+  async function openPeekAt(at) {
+    const pills = peekPills();
+    const item = pills[at] && peekItem(pills[at]);
+    if (!item) return;
+    const ticket = state.peek.ticket = (state.peek.ticket || 0) + 1;
+    const base = { ...item, at, count: pills.length };
+    const kind = peekKind(item);
+    if (kind !== "file") return showPeek({ ...base, state: kind });
+    if (!extensionAlive()) return showPeek({ ...base, state: "stale" });
+    showPeek({ ...base, state: "loading" });
+    try {
+      // The title is a label, not a file name, so only a saved copy's name is used to guess the type.
+      const shown = await loadFile({ ...item, name: "" });
+      if (state.peek?.ticket !== ticket) return void (shown.src && URL.revokeObjectURL(shown.src));
+      showPeek({ ...base, ...shown });
+    } catch (error) {
+      if (state.peek?.ticket === ticket) showPeek({ ...base, ...loadFailure(error) });
+    }
+  }
+
+  function peekContent(pill) {
+    if (!state.peek) state.peek = { focus: pill };
+    return openPeekAt(peekPills().indexOf(pill));
+  }
+
+  function stepPeek(by) {
+    const at = state.peek?.view?.at;
+    if (at === undefined) return;
+    return openPeekAt(at + by);
+  }
+
+  function closePeek({ restoreFocus = true } = {}) {
+    const current = state.peek;
+    if (!current) return;
+    state.peek = null;
+    if (current.view?.src) URL.revokeObjectURL(current.view.src);
+    document.getElementById("content-peek")?.remove();
+    const host = peekHost();
+    if (host) for (const part of host.children) part.inert = false;
+    document.querySelectorAll(".related-card .rel-pill.sel").forEach((pill) => pill.classList.remove("sel"));
+    if (restoreFocus && current.focus?.isConnected) current.focus.focus({ preventScroll: true });
+  }
+
+  Object.assign(mod, { extensionAlive, fileUrlOf, readLocalFile, isD2lFileUrl, blobFromDataUrl, fileScope, fileFromD2l, fileFromComputer, showPreview, closePreview, previewFile, peekContent, stepPeek, closePeek, PREVIEW_KINDS, PREVIEW_TYPES });
 })(globalThis);

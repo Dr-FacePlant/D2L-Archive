@@ -93,16 +93,15 @@
     return `<div class="checklist-progress" aria-live="polite"><strong>${done} of ${steps.length} done</strong><span>${e(hint)}</span></div>${stepList(model)}`;
   }
 
-  // The gray line over the title: course, then what kind of item it is.
-  // Related items: side labels, an icon-tile pill per item, and a hover card
-  // (also shown on keyboard focus) with the facts. A pill is a plain link.
-  function relatedChip(fact) {
-    return `<span class="rel-chip ${e(fact.tone || "neutral")}">${e(fact.v)}</span>`;
-  }
-
+  // Related items: side labels and an icon-tile pill per item, with a one-line
+  // hover card (also shown on keyboard focus). A Content pill that has
+  // something behind it opens the side panel; every other pill is a plain link.
   function relatedPill(item, id) {
-    const facts = item.facts?.length ? `<div class="rel-tip-facts">${item.facts.map((fact) => `<div><div class="k">${e(fact.k)}</div><div class="v">${fact.k === "Status" ? relatedChip(fact) : e(fact.v)}</div></div>`).join("")}</div>` : "";
-    return `<span class="rel"><a class="rel-pill" ${item.d2lUrl ? `href="${e(item.d2lUrl)}" rel="noopener noreferrer" data-d2l-link data-confirm-title="${e(item.title)}"` : `href="${e(item.route)}"`} aria-describedby="${id}"><span class="rel-tile">${icon(item.icon, 13)}</span><span class="rel-name">${e(item.title)}</span></a><div class="rel-tip" role="tooltip" id="${id}"><div class="rel-tip-top"><span class="rel-tile big">${icon(item.icon, 16)}</span><div class="rel-tip-tt"><div class="rel-tip-title">${e(item.title)}</div>${item.meta ? `<div class="rel-tip-meta">${e(item.meta)}</div>` : ""}</div></div>${item.text ? `<div class="rel-tip-body">${e(item.text)}</div>` : ""}${facts}<div class="rel-tip-foot">${icon("arrowRight", 13)}<span>${e(item.open)}</span></div></div></span>`;
+    const label = `<span class="rel-tile">${icon(item.icon, 13)}</span><span class="rel-name">${e(item.title)}</span>`;
+    const pill = item.peek
+      ? `<button class="rel-pill" type="button" data-action="peek-content" data-peek="${e(JSON.stringify(item.peek))}" aria-haspopup="dialog" aria-describedby="${id}">${label}</button>`
+      : `<a class="rel-pill" href="${e(item.route)}" aria-describedby="${id}">${label}</a>`;
+    return `<span class="rel">${pill}<div class="rel-tip" role="tooltip" id="${id}">${e(item.line)}</div></span>`;
   }
 
   // Its own card under both columns, so it spans from the content card to the
@@ -113,6 +112,7 @@
     return `<section class="card related-card"><h2>Related items <span class="rel-count">${total}</span></h2><div class="related">${groups.map((group) => `<div class="rel-group"><div class="rel-label">${e(group.label)}</div><div class="rel-pills">${group.items.map((item) => relatedPill(item, `rel-tip-${++count}`)).join("")}${group.more ? `<a class="rel-more" href="${e(group.more.route)}">+${e(group.more.count)} more</a>` : ""}</div></div>`).join("")}</div></section>`;
   }
 
+  // The gray line over the title: course, then what kind of item it is.
   function detailMeta(model) {
     const course = model.course;
     const parts = model.meta || [TYPE_LABEL[model.kind], model.forum].filter(Boolean);
@@ -241,14 +241,18 @@
     error: "The file couldn't be read."
   });
 
-  function filePreview(view) {
-    const body = view.state === "ready"
-      ? view.kind === "pdf" ? `<iframe src="${e(view.src)}" title="${e(view.name)}"></iframe>`
-        : view.kind === "image" ? `<img src="${e(view.src)}" alt="${e(view.name)}">`
+  function previewBody(view) {
+    return view.state === "ready"
+      ? view.kind === "pdf" ? `<iframe src="${e(view.src)}" title="${e(view.name || view.title)}"></iframe>`
+        : view.kind === "image" ? `<img src="${e(view.src)}" alt="${e(view.name || view.title)}">`
         : view.kind === "video" ? `<video src="${e(view.src)}" controls></video>`
         : view.kind === "audio" ? `<audio src="${e(view.src)}" controls></audio>`
         : `<pre>${e(view.text || "")}</pre>`
       : `<div class="viewer-note">${e(view.message || PREVIEW_NOTES[view.state] || PREVIEW_NOTES.error)}${view.state === "stale" ? `<button class="btn btn-primary" type="button" data-action="reload-page">Reload</button>` : ""}</div>`;
+  }
+
+  function filePreview(view) {
+    const body = previewBody(view);
     return `<div class="viewer" data-action="close-preview" data-backdrop="true">
       <div class="viewer-panel" role="dialog" aria-modal="true" aria-label="${e(`Preview of ${view.name}`)}">
         <div class="viewer-head">
@@ -263,7 +267,46 @@
   }
 
 
+  // ------------------------------------------- side panel for a Content item
+
+  const PEEK_EXT = Object.freeze({ "application/pdf": ".pdf", "image/png": ".png", "image/jpeg": ".jpg", "image/gif": ".gif", "image/webp": ".webp", "image/svg+xml": ".svg", "video/mp4": ".mp4", "audio/mpeg": ".mp3" });
+
+  function siteOf(url) {
+    try { return new URL(url).hostname.replace(/^www\./i, ""); } catch { return ""; }
+  }
+
+  // What the panel says when it can't show the item itself. Word and
+  // PowerPoint files, links and D2L pages all end here, with Open in D2L.
+  function peekNote(view) {
+    if (view.state === "unsupported") return "This kind of file can't be shown here. Open it in D2L to read it.";
+    if (view.state === "page") return "This is a page in D2L, which can't be shown here yet. Open it in D2L to read it.";
+    if (view.state === "link") return `This links to ${siteOf(view.external) || "another site"}, which can't be shown here.`;
+    return "";
+  }
+
+  function contentPeek(view) {
+    const title = e(view.title);
+    const message = peekNote(view);
+    const open = view.d2lUrl
+      ? `<a class="btn btn-primary" href="${e(view.d2lUrl)}" rel="noopener noreferrer" data-d2l-link data-confirm-title="${title}">Open in D2L ${icon("external", 14)}</a>`
+      : view.external ? `<a class="btn btn-primary" href="${e(view.external)}" rel="noopener noreferrer" data-confirm-external="${title}">Open link ${icon("external", 14)}</a>` : "";
+    const save = view.state === "ready" && view.src ? `<a class="btn" href="${e(view.src)}" download="${e(`${view.title}${PEEK_EXT[view.mime] || ""}`)}">Download</a>` : "";
+    const step = (by, label, name) => `<button class="icon-btn" type="button" data-action="peek-step" data-step="${by}" aria-label="${label}" ${view.at + by < 0 || view.at + by >= view.count ? "disabled" : ""}>${icon(name, 18)}</button>`;
+    const pager = view.count > 1 ? `<span class="peek-pager">${step(-1, "Previous item", "chevronLeft")}<span aria-live="polite">${view.at + 1} of ${view.count}</span>${step(1, "Next item", "chevronRight")}</span>` : "";
+    const meta = [view.module, view.type, view.visited ? "Viewed" : ""].filter(Boolean).join(" · ");
+    return `<div class="peek-scrim" data-action="close-peek"></div>
+      <aside class="peek" role="dialog" aria-modal="true" aria-label="${e(`Preview of ${view.title}`)}">
+        <div class="peek-head">
+          <span class="rel-tile big">${icon(view.icon || "doc", 16)}</span>
+          <div class="peek-tt"><b>${title}</b>${meta ? `<span>${e(meta)}</span>` : ""}</div>
+          <button class="icon-btn" type="button" data-action="close-peek" aria-label="Close preview">${icon("close", 18)}</button>
+        </div>
+        <div class="peek-bar">${open}${save}${pager}</div>
+        <div class="viewer-body peek-body ${e(view.state === "ready" ? view.kind : "note")}">${previewBody(message ? { ...view, message } : view)}</div>
+      </aside>`;
+  }
+
   Object.assign(dash, {
-    followNote, stepRow, stepList, hideLine, moreLink, todoCard, checklistBody, detailMeta, detailPage, detailShell, detailBody, detailLayer, filePreview, HIDEABLE_KINDS, TYPE_LABEL, WORK_KINDS, STEP_WORD, PREVIEW_NOTES
+    followNote, stepRow, stepList, hideLine, moreLink, todoCard, checklistBody, detailMeta, detailPage, detailShell, detailBody, detailLayer, filePreview, contentPeek, HIDEABLE_KINDS, TYPE_LABEL, WORK_KINDS, STEP_WORD, PREVIEW_NOTES
   });
 })(globalThis);

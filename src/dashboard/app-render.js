@@ -2,7 +2,7 @@
 (function initDashboardAppRender(global) {
   const dash = global.D2LDashboard ||= {};
   const mod = dash.appModules ||= {};
-  const { $, DEFAULT_AVATAR_SVG, adoptNotice, api, bundleFor, main, recreatedNotice, rememberScreen, renderSettings, renderUserProfile, state, toast } = dash.appModules;
+  const { $, DEFAULT_AVATAR_SVG, adoptNotice, api, bundleFor, closePeek, main, recreatedNotice, rememberScreen, renderSettings, renderUserProfile, state, toast } = dash.appModules;
   // ------------------------------------------------------------- render
 
   const NAV = [
@@ -75,6 +75,7 @@
     const current = state.detail;
     state.detail = null;
     state.detailRenderToken += 1;
+    closePeek({ restoreFocus: false });
     const root = detailRoot();
     if (root) root.innerHTML = "";
     setBaseInert(false);
@@ -94,6 +95,7 @@
     if (!root) return;
     const layer = root.querySelector(".detail-layer");
     if (!layer || (layer.dataset.kind || "detail") !== kind) {
+      closePeek({ restoreFocus: false });
       root.innerHTML = kind === "settings" ? dash.settingsShell() : dash.detailShell(context);
       requestAnimationFrame(() => root.querySelector(".detail-panel")?.focus({ preventScroll: true }));
     }
@@ -146,8 +148,11 @@
     if (!body || !panel) return;
     // Redrawing the same item (after Mark as done, say) keeps Show more open.
     const titleOf = () => body.querySelector("#detail-content-title")?.textContent;
-    const reopen = body.querySelector(".detail-layout.is-open") ? titleOf() : null;
+    const shown = titleOf();
+    const reopen = body.querySelector(".detail-layout.is-open") ? shown : null;
     body.innerHTML = html;
+    // A side panel opened over one item doesn't carry over to another.
+    if (state.peek && titleOf() !== shown) closePeek({ restoreFocus: false });
     if (reopen && titleOf() === reopen) setDetailMore(body.querySelector(".detail-layout"), true);
     fitDetailClamp(body);
     body.setAttribute("aria-busy", String(busy));
