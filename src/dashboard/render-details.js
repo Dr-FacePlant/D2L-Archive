@@ -94,12 +94,12 @@
   }
 
   // Related items: side labels and an icon-tile pill per item, with a one-line
-  // hover card (also shown on keyboard focus). A Content pill that has
-  // something behind it opens the side panel; every other pill is a plain link.
+  // hover card (also shown on keyboard focus). A pill with something to show
+  // opens the side panel; a calendar pill is a plain link.
   function relatedPill(item, id) {
     const label = `<span class="rel-tile">${icon(item.icon, 13)}</span><span class="rel-name">${e(item.title)}</span>`;
     const pill = item.peek
-      ? `<button class="rel-pill" type="button" data-action="peek-content" data-peek="${e(JSON.stringify(item.peek))}" aria-haspopup="dialog" aria-describedby="${id}">${label}</button>`
+      ? `<button class="rel-pill" type="button" data-action="peek-item" data-peek="${e(JSON.stringify(item.peek))}" aria-haspopup="dialog" aria-describedby="${id}">${label}</button>`
       : `<a class="rel-pill" href="${e(item.route)}" aria-describedby="${id}">${label}</a>`;
     return `<span class="rel">${pill}<div class="rel-tip" role="tooltip" id="${id}">${e(item.line)}</div></span>`;
   }
@@ -267,12 +267,18 @@
   }
 
 
-  // ------------------------------------------- side panel for a Content item
+  // ------------------------------------------ side panel for Related items
 
   const PEEK_EXT = Object.freeze({ "application/pdf": ".pdf", "image/png": ".png", "image/jpeg": ".jpg", "image/gif": ".gif", "image/webp": ".webp", "image/svg+xml": ".svg", "video/mp4": ".mp4", "audio/mpeg": ".mp3" });
 
   function siteOf(url) {
     try { return new URL(url).hostname.replace(/^www\./i, ""); } catch { return ""; }
+  }
+
+  // The panel's summary of a quiz, assignment or grade.
+  function peekSummary(view) {
+    const facts = view.facts?.length ? `<div class="facts">${view.facts.map((fact) => `<div class="fact"><div class="k">${e(fact.k)}</div><div class="v">${e(fact.v)}</div></div>`).join("")}</div>` : "";
+    return `<div class="peek-body peek-summary">${facts}${view.text ? `<p class="peek-text">${e(view.text)}</p>` : `<p class="peek-text none">No description.</p>`}</div>`;
   }
 
   // What the panel says when it can't show the item itself. Word and
@@ -284,7 +290,7 @@
     return "";
   }
 
-  function contentPeek(view) {
+  function relatedPeek(view) {
     const title = e(view.title);
     const message = peekNote(view);
     const open = view.d2lUrl
@@ -293,20 +299,20 @@
     const save = view.state === "ready" && view.src ? `<a class="btn" href="${e(view.src)}" download="${e(`${view.title}${PEEK_EXT[view.mime] || ""}`)}">Download</a>` : "";
     const step = (by, label, name) => `<button class="icon-btn" type="button" data-action="peek-step" data-step="${by}" aria-label="${label}" ${view.at + by < 0 || view.at + by >= view.count ? "disabled" : ""}>${icon(name, 18)}</button>`;
     const pager = view.count > 1 ? `<span class="peek-pager">${step(-1, "Previous item", "chevronLeft")}<span aria-live="polite">${view.at + 1} of ${view.count}</span>${step(1, "Next item", "chevronRight")}</span>` : "";
-    const meta = [view.module, view.type, view.visited ? "Viewed" : ""].filter(Boolean).join(" · ");
+    const full = view.mode === "summary" ? `<a class="btn" href="${e(view.route)}">Open full page</a>` : "";
     return `<div class="peek-scrim" data-action="close-peek"></div>
       <aside class="peek" role="dialog" aria-modal="true" aria-label="${e(`Preview of ${view.title}`)}">
         <div class="peek-head">
           <span class="rel-tile big">${icon(view.icon || "doc", 16)}</span>
-          <div class="peek-tt"><b>${title}</b>${meta ? `<span>${e(meta)}</span>` : ""}</div>
+          <div class="peek-tt"><b>${title}</b>${view.meta ? `<span>${e(view.meta)}</span>` : ""}</div>
           <button class="icon-btn" type="button" data-action="close-peek" aria-label="Close preview">${icon("close", 18)}</button>
         </div>
-        <div class="peek-bar">${open}${save}${pager}</div>
-        <div class="viewer-body peek-body ${e(view.state === "ready" ? view.kind : "note")}">${previewBody(message ? { ...view, message } : view)}</div>
+        <div class="peek-bar">${open}${full}${save}${pager}</div>
+        ${view.state === "summary" ? peekSummary(view) : `<div class="viewer-body peek-body ${e(view.state === "ready" ? view.kind : "note")}">${previewBody(message ? { ...view, message } : view)}</div>`}
       </aside>`;
   }
 
   Object.assign(dash, {
-    followNote, stepRow, stepList, hideLine, moreLink, todoCard, checklistBody, detailMeta, detailPage, detailShell, detailBody, detailLayer, filePreview, contentPeek, HIDEABLE_KINDS, TYPE_LABEL, WORK_KINDS, STEP_WORD, PREVIEW_NOTES
+    followNote, stepRow, stepList, hideLine, moreLink, todoCard, checklistBody, detailMeta, detailPage, detailShell, detailBody, detailLayer, filePreview, relatedPeek, HIDEABLE_KINDS, TYPE_LABEL, WORK_KINDS, STEP_WORD, PREVIEW_NOTES
   });
 })(globalThis);

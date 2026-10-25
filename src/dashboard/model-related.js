@@ -40,20 +40,26 @@
     };
   }
 
+  function excerpt(text, max = 360) {
+    const clean = dash.plainText(text || "").replace(/\s+/g, " ").trim();
+    if (clean.length <= max) return clean;
+    return `${clean.slice(0, max).replace(/\s+\S*$/, "")}…`;
+  }
+
   const web = (url) => /^https?:\/\//i.test(url || "") ? url : "";
 
-  // A content pill opens the side panel when there is something behind it to
-  // show (a file, a D2L page, a link). `peek` carries what the panel needs. A
-  // topic with none of those falls back to the Content screen.
+  // Work, grade and content pills open the side panel; `peek` carries what it
+  // needs. Work and grades get a short summary. A content topic shows its file,
+  // or is described when there is none, and falls back to the Content screen
+  // when there is nothing behind it at all. Calendar pills stay plain links.
   function contentItem(index, topic, moduleTitle) {
     const resource = dash.resourceItem(index, topic);
     const peek = {
+      mode: "content",
       title: topic.canonicalTitle,
       icon: resource.icon,
-      type: resource.type,
-      module: moduleTitle,
       // Only a topic D2L reports as visited says so; no record is not "unseen".
-      visited: resource.visited,
+      meta: [moduleTitle, resource.type, resource.visited ? "Viewed" : ""].filter(Boolean).join(" · "),
       d2lUrl: web(resource.d2lUrl),
       downloadUrl: web(resource.downloadUrl),
       localPath: resource.localPath,
@@ -72,13 +78,29 @@
 
   function workItemFor(index, entity, kind, moduleTitle) {
     const item = dash.workItem(index, entity);
+    const due = item.dueAt ? dash.fmtDateTime(item.dueAt, index.now) : "";
+    const route = dash.routeFor(entity);
     return {
       id: entity.entityId,
       kind,
       icon: WORK_ICONS[kind],
       title: entity.canonicalTitle,
       line: [WORK_LABELS[kind], moduleTitle, item.status.label].filter(Boolean).join(" · "),
-      route: dash.routeFor(entity)
+      peek: {
+        mode: "summary",
+        title: entity.canonicalTitle,
+        icon: WORK_ICONS[kind],
+        meta: [WORK_LABELS[kind], moduleTitle].filter(Boolean).join(" · "),
+        facts: [
+          due ? { k: "Due", v: due } : null,
+          item.points ? { k: "Worth", v: item.points } : null,
+          { k: "Status", v: item.score ? `${item.status.label} · ${item.score}` : item.status.label }
+        ].filter(Boolean),
+        text: excerpt(entity.summary || entity.description || entity.prompt),
+        d2lUrl: web(item.d2lUrl),
+        route
+      },
+      route
     };
   }
 
@@ -98,13 +120,25 @@
     if (!grade) return null;
     const graded = dash.isGradedGrade(grade);
     const score = dash.gradeLabel(grade);
+    const label = graded ? (score ? `Graded · ${score}` : "Graded") : "Not graded yet";
+    const route = dash.routeFor(grade);
     return {
       id: grade.entityId,
       kind: "grade",
       icon: "grade",
       title: grade.canonicalTitle,
-      line: `Grade item · ${graded ? (score ? `Graded · ${score}` : "Graded") : "Not graded yet"}`,
-      route: dash.routeFor(grade)
+      line: `Grade item · ${label}`,
+      peek: {
+        mode: "summary",
+        title: grade.canonicalTitle,
+        icon: "grade",
+        meta: "Grade item · Grades",
+        facts: [{ k: "Status", v: label }],
+        text: graded ? (score ? `Your score: ${score}.` : "D2L has graded this.") : "D2L hasn't posted a grade yet.",
+        d2lUrl: web(grade.urls?.d2l),
+        route
+      },
+      route
     };
   }
 

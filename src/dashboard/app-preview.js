@@ -151,26 +151,29 @@
     }
   }
 
-  // ------------------------------------------- side panel for a Content item
-  // A Content pill in Related items opens a panel over the right half of the
-  // pop-up. It shows the item when it can (a PDF, an image, a video, plain
-  // text) and otherwise says so, with Open in D2L. The arrows step through the
-  // Content pills on screen.
+  // ------------------------------------------ side panel for Related items
+  // A Work & grades or Content pill in Related items opens a panel over the
+  // right half of the pop-up. Work and grades get a short summary. A content
+  // topic shows its file when it can (a PDF, an image, a video, plain text) and
+  // otherwise says so, with Open in D2L. The arrows step through the pills that
+  // open the panel, in the order they are on screen.
 
   function peekHost() {
     return document.getElementById("detail-root")?.querySelector(".detail-panel");
   }
 
   function peekPills() {
-    return [...document.querySelectorAll(".related-card [data-action='peek-content']")];
+    return [...document.querySelectorAll(".related-card [data-action='peek-item']")];
   }
 
   function peekItem(pill) {
     try { return JSON.parse(pill.dataset.peek); } catch { return null; }
   }
 
-  // What the panel can do with an item: load a file, or only describe it.
+  // What the panel can do with an item: summarize it, load its file, or only
+  // describe it.
   function peekKind(item) {
+    if (item.mode === "summary") return "summary";
     if (item.localPath || isD2lFileUrl(item.downloadUrl)) return "file";
     return item.external ? "link" : "page";
   }
@@ -180,16 +183,16 @@
     if (!host) return;
     if (state.peek?.view?.src) URL.revokeObjectURL(state.peek.view.src);
     state.peek = { ...state.peek, view };
-    let node = document.getElementById("content-peek");
+    let node = document.getElementById("related-peek");
     const kept = node?.contains(document.activeElement) ? document.activeElement : null;
     if (!node) {
       node = document.createElement("div");
-      node.id = "content-peek";
+      node.id = "related-peek";
       host.append(node);
       for (const part of host.children) if (part !== node) part.inert = true;
       node.style.top = `${host.querySelector(".detail-layer-head")?.offsetHeight || 54}px`;
     }
-    node.innerHTML = dash.contentPeek(view);
+    node.innerHTML = dash.relatedPeek(view);
     peekPills().forEach((pill, at) => pill.classList.toggle("sel", at === view.at));
     const again = kept && node.querySelector(`[data-action="${kept.dataset.action}"][data-step="${kept.dataset.step}"]:not([disabled])`);
     (again || node.querySelector("[aria-label='Close preview']"))?.focus();
@@ -215,7 +218,7 @@
     }
   }
 
-  function peekContent(pill) {
+  function openPeek(pill) {
     if (!state.peek) state.peek = { focus: pill };
     return openPeekAt(peekPills().indexOf(pill));
   }
@@ -231,12 +234,12 @@
     if (!current) return;
     state.peek = null;
     if (current.view?.src) URL.revokeObjectURL(current.view.src);
-    document.getElementById("content-peek")?.remove();
+    document.getElementById("related-peek")?.remove();
     const host = peekHost();
     if (host) for (const part of host.children) part.inert = false;
     document.querySelectorAll(".related-card .rel-pill.sel").forEach((pill) => pill.classList.remove("sel"));
     if (restoreFocus && current.focus?.isConnected) current.focus.focus({ preventScroll: true });
   }
 
-  Object.assign(mod, { extensionAlive, fileUrlOf, readLocalFile, isD2lFileUrl, blobFromDataUrl, fileScope, fileFromD2l, fileFromComputer, showPreview, closePreview, previewFile, peekContent, stepPeek, closePeek, PREVIEW_KINDS, PREVIEW_TYPES });
+  Object.assign(mod, { extensionAlive, fileUrlOf, readLocalFile, isD2lFileUrl, blobFromDataUrl, fileScope, fileFromD2l, fileFromComputer, showPreview, closePreview, previewFile, openPeek, stepPeek, closePeek, PREVIEW_KINDS, PREVIEW_TYPES });
 })(globalThis);

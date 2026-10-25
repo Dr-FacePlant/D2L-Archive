@@ -2,7 +2,7 @@
 (function initDashboardAppEvents(global) {
   const dash = global.D2LDashboard ||= {};
   const mod = dash.appModules ||= {};
-  const { $, COURSE_OVERRIDES_KEY, EMBEDDED, READ_KEY, RECREATED_SEEN_KEY, SETTINGS_KEY, adoptLegacyArchive, api, backFromDetail, closeDetailToBase, closeLinkConfirm, closeOverlay, closePeek, closePreview, detailRoot, exportActivity, fileScope, look, main, moveGradeCarousel, navigateToDetail, openArchivedFile, openConfirmedD2l, openConfirmedLink, previewConfirmedFile, peekContent, previewFile, recordActivity, redrawAdoptNotice, refreshIfStaleOnFocus, rememberScreen, render, renderSyncStatus, saveLook, setChecklistDone, setDetailMore, stepPeek, setWorkMark, showFileOpen, showLinkConfirm, startSync, state, storageSet, toast, updateGradeCarouselControls, wait } = dash.appModules;
+  const { $, COURSE_OVERRIDES_KEY, EMBEDDED, READ_KEY, RECREATED_SEEN_KEY, SETTINGS_KEY, adoptLegacyArchive, api, backFromDetail, closeDetailToBase, closeLinkConfirm, closeOverlay, closePeek, closePreview, detailRoot, exportActivity, fileScope, look, main, moveGradeCarousel, navigateToDetail, openArchivedFile, openConfirmedD2l, openConfirmedLink, previewConfirmedFile, openPeek, previewFile, recordActivity, redrawAdoptNotice, refreshIfStaleOnFocus, rememberScreen, render, renderSyncStatus, saveLook, setChecklistDone, setDetailMore, stepPeek, setWorkMark, showFileOpen, showLinkConfirm, startSync, state, storageSet, toast, updateGradeCarouselControls, wait } = dash.appModules;
   // ------------------------------------------------------------- events
 
   function markRead(ids, value = true) {
@@ -488,8 +488,8 @@
       render();
     } else if (action === "open-file") {
       openArchivedFile(actionNode.dataset.path);
-    } else if (action === "peek-content") {
-      peekContent(actionNode);
+    } else if (action === "peek-item") {
+      openPeek(actionNode);
     } else if (action === "peek-step") {
       stepPeek(Number(actionNode.dataset.step));
     } else if (action === "close-peek") {
@@ -571,7 +571,7 @@
       }
     }
     if (event.key === "Tab" && state.detail && !state.preview && !$("#action-confirm")?.open) {
-      const panel = state.peek ? document.getElementById("content-peek") : detailRoot()?.querySelector(".detail-panel");
+      const panel = state.peek ? document.getElementById("related-peek") : detailRoot()?.querySelector(".detail-panel");
       const focusable = [...(panel?.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])') || [])]
         .filter((node) => !node.hidden && node.getClientRects().length);
       if (focusable.length) {

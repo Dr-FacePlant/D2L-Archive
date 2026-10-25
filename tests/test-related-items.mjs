@@ -54,8 +54,13 @@ check(work?.items[0]?.kind === "quiz" && work.items[0].route === `#/quiz/${encod
 check(!work?.items.some((item) => item.kind === "assignment"), "the item should not list itself");
 const grade = work?.items.find((item) => item.kind === "grade");
 check(grade?.route === `#/grade/${encodeURIComponent(`grade:${C}:7`)}` && grade.line === "Grade item · Not graded yet", "the grade pill should link by id and say it isn't graded yet");
+const quizPill = work?.items[0];
+check(quizPill?.peek?.mode === "summary" && quizPill.peek.route === quizPill.route && quizPill.peek.meta === "Quiz · Week 3" && quizPill.peek.text === "Ten questions.", "a quiz pill should open a summary that links to its own pop-up");
+check(quizPill?.peek?.facts.map((fact) => fact.k).join(",") === "Due,Status" && quizPill.peek.facts[0].v.includes("Oct 29") && quizPill.peek.facts.at(-1).v === "Open", `a quiz summary should list its due date and status, got ${JSON.stringify(quizPill?.peek?.facts)}`);
+check(grade?.peek?.mode === "summary" && grade.peek.facts[0].v === "Not graded yet" && grade.peek.text === "D2L hasn't posted a grade yet.", "a grade pill should open a summary of where it stands");
 const calendar = groupOf(groups, "calendar");
 check(calendar?.items.length === 1 && calendar.items[0].title === "Reflection Paper - Peer review", "only a calendar event with a different date should be listed");
+check(calendar.items.every((item) => !item.peek), "a calendar pill should stay a plain link");
 
 // Quiz: its grade is found from the grade record's source when the quiz has no gradeEntityId.
 const quizModel = detail(index, "quiz", `quizBundle:${C}:12`);
@@ -71,7 +76,7 @@ const detailCard = html.match(/<section class="card detail">([\s\S]*?)<\/section
 check(html.includes('<section class="card related-card">') && !detailCard.includes("Related items"), "Related items should be its own card, not part of the content card");
 check(html.indexOf('class="card related-card"') > html.indexOf('class="card side-card"') && html.indexOf('class="card related-card"') > html.indexOf('class="card detail"'), "the Related items card should come after the content and to-do cards");
 check(/<(?:a|button) class="rel-pill" [^>]*aria-describedby="(rel-tip-\d+)">[\s\S]*?<div class="rel-tip" role="tooltip" id="\1">[^<]+<\/div>/.test(html), "each pill should be described by its own one-line hover card");
-check(html.includes('<button class="rel-pill" type="button" data-action="peek-content" data-peek="') && html.includes(`&quot;d2lUrl&quot;:&quot;https://kennesaw.view.usg.edu/d2l/le/content/${C}/viewContent/1/View&quot;`), "a content pill should open the side panel and carry its D2L link");
+check(html.includes('<button class="rel-pill" type="button" data-action="peek-item" data-peek="') && html.includes(`&quot;d2lUrl&quot;:&quot;https://kennesaw.view.usg.edu/d2l/le/content/${C}/viewContent/1/View&quot;`), "a content pill should open the side panel and carry its D2L link");
 check(html.includes(`<a class="rel-pill" href="#/resources/${C}?item=${encodeURIComponent(`resource:${C}:2`)}" aria-describedby=`), "a content item with nothing to show should still open the Content screen");
 check(!html.includes("javascript:"), "an unsafe link should never reach the page");
 check(html.indexOf('class="rel-label">Work &amp; grades<') < html.indexOf('class="rel-label">Content<') && html.indexOf('class="rel-label">Content<') < html.indexOf('class="rel-label">Calendar<'), "the groups should read Work & grades, Content, then Calendar");
