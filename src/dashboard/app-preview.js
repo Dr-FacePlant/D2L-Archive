@@ -231,12 +231,25 @@
     return openPeekAt(at + by);
   }
 
+  // The panel slides back out before it is removed. With no animation to wait
+  // for (reduced motion, or the pop-up itself closing) it goes at once.
   function closePeek({ restoreFocus = true } = {}) {
     const current = state.peek;
     if (!current) return;
     state.peek = null;
-    if (current.view?.src) URL.revokeObjectURL(current.view.src);
-    document.getElementById("related-peek")?.remove();
+    const node = document.getElementById("related-peek");
+    const gone = () => {
+      node?.remove();
+      if (current.view?.src) URL.revokeObjectURL(current.view.src);
+    };
+    const slides = restoreFocus && node && !matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (slides) {
+      node.removeAttribute("id");
+      node.classList.remove("open");
+      node.classList.add("peek-leaving");
+      node.addEventListener("animationend", gone, { once: true });
+      setTimeout(gone, 400);
+    } else gone();
     const host = peekHost();
     if (host) for (const part of host.children) part.inert = false;
     document.querySelectorAll(".related-card .rel-pill.sel").forEach((pill) => pill.classList.remove("sel"));

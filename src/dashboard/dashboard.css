@@ -622,9 +622,10 @@ p { margin: 0; }
 }
 
 /* ---------- side panel for Related items (opens from a Work & grades or Content pill) ---------- */
-#related-peek { position: absolute; inset: 54px 0 0; z-index: 30; }
-.peek-scrim { position: absolute; inset: 0; background: rgba(var(--shadow-rgb), .24); cursor: pointer; animation: viewerIn .15s ease both; }
-.peek { position: absolute; top: 0; right: 0; bottom: 0; width: 48%; min-width: min(100%, 340px); display: flex; flex-direction: column; background: var(--surface); border-left: 1px solid var(--line-3); box-shadow: -14px 0 30px rgba(var(--shadow-rgb), .16); animation: peekIn .16s ease both; }
+#related-peek, .peek-leaving { position: absolute; inset: 54px 0 0; z-index: 30; overflow: hidden; }
+.peek-leaving { pointer-events: none; }
+.peek-scrim { position: absolute; inset: 0; background: rgba(var(--shadow-rgb), .24); cursor: pointer; animation: viewerIn .26s ease both; }
+.peek { position: absolute; top: 0; right: 0; bottom: 0; width: 48%; min-width: min(100%, 340px); display: flex; flex-direction: column; background: var(--surface); border-left: 1px solid var(--line-3); box-shadow: -14px 0 30px rgba(var(--shadow-rgb), .16); animation: peekIn .26s cubic-bezier(.22, .8, .3, 1) both; }
 .peek-head { display: flex; align-items: center; gap: 12px; padding: 14px 12px 12px 18px; border-bottom: 1px solid var(--line); }
 /* The header is always as tall as a two-line title, so the bar and file below never shift between items. */
 .peek-tt { flex: 1; min-width: 0; min-height: calc(2.6 * 15px + 2px + 17px); display: flex; flex-direction: column; justify-content: center; }
@@ -639,7 +640,11 @@ p { margin: 0; }
 .peek-summary .facts { margin-top: 0; }
 .peek-text { margin: 16px 0 0; max-width: 68ch; font-size: 14px; line-height: 1.6; color: var(--ink-3); overflow-wrap: anywhere; }
 .peek-text.none { color: var(--muted); }
-@keyframes peekIn { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: none; } }
+@keyframes peekIn { from { transform: translateX(100%); } to { transform: none; } }
+@keyframes peekOut { from { transform: none; } to { transform: translateX(100%); } }
+@keyframes viewerOut { from { opacity: 1; } to { opacity: 0; } }
+.peek-leaving .peek { animation: peekOut .2s cubic-bezier(.4, 0, 1, 1) both; }
+.peek-leaving .peek-scrim { animation: viewerOut .2s ease both; }
 /* The panel slides in once. Loading a file or stepping to the next item swaps its contents in place. */
 #related-peek.open .peek, #related-peek.open .peek-scrim { animation: none; }
 @media (max-width: 760px) { .peek { width: 100%; } }
