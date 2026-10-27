@@ -192,12 +192,30 @@
       host.append(node);
       for (const part of host.children) if (part !== node) part.inert = true;
       node.style.top = `${host.querySelector(".detail-layer-head")?.offsetHeight || 54}px`;
+      // Keep the one-time entrance running through a fast loading -> ready
+      // update. The panel is marked open only after its slide-in completes.
+      const markOpen = (event) => {
+        if (event.target !== node.querySelector(".peek") || event.animationName !== "peekIn") return;
+        node.classList.add("open");
+        node.removeEventListener("animationend", markOpen);
+      };
+      node.addEventListener("animationend", markOpen);
     }
-    node.classList.toggle("open", !fresh);
-    node.innerHTML = dash.relatedPeek(view);
+    const rendered = document.createElement("template");
+    rendered.innerHTML = dash.relatedPeek(view);
+    const nextPeek = rendered.content.querySelector(".peek");
+    const currentPeek = node.querySelector(".peek");
+    if (!fresh && currentPeek && nextPeek) {
+      // Preserve the aside itself so a file finishing its load does not
+      // cancel or restart the entrance animation.
+      currentPeek.setAttribute("aria-label", nextPeek.getAttribute("aria-label") || "");
+      currentPeek.replaceChildren(...nextPeek.childNodes);
+    } else node.replaceChildren(rendered.content);
     peekPills().forEach((pill, at) => pill.classList.toggle("sel", at === view.at));
     const again = kept && node.querySelector(`[data-action="${kept.dataset.action}"][data-step="${kept.dataset.step}"]:not([disabled])`);
-    (again || node.querySelector("[aria-label='Close preview']"))?.focus();
+    // Focus without scrolling: the panel starts off the right edge, and a
+    // scroll to reveal its button would cancel the slide.
+    (again || node.querySelector("[aria-label='Close preview']"))?.focus({ preventScroll: true });
   }
 
   async function openPeekAt(at) {
