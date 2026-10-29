@@ -115,23 +115,28 @@
   }
 
   function renderUserProfile(profile = state.profile) {
-    const img = $("#profile-avatar");
-    const fallback = $("#profile-avatar-fallback");
-    if (!img || !fallback) return;
+    const nameEl = document.getElementById("profile-name");
+    if (nameEl) nameEl.textContent = profile?.displayName?.trim() || "Your account";
     const usable = typeof profile?.dataUrl === "string" && /^data:image\//.test(profile.dataUrl);
-    if (usable) {
-      img.src = profile.dataUrl;
-      img.alt = "";
-    } else {
-      img.removeAttribute("src");
-    }
-    img.hidden = !usable;
-    fallback.hidden = usable;
     // No photo: the student's initials, or D2L's default icon if the name is unknown.
     const initials = initialsOf(profile?.displayName);
-    fallback.classList.toggle("initials", Boolean(initials));
-    if (initials) fallback.textContent = initials;
-    else if (!fallback.querySelector("svg")) fallback.innerHTML = DEFAULT_AVATAR_SVG;
+    // The top-bar button and the menu's header each show the same avatar.
+    for (const avatar of document.querySelectorAll(".profile-avatar")) {
+      const img = avatar.querySelector("img");
+      const fallback = avatar.querySelector(".profile-avatar-fallback");
+      if (!img || !fallback) continue;
+      if (usable) {
+        img.src = profile.dataUrl;
+        img.alt = "";
+      } else {
+        img.removeAttribute("src");
+      }
+      img.hidden = !usable;
+      fallback.hidden = usable;
+      fallback.classList.toggle("initials", Boolean(initials));
+      if (initials) fallback.textContent = initials;
+      else if (!fallback.querySelector("svg")) fallback.innerHTML = DEFAULT_AVATAR_SVG;
+    }
   }
 
   // "Casey Example" → "CE"; "Example, Casey" (D2L's Last, First) → "CE".

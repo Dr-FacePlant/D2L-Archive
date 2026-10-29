@@ -8,7 +8,6 @@
   async function boot() {
     if (EMBEDDED) {
       document.documentElement.classList.add("embedded");
-      $("#overlay-close").hidden = false;
     }
     renderNav("dashboard");
     main().innerHTML = dash.loadingPage();

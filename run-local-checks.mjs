@@ -182,6 +182,7 @@ const checks = [
   ["related items on assignment and quiz pop-ups", [path.join(root, "tests", "test-related-items.mjs")]],
   ["fixed top row on assignment and quiz pop-ups", [path.join(root, "tests", "test-detail-top-row.mjs")]],
   ["Related items side panel on assignment and quiz pop-ups", [path.join(root, "tests", "test-related-peek.mjs")]],
+  ["file preview loader, formats and failure reasons", [path.join(root, "tests", "test-file-preview.mjs")]],
   ["dashboard extractor fields regression", [path.join(root, "tests", "test-dashboard-extractor-fields.mjs")]],
   ["dashboard lesson deadlines", [path.join(root, "tests", "test-dashboard-lesson-deadlines.mjs")]],
   ["dashboard appearance and settings", [path.join(root, "tests", "test-dashboard-appearance.mjs")]],

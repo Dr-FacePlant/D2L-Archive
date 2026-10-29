@@ -2,7 +2,7 @@
 (function initDashboardAppEvents(global) {
   const dash = global.D2LDashboard ||= {};
   const mod = dash.appModules ||= {};
-  const { $, COURSE_OVERRIDES_KEY, EMBEDDED, READ_KEY, RECREATED_SEEN_KEY, SETTINGS_KEY, adoptLegacyArchive, api, backFromDetail, closeDetailToBase, closeLinkConfirm, closeOverlay, closePeek, closePreview, detailRoot, exportActivity, fileScope, look, main, moveGradeCarousel, navigateToDetail, openArchivedFile, openConfirmedD2l, openConfirmedLink, previewConfirmedFile, openPeek, previewFile, recordActivity, redrawAdoptNotice, refreshIfStaleOnFocus, rememberScreen, render, renderSyncStatus, saveLook, setChecklistDone, setDetailMore, stepPeek, setWorkMark, showFileOpen, showLinkConfirm, startSync, state, storageSet, toast, updateGradeCarouselControls, wait } = dash.appModules;
+  const { $, COURSE_OVERRIDES_KEY, EMBEDDED, READ_KEY, RECREATED_SEEN_KEY, SETTINGS_KEY, adoptLegacyArchive, api, backFromDetail, closeDetailToBase, closeLinkConfirm, closeOverlay, closePeek, closePreview, detailRoot, exportActivity, fileScope, look, main, moveGradeCarousel, navigateToDetail, openArchivedFile, openConfirmedLink, openPeek, previewFile, recordActivity, redrawAdoptNotice, refreshIfStaleOnFocus, rememberScreen, render, renderSyncStatus, saveLook, setChecklistDone, setDetailMore, stepPeek, setWorkMark, showLinkConfirm, startSync, state, storageSet, toast, updateGradeCarouselControls, wait } = dash.appModules;
   // ------------------------------------------------------------- events
 
   function markRead(ids, value = true) {
@@ -14,8 +14,22 @@
     if (state.detail) state.baseStale = true;
   }
 
+  // The account menu slides between its main list and the Help links.
+  function showAccountView(help, focus = false) {
+    const menu = document.getElementById("account-menu");
+    const shown = document.getElementById(help ? "account-help" : "account-main");
+    const away = document.getElementById(help ? "account-main" : "account-help");
+    if (!menu || !shown || !away) return;
+    menu.classList.toggle("view-help", help);
+    away.setAttribute("inert", "");
+    shown.removeAttribute("inert");
+    menu.querySelector(".account-slider").style.height = `${shown.scrollHeight}px`;
+    if (focus) menu.querySelector(help ? ".account-back" : "[data-action=account-help]")?.focus({ preventScroll: true });
+  }
+
   function closeMenu() {
     if (!state.menu) return;
+    document.getElementById(state.menu)?.classList.remove("view-help");
     document.getElementById(state.menu)?.setAttribute("hidden", "");
     document.querySelector(`[aria-controls="${state.menu}"]`)?.setAttribute("aria-expanded", "false");
     state.menu = null;
@@ -159,13 +173,34 @@
   // per-account bucket and backup file. An empty value goes back to the
   // syllabus the archive detected.
   async function saveSyllabusOverride(courseId, value) {
+    const previous = state.courseContactOverrides || {};
+    const course = { ...(previous[courseId] || {}) };
+    if (value && typeof value === "object") {
+      if (value.type === "text") {
+        const text = String(value.text || "").trim();
+        if (text) course.syllabus = { type: "text", title: "Custom syllabus", text };
+        else delete course.syllabus;
+      } else if (value.type === "file" && value.dataUrl) {
+        course.syllabus = {
+          type: "file",
+          title: value.name || "Syllabus",
+          name: value.name || "Syllabus",
+          mime: value.mime || "application/pdf",
+          dataUrl: value.dataUrl
+        };
+      } else {
+        delete course.syllabus;
+      }
+      const next = { ...previous };
+      if (Object.keys(course).length) next[courseId] = course;
+      else delete next[courseId];
+      return persistContactOverrides(next);
+    }
     const url = dash.safeSyllabusUrl(value);
     if (value && !url) {
       toast("Enter a full web link that starts with http:// or https://.");
       return false;
     }
-    const previous = state.courseContactOverrides || {};
-    const course = { ...(previous[courseId] || {}) };
     if (url) course.syllabus = { url };
     else delete course.syllabus;
     const next = { ...previous };
@@ -264,7 +299,12 @@
     input.value = value;
     input.autocomplete = "off";
     input.setAttribute("aria-label", `Edit ${label}`);
-    if (field === "email") input.inputMode = "email";
+    if (field === "name") input.placeholder = "Type the instructor's name";
+    if (field === "email") {
+      input.inputMode = "email";
+      input.placeholder = "Type the instructor's email address";
+    }
+    if (field === "officeHours") input.placeholder = "Type the office hours, like Mon and Wed 2–4 PM";
     if (field === "syllabus") {
       input.inputMode = "url";
       input.placeholder = "Paste a link, or leave empty to use the detected one";
@@ -278,7 +318,90 @@
     cancel.type = "button";
     cancel.dataset.action = "cancel-instructor-edit";
     cancel.textContent = "Cancel";
-    form.append(input, save, cancel);
+
+    if (field === "syllabus") {
+      form.classList.add("is-syllabus-editor");
+      form.dataset.syllabusMode = "link";
+
+      const tabs = document.createElement("div");
+      tabs.className = "syllabus-mode-tabs";
+      tabs.setAttribute("role", "tablist");
+
+      const btnLink = document.createElement("button");
+      btnLink.type = "button";
+      btnLink.className = "syllabus-mode-tab active";
+      btnLink.textContent = "Link";
+      btnLink.dataset.mode = "link";
+
+      const btnFile = document.createElement("button");
+      btnFile.type = "button";
+      btnFile.className = "syllabus-mode-tab";
+      btnFile.textContent = "Upload File";
+      btnFile.dataset.mode = "file";
+
+      const btnText = document.createElement("button");
+      btnText.type = "button";
+      btnText.className = "syllabus-mode-tab";
+      btnText.textContent = "Paste Text";
+      btnText.dataset.mode = "text";
+
+      tabs.append(btnLink, btnFile, btnText);
+
+      const fileContainer = document.createElement("div");
+      fileContainer.className = "syllabus-file-drop";
+      fileContainer.hidden = true;
+      const fileInput = document.createElement("input");
+      fileInput.type = "file";
+      fileInput.className = "syllabus-file-input";
+      fileInput.accept = ".pdf,.doc,.docx,.txt,.rtf,image/*";
+      fileContainer.append(fileInput);
+
+      const textArea = document.createElement("textarea");
+      textArea.className = "instructor-edit-textarea";
+      textArea.name = "syllabusText";
+      textArea.rows = 3;
+      textArea.placeholder = "Paste raw syllabus text here...";
+      textArea.hidden = true;
+
+      fileInput.addEventListener("change", () => {
+        const file = fileInput.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          form.__syllabusFile = {
+            name: file.name,
+            mime: file.type || "application/pdf",
+            dataUrl: reader.result
+          };
+        };
+        reader.readAsDataURL(file);
+      });
+
+      const setMode = (mode) => {
+        form.dataset.syllabusMode = mode;
+        btnLink.classList.toggle("active", mode === "link");
+        btnFile.classList.toggle("active", mode === "file");
+        btnText.classList.toggle("active", mode === "text");
+        input.hidden = mode !== "link";
+        fileContainer.hidden = mode !== "file";
+        textArea.hidden = mode !== "text";
+        if (mode === "link") input.focus();
+        else if (mode === "file") fileInput.focus();
+        else if (mode === "text") textArea.focus();
+      };
+
+      btnLink.addEventListener("click", () => setMode("link"));
+      btnFile.addEventListener("click", () => setMode("file"));
+      btnText.addEventListener("click", () => setMode("text"));
+
+      const actions = document.createElement("div");
+      actions.className = "syllabus-editor-actions";
+      actions.append(save, cancel);
+
+      form.append(tabs, input, fileContainer, textArea, actions);
+    } else {
+      form.append(input, save, cancel);
+    }
     row.append(form);
     input.focus();
     input.select();
@@ -315,19 +438,15 @@
       return;
     }
     if (EMBEDDED && event.target.closest("[data-action=close-overlay]")) {
+      closeMenu();
       closeOverlay();
       return;
     }
-    // A saved file can be previewed here or opened on D2L. Its row stays an
-    // anchor, so modified clicks still open the D2L original in a new tab.
-    if (link && plain && link.hasAttribute("data-file-open")) {
+    // A file row previews here. It stays an anchor to the D2L page, so
+    // modified clicks still open D2L in a new tab.
+    if (link && plain && link.hasAttribute("data-preview")) {
       event.preventDefault();
-      showFileOpen({
-        path: link.getAttribute("data-path"),
-        name: link.getAttribute("data-name") || "File",
-        d2l: link.getAttribute("data-d2l") || link.href,
-        download: link.getAttribute("data-download") || ""
-      });
+      previewFile(link);
       return;
     }
     // Every link that leaves the archive asks once. Modified clicks keep the
@@ -355,6 +474,7 @@
         document.getElementById(id).removeAttribute("hidden");
         toggle.setAttribute("aria-expanded", "true");
         state.menu = id;
+        if (id === "account-menu") showAccountView(false);
       }
       return;
     }
@@ -380,12 +500,59 @@
     const actionNode = event.target.closest("[data-action]");
     if (!actionNode) return;
     const action = actionNode.dataset.action;
+    if (action === "account-help" || action === "account-back") {
+      showAccountView(action === "account-help", true);
+      return;
+    }
     if (action === "edit-instructor") {
       beginContactEdit(actionNode.closest("[data-contact-row]"));
       return;
     }
     if (action === "cancel-instructor-edit") {
       cancelContactEdit(actionNode.closest("[data-contact-row]"));
+      return;
+    }
+    if (action === "view-custom-syllabus") {
+      const courseId = actionNode.dataset.courseId;
+      const syllabus = state.index?.courseContactOverrides?.[courseId]?.syllabus;
+      if (!syllabus) return;
+      if (syllabus.type === "text") {
+        const text = syllabus.text || "";
+        const blob = new Blob([text], { type: "text/plain" });
+        dash.showPreview({
+          name: syllabus.title || "Custom syllabus",
+          state: "ready",
+          kind: "text",
+          text,
+          src: URL.createObjectURL(blob),
+          mime: "text/plain"
+        });
+      } else if (syllabus.type === "file" && syllabus.dataUrl) {
+        const mime = syllabus.mime || "application/pdf";
+        const blob = dash.blobFromDataUrl(syllabus.dataUrl, mime);
+        const src = URL.createObjectURL(blob);
+        if (mime === "text/plain" || mime === "text/markdown") {
+          blob.text().then((text) => {
+            dash.showPreview({
+              name: syllabus.name || syllabus.title || "Syllabus",
+              state: "ready",
+              kind: "text",
+              text,
+              src,
+              mime
+            });
+          });
+        } else {
+          dash.showPreview({
+            name: syllabus.name || syllabus.title || "Syllabus",
+            state: "ready",
+            kind: mime === "application/pdf" ? "pdf" : mime.startsWith("image/") ? "image" : "unsupported",
+            src,
+            pdf: mime === "application/pdf" ? src : undefined,
+            mime
+          });
+        }
+      }
       return;
     }
     if (action === "copy-instructor") {
@@ -452,6 +619,7 @@
       if (left) actionNode.textContent = `Show ${Math.min(step, left)} more`;
       else actionNode.remove();
     } else if (action === "sync") {
+      closeMenu();
       startSync().catch((error) => toast(`Couldn't start sync: ${error.message}`));
     } else if (action === "adopt-legacy" || action === "adopt-legacy-cancel") {
       state.adopt = { confirming: action === "adopt-legacy", pending: false, error: "" };
@@ -498,10 +666,6 @@
       previewFile(actionNode);
     } else if (action === "confirm-link") {
       openConfirmedLink();
-    } else if (action === "preview-confirmed-file") {
-      previewConfirmedFile();
-    } else if (action === "open-confirmed-d2l") {
-      openConfirmedD2l();
     } else if (action === "close-link-confirm") {
       if (!actionNode.dataset.backdrop || event.target === actionNode) closeLinkConfirm();
     } else if (action === "reload-page") {
@@ -614,6 +778,13 @@
     // The first Esc in the box only closes the results; the browser's own Esc
     // (clear the box) waits for the second.
     if (event.key === "Escape" && event.target === searchInput() && !searchPanelNode()?.hidden) event.preventDefault();
+    if (event.key === "Escape" && state.menu) {
+      event.preventDefault();
+      const opener = document.querySelector(`[aria-controls="${state.menu}"]`);
+      closeMenu();
+      opener?.focus();
+      return;
+    }
     if (event.key === "Escape") {
       if ($("#action-confirm")?.open) return;
       if (state.preview) {
@@ -697,9 +868,24 @@
       const contactIndex = row.dataset.contactIndex || "0";
       const field = row.dataset.field || "";
       const value = String(input.value || "").trim();
-      const saved = field === "syllabus"
-        ? await saveSyllabusOverride(courseId, value)
-        : await saveContactOverride(courseId, contactIndex, field, value);
+      let saved = false;
+      if (field === "syllabus") {
+        const mode = form.dataset.syllabusMode || "link";
+        if (mode === "file") {
+          if (!form.__syllabusFile) {
+            toast("Choose a file to upload or click Cancel.");
+            return;
+          }
+          saved = await saveSyllabusOverride(courseId, { type: "file", ...form.__syllabusFile });
+        } else if (mode === "text") {
+          const text = form.querySelector("textarea[name=syllabusText]")?.value || "";
+          saved = await saveSyllabusOverride(courseId, { type: "text", text });
+        } else {
+          saved = await saveSyllabusOverride(courseId, value);
+        }
+      } else {
+        saved = await saveContactOverride(courseId, contactIndex, field, value);
+      }
       if (!saved) {
         input.focus();
         return;
