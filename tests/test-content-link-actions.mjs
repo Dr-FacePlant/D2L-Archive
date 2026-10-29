@@ -31,8 +31,8 @@ const file = row({
 });
 check(file.startsWith("<a "), "a saved file with a D2L original should stay a real link");
 check(file.includes('href="https://kennesaw.view.usg.edu/d2l/le/content/9900001/viewContent/1002/View"'), "the saved file row should link to its D2L original for a new tab");
-check(file.includes("data-file-open") && file.includes('data-path="/tmp/Reading.pdf"'), "a plain click on the saved file row should open its file chooser");
-check(file.includes('data-name="Reading.pdf"') && file.includes("data-d2l="), "the file chooser should carry the file's D2L handoff");
+check(file.includes("data-preview") && file.includes('data-path="/tmp/Reading.pdf"'), "a plain click on the saved file row should open the viewer");
+check(file.includes('data-name="Reading.pdf"') && file.includes("data-d2l="), "the viewer should get the file's name and its D2L page");
 check(!file.includes('data-action="preview-file"') && !file.includes("data-d2l-link") && iconButtons(file) === 0, "the saved file row should not keep a second preview or D2L button");
 check(rowIcons(file) === 1, "the saved file row should keep one decorative side icon");
 
@@ -79,15 +79,10 @@ check(d2lConfirm.includes("Open in D2L?"), "the D2L prompt should name D2L");
 check(d2lConfirm.includes("D2L course site"), "the D2L prompt should name the destination kind");
 check(d2lConfirm.includes("Open in D2L"), "the D2L prompt should have a D2L action");
 
-const fileChooser = dash.fileOpenPanel({ name: "Reading.pdf" });
-check(fileChooser.includes("How do you want to open this file?"), "the saved file chooser should ask what to do");
-check(fileChooser.includes("Reading.pdf") && fileChooser.includes("Saved in your archive"), "the chooser should name the saved file");
-check(fileChooser.includes('data-action="preview-confirmed-file"'), "the chooser should offer the saved copy");
-check(fileChooser.includes('data-action="open-confirmed-d2l"'), "the chooser should offer the D2L original");
-check(fileChooser.includes('data-action="close-link-confirm"'), "the chooser should offer cancel");
+check(dash.fileOpenPanel === undefined, "a file opens the viewer directly; the Preview-or-D2L box is gone");
 
 if (failures.length) {
   for (const failure of failures) console.error(`FAIL: ${failure}`);
   process.exit(1);
 }
-console.log("Content rows are one whole-row control; outbound links confirm in this tab; saved files offer preview or D2L.");
+console.log("Content rows are one whole-row control; outbound links confirm in this tab; file rows open the viewer.");

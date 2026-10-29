@@ -68,9 +68,26 @@ check(linked.syllabus?.url === link && linked.syllabusOverride === link, "a save
 const linkedHtml = dash.courseHomePage(linked);
 check(linkedHtml.includes(`href="${link}"`), "Visit should point at the saved link");
 check(linkedHtml.includes('data-field="syllabus"') && linkedHtml.includes(`data-edit-value="${link}"`), "the syllabus editor should start from the saved link");
+
 const unsafeIndex = dash.buildIndex({ now: NOW, courses, entities, settings: {}, courseContactOverrides: { "1002": { syllabus: { url: "javascript:alert(1)" } } } });
 const unsafeModel = dash.courseHomeModel(unsafeIndex, "1002");
 check(unsafeModel.syllabus === null && !dash.courseHomePage(unsafeModel).includes("javascript:"), "an unsafe saved link should never reach an href");
+
+// A saved raw text syllabus replaces detected syllabus and opens the viewer
+const textOverride = "Course overview and grading policies:\n1. Quizzes 40%\n2. Final 60%";
+const textIndex = dash.buildIndex({ now: NOW, courses, entities, settings: {}, courseContactOverrides: { "1002": { syllabus: { type: "text", text: textOverride } } } });
+const textModel = dash.courseHomeModel(textIndex, "1002");
+check(textModel.syllabus?.type === "text" && textModel.syllabus.text === textOverride, "raw text syllabus should become the course syllabus");
+const textHtml = dash.courseHomePage(textModel);
+check(textHtml.includes("data-action=\"view-custom-syllabus\"") && textHtml.includes("aria-label=\"Visit syllabus: Custom syllabus\""), "custom text syllabus should have a view button");
+
+// A saved file syllabus replaces detected syllabus and opens the viewer
+const fileOverride = { type: "file", name: "Art-Syllabus.pdf", mime: "application/pdf", dataUrl: "data:application/pdf;base64,JVBERi0xLjQK" };
+const fileIndex = dash.buildIndex({ now: NOW, courses, entities, settings: {}, courseContactOverrides: { "1002": { syllabus: fileOverride } } });
+const fileModel = dash.courseHomeModel(fileIndex, "1002");
+check(fileModel.syllabus?.type === "file" && fileModel.syllabus.name === "Art-Syllabus.pdf", "uploaded file syllabus should become the course syllabus");
+const fileHtml = dash.courseHomePage(fileModel);
+check(fileHtml.includes("data-action=\"view-custom-syllabus\"") && fileHtml.includes("aria-label=\"Visit syllabus: Art-Syllabus.pdf\""), "custom file syllabus should have a view button");
 
 const events = read("src/dashboard/app-events.js");
 const css = read("src/dashboard/dashboard.css");
@@ -81,9 +98,15 @@ check(events.includes("async function saveContactOverride"), "saving a contact e
 check(events.includes("async function saveSyllabusOverride") && events.includes("dash.safeSyllabusUrl(value)"), "saving a syllabus link should be wired and validated");
 check(events.includes('dash.icon(copied ? "check" : "close", 15)'), "copy feedback should swap the icon, not a text label");
 check(events.includes("dash.accountBinding.scopedKey(COURSE_OVERRIDES_KEY, state.account.id)"), "edits should be stored per D2L account");
+check(events.includes(`input.placeholder = "Type the instructor's name"`) && events.includes(`input.placeholder = "Type the instructor's email address"`) && events.includes('input.placeholder = "Type the office hours, like Mon and Wed 2–4 PM"'), "the name, email and office hours editors should each say what to type");
 check(events.includes('save.type = "submit"') && events.includes('cancel.textContent = "Cancel"'), "the inline editor should offer Save and Cancel");
 check(archive.includes("courseContactOverrides: await dash.accountBinding.loadScoped"), "the account binder should load saved edits");
 check(archive.includes("courseContactOverrides: state.courseContactOverrides"), "saved edits should reach the course model");
+check(events.includes("syllabus-choice-chips") && events.includes("syllabus-chip-btn") && events.includes("Link") && events.includes("File") && events.includes("Text"), "syllabus editor should offer in-row action chips for Link, File, and Text");
+check(events.includes("action === \"view-custom-syllabus\""), "viewing custom syllabus in previewer should be wired");
+check(events.includes("blobFromDataUrl") && events.includes("showPreview"), "events module should import blobFromDataUrl and showPreview from appModules");
+check(!events.includes("dash.showPreview"), "showPreview should be called directly as an imported module function");
+check(events.includes("const text = form.querySelector(\"textarea[name=syllabusText]\")?.value || \"\"") && !events.includes("if (!row || !input) return;"), "saving raw text syllabus must not require an input[name=value] element");
 
 if (failures.length) {
   for (const failure of failures) console.error(`FAIL: ${failure}`);

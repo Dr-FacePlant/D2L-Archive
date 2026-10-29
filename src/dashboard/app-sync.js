@@ -5,8 +5,9 @@
   const { $, EMBEDDED, SYNC_FAILED_KEY, SYNC_KEY, SYNC_TIMEOUT_MS, api, applyArchive, fetchArchive, recordActivity, render, state, storageSet, toast, wait } = dash.appModules;
   // --------------------------------------------------------------- sync
 
-  // The top-bar Sync from D2L button: hover says when the last sync was, the
-  // icon spins while one runs, and a dot marks a failed or old sync.
+  // Sync from D2L sits in the account menu, which says when the last sync was.
+  // The profile button shows a ring while one runs, and a dot marks a failed or
+  // old sync.
   function renderSyncStatus() {
     const button = $("#sync-button");
     if (!button || !state.index) return;
@@ -15,12 +16,30 @@
     const progress = state.sync?.progress;
     const progressCount = progress?.total ? ` ${progress.completed || 0} of ${progress.total}` : "";
     const label = running ? `${state.sync ? "Syncing" : "Automatically syncing"} from D2L${progressCount}${progress?.current ? `: ${progress.current}` : ""}` : model.hint;
+    const more = $("#profile-button");
     button.classList.toggle("syncing", running);
     button.setAttribute("aria-busy", String(running));
     button.title = label;
     button.setAttribute("aria-label", running ? label : `Sync from D2L. ${label}`);
-    const dot = button.querySelector(".sync-dot");
-    dot.hidden = running || !(model.state === "stale" || model.state === "failed");
+    const hint = $("#sync-hint");
+    if (hint) {
+      hint.textContent = running ? `Syncing${progressCount}${progress?.current ? `: ${progress.current}` : ""}` : model.hint;
+      hint.title = running ? label : model.hint;
+      hint.classList.toggle("is-syncing", running);
+      hint.classList.toggle("is-fresh", !running && model.state === "fresh");
+      hint.classList.toggle("is-stale", !running && model.state === "stale");
+      hint.classList.toggle("is-failed", !running && model.state === "failed");
+    }
+    const syncLabel = $("#sync-label");
+    if (syncLabel) syncLabel.textContent = running ? `Syncing${progressCount}` : "Sync from D2L";
+    // The menu hides the sync button, so the profile button shows the ring and dot.
+    const attention = !running && (model.state === "stale" || model.state === "failed");
+    more.classList.toggle("syncing", running);
+    more.setAttribute("aria-busy", String(running));
+    more.title = running ? label : attention ? `Account menu. ${model.hint}` : "Account menu";
+    more.setAttribute("aria-label", more.title);
+    const dot = more.querySelector(".sync-dot");
+    dot.hidden = !attention;
     dot.className = `sync-dot ${model.state}`;
   }
 
