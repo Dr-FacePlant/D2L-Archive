@@ -23,7 +23,7 @@
 
     <main class="policy">
       <h1>Privacy Policy</h1>
-      <p class="updated">Last updated: October 21, 2026</p>
+      <p class="updated">Last updated: October 27, 2026</p>
 
       <p>
         D2L Archive is a Chrome extension that saves the D2L course pages you can
@@ -68,14 +68,20 @@
       <h2>Data that leaves your device</h2>
       <ul>
         <li>
-          <strong>Requests to your D2L site only.</strong> The extension calls the
+          <strong>Requests to your D2L site.</strong> The extension calls the
           same <code>https://kennesaw.view.usg.edu/d2l/*</code> pages and API
           routes your browser already uses, with your existing session.
-          <code>manifest.json</code> lists that host as the only host permission.
+        </li>
+        <li>
+          <strong>YouTube videos you open.</strong> When you open a YouTube link
+          in Related items, the panel loads YouTube's player from
+          <code>https://www.youtube-nocookie.com</code>, and YouTube sees that
+          request as it would for any embedded video. Nothing loads from YouTube
+          until you open one.
         </li>
         <li>
           <strong>No other network traffic.</strong> There is no telemetry, no
-          crash reporting, no remote configuration, no advertising, and no
+          crash reporting, no remote configuration, no advertising, and no other
           third-party service. The extension contains no analytics SDK and no
           remote code.
         </li>
@@ -94,6 +100,10 @@
             <tr>
               <td><code>host_permissions: https://kennesaw.view.usg.edu/d2l/*</code></td>
               <td>Read the D2L pages and API routes the archive is built from.</td>
+            </tr>
+            <tr>
+              <td><code>host_permissions: https://www.youtube-nocookie.com/*</code>, <code>declarativeNetRequestWithHostAccess</code></td>
+              <td>Name the archive to YouTube's player, which refuses to play without it. The rule applies only to players the archive opens.</td>
             </tr>
             <tr>
               <td><code>scripting</code></td>
@@ -123,7 +133,8 @@
         </table>
       </div>
       <p>
-        The extension requests no permission for any site other than D2L, and no
+        The extension requests no permission for any site other than D2L and
+        YouTube's player, and no
         permission to read or change unrelated browsing history.
       </p>
 

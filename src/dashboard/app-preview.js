@@ -7,23 +7,11 @@
   // Previews load the file from D2L (you're signed in there) and keep a copy in
   // this browser, so opening it again is instant and works without D2L. The
   // copy sync saved in Downloads is the fallback; Chrome only lets an extension
-  // read that when "Allow access to file URLs" is on.
+  // read that when "Allow access to file URLs" is on. When neither works, the
+  // viewer says why: signed out, missing, no access, too big, or offline.
 
-  const PREVIEW_KINDS = [
-    [/\.pdf$/i, "pdf", "application/pdf"],
-    [/\.(png|jpe?g|gif|webp|bmp)$/i, "image", ""],
-    [/\.svg$/i, "image", "image/svg+xml"],
-    [/\.(mp4|m4v|webm|mov)$/i, "video", ""],
-    [/\.(mp3|m4a|wav|ogg)$/i, "audio", ""],
-    [/\.(txt|csv|md|json)$/i, "text", "text/plain"]
-  ];
-  const PREVIEW_TYPES = [
-    [/^application\/pdf/i, "pdf", "application/pdf"],
-    [/^image\//i, "image", ""],
-    [/^video\//i, "video", ""],
-    [/^audio\//i, "audio", ""],
-    [/^text\/(plain|csv|markdown)|^application\/json/i, "text", "text/plain"]
-  ];
+  // The preview cache keeps files up to this size.
+  const PREVIEW_LIMIT = 100 * 1024 * 1024;
 
   // After the extension is reloaded or updated, a page opened before that can
   // no longer reach it until the page is reloaded.
@@ -48,7 +36,7 @@
   }
 
   function isD2lFileUrl(url) {
-    return typeof url === "string" && url.startsWith(`${dash.D2L_ORIGIN}/d2l/`) && !/quickLink/i.test(url);
+    return dash.isD2lFileUrl(url);
   }
 
   function blobFromDataUrl(dataUrl, type) {
@@ -65,31 +53,106 @@
     return { accountId: state.account.id, adoptLegacy: Boolean(state.account.id) && state.account.id === state.account.legacyOwnerId };
   }
 
-  async function fileFromD2l(url) {
-    if (!isD2lFileUrl(url)) return null;
-    const cached = await dash.fileCache?.getFile(fileScope(), url).catch(() => null);
-    if (cached) return cached;
-    let blob = await fetch(url, { credentials: "include" })
-      .then((response) => response.ok && !/text\/html/i.test(response.headers.get("content-type") || "") ? response.blob() : null)
-      .catch(() => null);
-    if (!blob) {
-      const reply = await chrome.runtime.sendMessage({ type: "D2L_FETCH_FILE", url }).catch(() => null);
-      if (reply?.ok && reply.dataUrl) blob = blobFromDataUrl(reply.dataUrl, reply.type);
-    }
-    if (blob) dash.fileCache?.keepFile(fileScope(), url, blob).catch(() => {});
-    return blob;
+  // Why D2L didn't hand over a file, from its answer. D2L sends its sign-in
+  // page (a web page) when you're signed out. The background's copy of this
+  // check runs inside a D2L tab.
+  function d2lRefusal(response) {
+    if (/\/d2l\/login/i.test(response.url || "") || response.status === 401) return "signed-out";
+    if (response.status === 404) return "not-found";
+    if (response.status === 403) return "no-access";
+    if (!response.ok) return "http";
+    return /text\/html/i.test(response.headers.get("content-type") || "") ? "not-file" : "";
   }
 
-  // Returns the saved copy, or the reason it can't be shown ("missing", "access").
+  async function fetchFromD2l(url) {
+    let response;
+    // D2L's PDF store lets any page read its signed links, but only without
+    // cookies; D2L itself needs them.
+    const credentials = url.startsWith(`${dash.D2L_ORIGIN}/`) ? "include" : "omit";
+    try { response = await fetch(url, { credentials }); }
+    catch { return { reason: navigator.onLine === false ? "offline" : "no-answer" }; }
+    const reason = d2lRefusal(response);
+    if (reason) return { reason, status: response.status };
+    const declared = Number(response.headers.get("content-length") || 0);
+    if (declared > PREVIEW_LIMIT) return { reason: "too-large", size: declared, limit: PREVIEW_LIMIT };
+    const blob = await response.blob();
+    return blob.size > PREVIEW_LIMIT ? { reason: "too-large", size: blob.size, limit: PREVIEW_LIMIT } : { blob };
+  }
+
+  function keptFile(key) {
+    return dash.fileCache?.getFile(fileScope(), key).catch(() => null);
+  }
+
+  // { blob } or { reason, ... }; null when the address isn't a D2L file.
+  async function fileFromD2l(url) {
+    if (!isD2lFileUrl(url)) return null;
+    const cached = await keptFile(url);
+    return cached ? { blob: cached } : d2lFile(url, url);
+  }
+
+  // A file from D2L, kept under key so opening it again is instant.
+  async function d2lFile(url, key) {
+    let got = await fetchFromD2l(url);
+    // Signed out here can still be signed in on a D2L tab, so try there. A
+    // missing or too-big file is the same everywhere.
+    if (!got.blob && !["not-found", "too-large", "offline"].includes(got.reason)) {
+      const reply = await chrome.runtime.sendMessage({ type: "D2L_FETCH_FILE", url }).catch(() => null);
+      if (reply?.ok && reply.dataUrl) got = { blob: blobFromDataUrl(reply.dataUrl, reply.type) };
+      // With no D2L tab open, what this page heard is the better clue.
+      else if (reply?.reason && reply.reason !== "no-tab") got = { reason: reply.reason, status: reply.status, size: reply.size, limit: reply.limit };
+    }
+    if (got.blob) dash.fileCache?.keepFile(fileScope(), key, got.blob).catch(() => {});
+    return got;
+  }
+
+  // A topic's D2L page, as text, or "" when D2L won't show it.
+  async function pageFromD2l(url) {
+    const response = await fetch(url, { credentials: "include" }).catch(() => null);
+    if (response && d2lRefusal(response) === "not-file") return response.text();
+    const reply = await chrome.runtime.sendMessage({ type: "D2L_FETCH_FILE", url, page: true }).catch(() => null);
+    return reply?.ok && typeof reply.html === "string" ? reply.html : "";
+  }
+
+  // Where the viewer on a topic's D2L page gets its PDF once the page is open
+  // and D2L's own script has asked for it. The background opens the page out
+  // of sight in a D2L tab. "" when it can't.
+  async function openedPagePdf(page) {
+    const reply = await chrome.runtime.sendMessage({ type: "D2L_VIEWER_PDF", url: page }).catch(() => null);
+    return reply?.ok ? dash.previewFormats.pdfAddress(reply.location) : "";
+  }
+
+  // D2L shows a PowerPoint or Excel file as a PDF it made. The topic's D2L
+  // page says where that PDF is, in the page itself or once the page is open.
+  // null when there isn't one.
+  async function pdfFromD2l(downloadUrl) {
+    const parts = dash.isTopicFileUrl(downloadUrl) && /^(.*\/content\/\d+)\/topics\/files\/download\/(\d+)\//i.exec(downloadUrl);
+    if (!parts) return null;
+    const key = `${downloadUrl}#pdf`;
+    let blob = await keptFile(key);
+    if (!blob) {
+      const page = `${parts[1]}/viewContent/${parts[2]}/View`;
+      const source = dash.previewFormats.pdfSource(await pageFromD2l(page));
+      const where = source?.url || (source?.later ? await openedPagePdf(page) : "");
+      blob = where ? (await d2lFile(where, key)).blob : null;
+    }
+    return blob && (await dash.previewFormats.identify(blob)).kind === "pdf" ? blob : null;
+  }
+
+  // A shown file's addresses are let go when it closes.
+  function release(view) {
+    for (const url of [view?.src, view?.pdf]) if (url) URL.revokeObjectURL(url);
+  }
+
+  // { blob } for the saved copy, or why it can't be read: "missing", "access".
   async function fileFromComputer(localPath) {
     const [item] = localPath
       ? await chrome.downloads.search({ filenameRegex: `${escapeRegex(localPath)}$`, exists: true, state: "complete", limit: 1 })
       : [];
-    if (!item) return "missing";
+    if (!item) return { reason: "missing" };
     const allowed = await new Promise((resolve) => {
       try { chrome.extension.isAllowedFileSchemeAccess(resolve); } catch { resolve(false); }
     });
-    return allowed ? readLocalFile(item.filename) : "access";
+    return allowed ? { blob: await readLocalFile(item.filename) } : { reason: "access" };
   }
 
   function showPreview(view) {
@@ -107,27 +170,49 @@
 
   function closePreview() {
     const focus = state.previewFocus;
-    if (state.preview?.src) URL.revokeObjectURL(state.preview.src);
+    release(state.preview);
     state.preview = null;
     state.previewFocus = null;
     document.getElementById("viewer")?.remove();
     if (focus?.isConnected) focus.focus({ preventScroll: true });
   }
 
-  // Loads a file for preview and says what to show: the file itself, or why not.
+  // Loads a file for preview and says what to show: the file itself, or why
+  // not. D2L comes first; the saved copy is the fallback. Any file that loads
+  // can be downloaded, even one the viewer can't show.
   async function loadFile(base) {
-    const named = base.localPath || base.name;
-    let match = PREVIEW_KINDS.find(([pattern]) => pattern.test(named));
-    // A file whose name says it can't be shown (a .zip, a Word file) isn't downloaded.
-    if (!match && /\.[a-z0-9]{2,5}$/i.test(named)) return { state: "unsupported" };
-    const found = await fileFromD2l(base.downloadUrl) || await fileFromComputer(base.localPath);
-    if (typeof found === "string") return { state: found };
-    match ||= PREVIEW_TYPES.find(([pattern]) => pattern.test(found.type || ""));
-    if (!match) return { state: "unsupported" };
-    const [, kind, type] = match;
-    if (kind === "text") return { state: "ready", kind, text: (await found.text()).slice(0, 200000) };
-    const typed = type && found.type !== type ? new Blob([found], { type }) : found;
-    return { state: "ready", kind, mime: typed.type, src: URL.createObjectURL(typed) };
+    const fromD2l = await fileFromD2l(base.downloadUrl);
+    const got = fromD2l?.blob ? fromD2l : base.localPath ? await fileFromComputer(base.localPath) : null;
+    if (!got?.blob) {
+      if (!fromD2l) return { state: got?.reason || "missing" };
+      const { reason, status, size, limit } = fromD2l;
+      return { state: reason, status, size, limit, hint: got?.reason === "access" ? "access" : "" };
+    }
+    const file = got.blob;
+    const format = await dash.previewFormats.identify(file, base.localPath || base.name);
+    const download = (blob, type) => {
+      const typed = type && blob.type !== type ? new Blob([blob], { type }) : blob;
+      return { mime: typed.type, src: URL.createObjectURL(typed) };
+    };
+    if (format.kind === "unsupported") {
+      // The PDF D2L made shows; Download still saves the original file.
+      const pdf = format.type !== "application/zip" && await pdfFromD2l(base.downloadUrl).catch(() => null);
+      if (pdf) return { state: "ready", kind: "pdf", ...download(file, format.type), pdf: URL.createObjectURL(pdf) };
+      return { state: "unsupported", label: format.label, ...download(file, format.type) };
+    }
+    if (format.kind === "page") return { state: "ready", kind: "page", html: dash.previewFormats.pageDocument(format.html), ...download(new Blob([format.html], { type: "text/html" })) };
+    const ready = { state: "ready", kind: format.kind, ...download(file, format.type) };
+    if (format.kind === "text") return { ...ready, text: (await file.text()).slice(0, 200000) };
+    if (format.kind !== "docx") return ready;
+    // D2L shows a Word file as the PDF it made, laid out as Word laid it out.
+    // When its page has none, the bundled Word viewer draws the file instead.
+    const pdf = await pdfFromD2l(base.downloadUrl).catch(() => null);
+    if (pdf) return { ...ready, kind: "pdf", pdf: URL.createObjectURL(pdf) };
+    try {
+      return { ...ready, html: await dash.previewFormats.docxDocument(file) };
+    } catch {
+      return { ...ready, state: "unsupported", label: "This Word file" };
+    }
   }
 
   function loadFailure(error) {
@@ -143,7 +228,7 @@
     showPreview({ ...base, state: "loading" });
     try {
       const shown = await loadFile(base);
-      if (!state.preview || previewFile.ticket !== ticket) return;
+      if (!state.preview || previewFile.ticket !== ticket) return release(shown);
       showPreview({ ...base, ...shown });
     } catch (error) {
       if (!state.preview || previewFile.ticket !== ticket) return;
@@ -154,7 +239,7 @@
   // ------------------------------------------ side panel for Related items
   // A Work & grades or Content pill in Related items opens a panel over the
   // right half of the pop-up. Work and grades get a short summary. A content
-  // topic shows its file when it can (a PDF, an image, a video, plain text) and
+  // topic shows its file when it can (a PDF, slides, an image, a video, plain text) and
   // otherwise says so, with Open in D2L. The arrows step through the pills that
   // open the panel, in the order they are on screen.
 
@@ -174,14 +259,14 @@
   // describe it.
   function peekKind(item) {
     if (item.mode === "summary") return "summary";
-    if (item.localPath || isD2lFileUrl(item.downloadUrl)) return "file";
+    if (!item.external && (item.localPath || dash.isTopicFileUrl(item.downloadUrl))) return "file";
     return item.external ? "link" : "page";
   }
 
   function showPeek(view) {
     const host = peekHost();
     if (!host) return;
-    if (state.peek?.view?.src) URL.revokeObjectURL(state.peek.view.src);
+    release(state.peek?.view);
     state.peek = { ...state.peek, view };
     let node = document.getElementById("related-peek");
     const fresh = !node;
@@ -231,7 +316,7 @@
     try {
       // The title is a label, not a file name, so only a saved copy's name is used to guess the type.
       const shown = await loadFile({ ...item, name: "" });
-      if (state.peek?.ticket !== ticket) return void (shown.src && URL.revokeObjectURL(shown.src));
+      if (state.peek?.ticket !== ticket) return release(shown);
       showPeek({ ...base, ...shown });
     } catch (error) {
       if (state.peek?.ticket === ticket) showPeek({ ...base, ...loadFailure(error) });
@@ -258,7 +343,7 @@
     const node = document.getElementById("related-peek");
     const gone = () => {
       node?.remove();
-      if (current.view?.src) URL.revokeObjectURL(current.view.src);
+      release(current.view);
     };
     const slides = restoreFocus && node && !matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (slides) {
@@ -274,5 +359,5 @@
     if (restoreFocus && current.focus?.isConnected) current.focus.focus({ preventScroll: true });
   }
 
-  Object.assign(mod, { extensionAlive, fileUrlOf, readLocalFile, isD2lFileUrl, blobFromDataUrl, fileScope, fileFromD2l, fileFromComputer, showPreview, closePreview, previewFile, openPeek, stepPeek, closePeek, PREVIEW_KINDS, PREVIEW_TYPES });
+  Object.assign(mod, { extensionAlive, fileUrlOf, readLocalFile, isD2lFileUrl, blobFromDataUrl, fileScope, fetchFromD2l, fileFromD2l, pdfFromD2l, fileFromComputer, loadFile, showPreview, closePreview, previewFile, openPeek, stepPeek, closePeek, PREVIEW_LIMIT });
 })(globalThis);

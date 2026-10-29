@@ -2,7 +2,7 @@
 (function initDashboardAppEvents(global) {
   const dash = global.D2LDashboard ||= {};
   const mod = dash.appModules ||= {};
-  const { $, COURSE_OVERRIDES_KEY, EMBEDDED, READ_KEY, RECREATED_SEEN_KEY, SETTINGS_KEY, adoptLegacyArchive, api, backFromDetail, closeDetailToBase, closeLinkConfirm, closeOverlay, closePeek, closePreview, detailRoot, exportActivity, fileScope, look, main, moveGradeCarousel, navigateToDetail, openArchivedFile, openConfirmedD2l, openConfirmedLink, previewConfirmedFile, openPeek, previewFile, recordActivity, redrawAdoptNotice, refreshIfStaleOnFocus, rememberScreen, render, renderSyncStatus, saveLook, setChecklistDone, setDetailMore, stepPeek, setWorkMark, showFileOpen, showLinkConfirm, startSync, state, storageSet, toast, updateGradeCarouselControls, wait } = dash.appModules;
+  const { $, COURSE_OVERRIDES_KEY, EMBEDDED, READ_KEY, RECREATED_SEEN_KEY, SETTINGS_KEY, adoptLegacyArchive, api, backFromDetail, closeDetailToBase, closeLinkConfirm, closeOverlay, closePeek, closePreview, detailRoot, exportActivity, fileScope, look, main, moveGradeCarousel, navigateToDetail, openArchivedFile, openConfirmedLink, openPeek, previewFile, recordActivity, redrawAdoptNotice, refreshIfStaleOnFocus, rememberScreen, render, renderSyncStatus, saveLook, setChecklistDone, setDetailMore, stepPeek, setWorkMark, showLinkConfirm, startSync, state, storageSet, toast, updateGradeCarouselControls, wait } = dash.appModules;
   // ------------------------------------------------------------- events
 
   function markRead(ids, value = true) {
@@ -318,16 +318,11 @@
       closeOverlay();
       return;
     }
-    // A saved file can be previewed here or opened on D2L. Its row stays an
-    // anchor, so modified clicks still open the D2L original in a new tab.
-    if (link && plain && link.hasAttribute("data-file-open")) {
+    // A file row previews here. It stays an anchor to the D2L page, so
+    // modified clicks still open D2L in a new tab.
+    if (link && plain && link.hasAttribute("data-preview")) {
       event.preventDefault();
-      showFileOpen({
-        path: link.getAttribute("data-path"),
-        name: link.getAttribute("data-name") || "File",
-        d2l: link.getAttribute("data-d2l") || link.href,
-        download: link.getAttribute("data-download") || ""
-      });
+      previewFile(link);
       return;
     }
     // Every link that leaves the archive asks once. Modified clicks keep the
@@ -498,10 +493,6 @@
       previewFile(actionNode);
     } else if (action === "confirm-link") {
       openConfirmedLink();
-    } else if (action === "preview-confirmed-file") {
-      previewConfirmedFile();
-    } else if (action === "open-confirmed-d2l") {
-      openConfirmedD2l();
     } else if (action === "close-link-confirm") {
       if (!actionNode.dataset.backdrop || event.target === actionNode) closeLinkConfirm();
     } else if (action === "reload-page") {

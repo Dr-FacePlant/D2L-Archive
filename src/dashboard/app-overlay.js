@@ -37,15 +37,6 @@
     document.querySelector("#link-confirm [data-action=confirm-link]")?.focus();
   }
 
-  function showFileOpen({ path, name, d2l, download }) {
-    if (!path) return;
-    closeLinkConfirm({ restoreFocus: false });
-    const focus = document.activeElement;
-    state.linkConfirm = { type: "file", path, name, d2l, download, focus };
-    confirmHost().innerHTML = dash.fileOpenPanel({ name });
-    document.querySelector("#link-confirm [data-action=preview-confirmed-file]")?.focus();
-  }
-
   function closeLinkConfirm({ restoreFocus = true } = {}) {
     const current = state.linkConfirm;
     state.linkConfirm = null;
@@ -69,21 +60,6 @@
     openLinkInCurrentTab(current.url, current.kind);
   }
 
-  function previewConfirmedFile() {
-    const current = state.linkConfirm;
-    if (current?.type !== "file" || !current.path) return;
-    closeLinkConfirm();
-    const node = { dataset: { path: current.path, name: current.name || "File", d2l: current.d2l || "", download: current.download || "" } };
-    dash.appModules.previewFile(node);
-  }
-
-  function openConfirmedD2l() {
-    const current = state.linkConfirm;
-    if (current?.type !== "file" || !current.d2l) return;
-    closeLinkConfirm();
-    openLinkInCurrentTab(current.d2l, "d2l");
-  }
-
   function closeOverlay() {
     return overlayMessage({ type: "D2L_OVERLAY_SET", open: false });
   }
@@ -96,5 +72,5 @@
     return overlayMessage({ type: "D2L_OVERLAY_OPEN_D2L", url });
   }
 
-  Object.assign(mod, { overlayMessage, closeOverlay, rememberScreen, openInD2l, externalHost, showLinkConfirm, showFileOpen, closeLinkConfirm, openConfirmedLink, previewConfirmedFile, openConfirmedD2l });
+  Object.assign(mod, { overlayMessage, closeOverlay, rememberScreen, openInD2l, externalHost, showLinkConfirm, closeLinkConfirm, openConfirmedLink });
 })(globalThis);
