@@ -154,18 +154,14 @@
         </div>
       </section>`;
     }
-    const course = (model.courses || []).find((entry) => entry.courseId === focus.courseId);
-    const done = course?.completion;
-    const progress = done?.required ? `<div class="progress"><div class="bar"><i style="width:${Math.min(100, done.pct || 0)}%;background:var(--spark)"></i></div><span>Prep ${done.pct}% · ${done.completed} of ${done.required} done</span></div>` : "";
     return `<section class="promo study-banner" aria-label="Study plan">${art}
       ${chips ? `<div class="study-chips">${chips}</div>` : ""}
       <div class="promo-copy">
         <span class="promo-label">Upcoming quizzes &amp; tests</span>
         <h2>Time to hit the books.</h2>
-        ${progress}
         <div class="prow"><a class="btn btn-primary" href="${e(focus.route)}">Get to studying</a></div>
       </div>
-      <a class="study-lnk" href="#/work?type=quiz">See everything ahead ${icon("arrowRight", 15)}</a>
+      <a class="study-lnk" href="#/work?type=quiz">All quizzes &amp; tests ${icon("arrowRight", 15)}</a>
     </section>`;
   }
   // ----- end TEMP STUDY BANNER -----

@@ -64,8 +64,24 @@ async function configureAutomaticSync() {
   await chrome.alarms.create(AUTO_BRIEF_ALARM, { delayInMinutes: 2, periodInMinutes: 2 });
 }
 
-chrome.runtime.onInstalled?.addListener(() => { configureAutomaticSync().catch(() => {}); });
-chrome.runtime.onStartup?.addListener(() => { configureAutomaticSync().catch(() => {}); });
+// YouTube refuses to play a video ("Error 153") when the page around the
+// player sends no web address, and the archive's pages send none. This one
+// rule names the archive to YouTube, only for players the archive opens.
+const YOUTUBE_PLAYER_RULE = 1;
+async function configureYoutubePlayer() {
+  await chrome.declarativeNetRequest?.updateDynamicRules({
+    removeRuleIds: [YOUTUBE_PLAYER_RULE],
+    addRules: [{
+      id: YOUTUBE_PLAYER_RULE,
+      priority: 1,
+      action: { type: "modifyHeaders", requestHeaders: [{ header: "referer", operation: "set", value: `https://${chrome.runtime.id}.chromiumapp.org/` }] },
+      condition: { urlFilter: "||www.youtube-nocookie.com/embed/", resourceTypes: ["sub_frame"], initiatorDomains: [chrome.runtime.id] }
+    }]
+  });
+}
+
+chrome.runtime.onInstalled?.addListener(() => { configureAutomaticSync().catch(() => {}); configureYoutubePlayer().catch(() => {}); });
+chrome.runtime.onStartup?.addListener(() => { configureAutomaticSync().catch(() => {}); configureYoutubePlayer().catch(() => {}); });
 function handleAutomaticSyncAlarm(alarm) {
   if (alarm?.name !== AUTO_BRIEF_ALARM) return Promise.resolve(null);
   return drainSyncQueue({ maxJobs: 3 });
@@ -354,7 +370,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   // Only the extension's own pages may ask for the local re-organization.
   if (message?.type === "D2L_FETCH_FILE") {
-    fetchFileInD2lTab(message.url, sender).then(sendResponse, (error) => sendResponse({ ok: false, error: error?.message || String(error) }));
+    fetchFileInD2lTab(message.url, sender, message.page === true).then(sendResponse, (error) => sendResponse({ ok: false, error: error?.message || String(error) }));
+    return true;
+  }
+
+  if (message?.type === "D2L_VIEWER_PDF") {
+    viewerPdfInD2lTab(message.url, sender).then(sendResponse, (error) => sendResponse({ ok: false, error: error?.message || String(error) }));
     return true;
   }
 
@@ -471,24 +492,44 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 // File previews: when the dashboard can't load a D2L file itself, load it inside
 // an open D2L tab (where D2L's sign-in applies) and hand it back as a data URL.
-// Only D2L file addresses, up to 50 MB.
+// With page set, it hands back a topic's D2L page as text instead, so the
+// dashboard can find the PDF D2L made of a PowerPoint or Excel file.
+// Only D2L addresses, up to 50 MB. A refusal says why, with the same
+// reasons the dashboard uses: signed-out, not-found, no-access, http, not-file,
+// too-large, offline, no-answer, or no-tab.
 const PREVIEW_FETCH_LIMIT = 50 * 1024 * 1024;
 
-async function fetchFileInD2lTab(url, sender) {
-  if (typeof url !== "string" || !url.startsWith(`${D2L_ORIGIN}/d2l/`)) return { ok: false, error: "Not a D2L file." };
+// The D2L tab the dashboard is open on, or else any open D2L tab.
+async function d2lTabFor(sender) {
   const own = sender?.tab?.url?.startsWith(`${D2L_ORIGIN}/d2l/`) ? [sender.tab] : [];
   const tabs = own.length ? own : await chrome.tabs.query({ url: `${D2L_ORIGIN}/d2l/*` });
-  const tab = tabs.find((candidate) => candidate.id >= 0 && !candidate.discarded);
-  if (!tab) return { ok: false, error: "No signed-in D2L tab is open." };
+  return tabs.find((candidate) => candidate.id >= 0 && !candidate.discarded) || null;
+}
+
+async function fetchFileInD2lTab(url, sender, page = false) {
+  if (typeof url !== "string" || !url.startsWith(`${D2L_ORIGIN}/`)) return { ok: false, reason: "not-file", error: "Not a D2L file." };
+  const tab = await d2lTabFor(sender);
+  if (!tab) return { ok: false, reason: "no-tab", error: "No signed-in D2L tab is open." };
   const [injection] = await chrome.scripting.executeScript({
     target: { tabId: tab.id },
-    args: [url, PREVIEW_FETCH_LIMIT],
-    func: async (fileUrl, limit) => {
-      const response = await fetch(fileUrl, { credentials: "include" });
+    args: [url, PREVIEW_FETCH_LIMIT, page],
+    func: async (fileUrl, limit, page = false) => {
+      let response;
+      try { response = await fetch(fileUrl, { credentials: "include" }); }
+      catch { return { ok: false, reason: navigator.onLine === false ? "offline" : "no-answer" }; }
       const type = response.headers.get("content-type") || "";
-      if (!response.ok || /text\/html/i.test(type)) return { ok: false, error: `D2L answered ${response.status}.` };
+      const html = /text\/html/i.test(type);
+      const reason = /\/d2l\/login/i.test(response.url || "") || response.status === 401 ? "signed-out"
+        : response.status === 404 ? "not-found"
+        : response.status === 403 ? "no-access"
+        : !response.ok ? "http"
+        : html !== page ? "not-file" : "";
+      if (reason) return { ok: false, reason, status: response.status, error: `D2L answered ${response.status}.` };
+      if (page) return { ok: true, html: await response.text() };
+      const declared = Number(response.headers.get("content-length") || 0);
+      if (declared > limit) return { ok: false, reason: "too-large", size: declared, limit, error: "The file is too large to preview." };
       const blob = await response.blob();
-      if (blob.size > limit) return { ok: false, error: "The file is too large to preview." };
+      if (blob.size > limit) return { ok: false, reason: "too-large", size: blob.size, limit, error: "The file is too large to preview." };
       const dataUrl = await new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result);
@@ -498,5 +539,44 @@ async function fetchFileInD2lTab(url, sender) {
       return { ok: true, dataUrl, type: blob.type };
     }
   });
-  return injection?.result || { ok: false, error: "D2L didn't answer." };
+  return injection?.result || { ok: false, reason: "no-answer", error: "D2L didn't answer." };
+}
+
+// A PowerPoint's D2L page often doesn't say where D2L's PDF of it is until
+// D2L's own script on the page has asked D2L for it. The extension never sends
+// that request itself: this opens the topic page out of sight in a D2L tab, as
+// you would open it, and reads where its viewer gets the PDF. Only topic
+// pages, for up to 20 seconds.
+const VIEWER_WAIT = 20000;
+
+async function viewerPdfInD2lTab(url, sender) {
+  if (typeof url !== "string" || !url.startsWith(`${D2L_ORIGIN}/d2l/le/content/`) || !/\/viewContent\/\d+\/View$/.test(url)) return { ok: false, error: "Not a D2L topic page." };
+  const tab = await d2lTabFor(sender);
+  if (!tab) return { ok: false, reason: "no-tab", error: "No signed-in D2L tab is open." };
+  const [injection] = await chrome.scripting.executeScript({
+    target: { tabId: tab.id },
+    args: [url, VIEWER_WAIT],
+    func: async (pageUrl, wait) => {
+      const frame = document.createElement("iframe");
+      frame.title = "D2L Archive slides";
+      frame.setAttribute("aria-hidden", "true");
+      frame.tabIndex = -1;
+      frame.style.cssText = "position:fixed;left:-10000px;top:0;width:1280px;height:900px;visibility:hidden;pointer-events:none;border:0";
+      frame.src = pageUrl;
+      document.documentElement.append(frame);
+      try {
+        for (const until = Date.now() + wait; Date.now() < until;) {
+          await new Promise((next) => setTimeout(next, 400));
+          const where = frame.contentDocument?.querySelector(".d2l-fileviewer-pdf-pdfjs[data-location]")?.getAttribute("data-location");
+          if (where) return { ok: true, location: where };
+        }
+        return { ok: false, reason: "no-answer", error: "D2L's page didn't show a PDF." };
+      } catch {
+        return { ok: false, reason: "no-answer", error: "D2L's page couldn't be read." };
+      } finally {
+        frame.remove();
+      }
+    }
+  });
+  return injection?.result || { ok: false, reason: "no-answer", error: "D2L didn't answer." };
 }

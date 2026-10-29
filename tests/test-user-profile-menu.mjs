@@ -67,15 +67,33 @@ const shell = read("dashboard.html");
 const app = appSource();
 const css = read("src/dashboard/dashboard.css");
 check(!shell.includes('href="#/settings" aria-label="Settings"'), "the old top-bar Settings gear still exists");
-check(app.includes('id="profile-menu"') && app.includes('id="profile-avatar"') && app.includes('href="#/settings"'), "the sidebar profile menu or Settings entry is missing");
-check(app.includes('href="#/settings/about"') && app.includes("Open D2L") && !app.includes("popup.html") && !app.includes("Extractor tools"), "the compact profile menu should contain only Settings, About, and Open D2L, with About opening Settings");
-check(!app.includes('id="profile-name"') && !app.includes("profile-copy") && app.includes("M9 0a9 9"), "the sidebar should show only the official Brightspace profile image or profile-default icon, never the student's name");
-check(!app.includes("Sync reminders and visible courses") && !app.includes("Privacy, support and project details"), "profile menu actions should not include descriptive subtitles");
-check(css.includes(".nav-profile { margin-top: auto") && css.includes(".profile-menu { position: fixed"), "the profile control is not anchored to the bottom of the sidebar");
+check(shell.includes('id="account-menu"') && shell.includes('id="profile-avatar"') && shell.includes('href="#/settings"'), "the account menu or Settings entry is missing");
+check(!shell.includes('href="#/settings/about"') && !shell.includes("Open D2L") && !shell.includes("popup.html") && !shell.includes("Extractor tools"), "the account menu should not link About or Open D2L");
+check(shell.includes('id="profile-name"') && app.includes('"profile-name"') && !app.includes("profile-copy") && app.includes("M9 0a9 9") && shell.includes('id="profile-name">Your account</b>'), "the profile flyout header should display the student's name via profile-name, defaulting to Your account");
+check(!shell.includes("Sync reminders and visible courses") && !shell.includes("Privacy, support and project details"), "profile menu actions should not include descriptive subtitles");
+const topbar = shell.slice(shell.indexOf('<header class="topbar">'), shell.indexOf("</header>"));
+check(topbar.includes('id="profile-button"') && !app.includes('class="nav-profile') && !css.includes(".nav-profile") && css.includes(".account-menu { top: -7px; right: -7px; width: 254px"), "the profile control should sit at the top right, not the bottom of the sidebar");
+const accountMenu = shell.slice(shell.indexOf('id="account-menu"'), shell.indexOf('id="account-main"'));
+check(accountMenu.includes('class="account-header"') && accountMenu.includes('id="profile-name">Your account</b>') && accountMenu.includes('id="sync-hint"') && accountMenu.indexOf('class="account-who"') < accountMenu.indexOf('class="account-avatar-recess"') && accountMenu.indexOf('class="account-header"') < accountMenu.indexOf('class="account-slider"'), "the account card header should hold the account info and sync status on the left and the avatar recess on the right, above the sliding panes");
+check(!shell.includes('class="account-head"') && (shell.match(/class="profile-avatar"/g) || []).length === 1, "the avatar should live only in the top-bar button; the card nests that button instead of repeating it");
+check(/\.account-header \.account-avatar-recess \{[^}]*width: 48px; height: 48px;[^}]*border-radius: 50%/.test(css) && /\.profile-trigger\[aria-expanded="true"\] \{[^}]*z-index: 41/.test(css), "the avatar recess should be a 48px circle and the open trigger should sit above the card");
+// Geometry: the 42px trigger's centre is 21px from the menu-root's top and right edges.
+// The card starts 7px out (1px border + 6px side padding), the header is 54px tall and the
+// 48px recess is pulled 3px into the padding, so its centre must land on the trigger's.
+const num = (re) => Number((css.match(re) || [])[1]);
+const trigger = num(/\.profile-trigger \{[^}]*?width: (\d+)px/);
+const out = -num(/\.account-menu \{ top: (-\d+)px/);
+const rightOut = -num(/\.account-menu \{[^}]*?right: (-\d+)px/);
+const sidePad = num(/\.account-menu \{[^}]*?padding: 0 (\d+)px/);
+const headerMin = num(/\.account-header \{[^}]*?min-height: (\d+)px/);
+const recess = num(/\.account-avatar-recess \{[^}]*?width: (\d+)px/);
+const pull = -num(/\.account-avatar-recess \{[^}]*?margin-right: (-\d+)px/);
+check(out - 1 === rightOut - 1 && headerMin / 2 - (out - 1) === trigger / 2, "the card header should be vertically centred on the closed profile button");
+check(recess / 2 - pull - (rightOut - 1 - sidePad) === trigger / 2, "the avatar recess should be horizontally centred on the closed profile button, so opening causes no visual jump");
 check(app.includes("changes[PROFILE_KEY]") && app.includes("renderUserProfile"), "the dashboard does not react when D2L saves a profile image");
 
 if (failures.length) {
   console.error(failures.map((failure) => `FAIL: ${failure}`).join("\n"));
   process.exit(1);
 }
-console.log("D2L profile capture and sidebar account menu passed.");
+console.log("D2L profile capture and the top-bar account menu passed.");
