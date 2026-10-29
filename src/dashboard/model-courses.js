@@ -190,13 +190,56 @@
     // Manual contact edits sit on top of whatever the archive detected. A
     // course without a detected instructor still gets one editable row.
     const contactOverrides = index.courseContactOverrides?.[courseId] || {};
-    // A link the user saved replaces whatever syllabus the archive detected.
-    const syllabusLink = dash.safeSyllabusUrl?.(contactOverrides.syllabus?.url) || "";
+    // A custom syllabus override (link, uploaded file, or raw text) replaces whatever syllabus the archive detected.
+    const customSyllabus = contactOverrides.syllabus || null;
+    const syllabusLink = dash.safeSyllabusUrl?.(customSyllabus?.url) || "";
+    let effectiveSyllabus = null;
+    let syllabusEditValue = "";
+    if (customSyllabus?.type === "text" && customSyllabus.text) {
+      effectiveSyllabus = {
+        id: "",
+        title: customSyllabus.title || "Custom syllabus",
+        from: "Custom",
+        type: "text",
+        text: customSyllabus.text
+      };
+      syllabusEditValue = customSyllabus.text;
+    } else if (customSyllabus?.type === "file" && customSyllabus.dataUrl) {
+      effectiveSyllabus = {
+        id: "",
+        title: customSyllabus.title || customSyllabus.name || "Custom syllabus",
+        from: "Custom",
+        type: "file",
+        name: customSyllabus.name || "Syllabus",
+        mime: customSyllabus.mime || "application/pdf",
+        dataUrl: customSyllabus.dataUrl
+      };
+      syllabusEditValue = customSyllabus.name || "Syllabus";
+    } else if (syllabusLink) {
+      effectiveSyllabus = {
+        id: "",
+        title: "Custom link",
+        from: "Custom",
+        url: syllabusLink
+      };
+      syllabusEditValue = syllabusLink;
+    } else if (syllabus) {
+      effectiveSyllabus = {
+        id: syllabus.id,
+        title: syllabus.title,
+        from: syllabus.from || "Content"
+      };
+    }
     const contacts = (course.instructorContacts.length ? course.instructorContacts : [{}])
       .map((contact, index) => ({ name: "", email: "", officeHours: "", ...contact, ...(contactOverrides[index] || {}) }));
+    // Manual textbook entries sit on top of whatever the syllabus text named.
+    // A saved list is authoritative; a course without either still shows the
+    // empty state with an Add item button.
+    const textbooks = (dash.normalizeTextbookEntries(index.courseTextbooks?.[courseId]?.entries ?? course.textbooks) || []);
     return {
       course,
       contacts,
+      textbooks,
       final: finalGradeLabel(course),
       gradedCount: grades.filter(isGradedGrade).length,
       gradeCount: grades.length,
@@ -206,8 +249,8 @@
       announcements: announcements.slice(0, 5),
       announcementTotal: announcements.length,
       earlierAnnouncements,
-      syllabus: syllabusLink ? { id: "", title: "Custom link", from: "Custom", url: syllabusLink } : syllabus ? { id: syllabus.id, title: syllabus.title, from: syllabus.from || "Content" } : null,
-      syllabusOverride: syllabusLink,
+      syllabus: effectiveSyllabus,
+      syllabusOverride: syllabusEditValue,
       modules: modules.map((module) => ({ title: module.title, topics: module.topics, completion: module.completion, route: `#/resources/${encodeURIComponent(courseId)}?module=${encodeURIComponent(module.id)}` })),
       discussions: discussions.slice(0, 6),
       discussionTotal: discussions.length,

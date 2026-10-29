@@ -2,7 +2,7 @@
 (function initDashboardAppEvents(global) {
   const dash = global.D2LDashboard ||= {};
   const mod = dash.appModules ||= {};
-  const { $, COURSE_OVERRIDES_KEY, EMBEDDED, READ_KEY, RECREATED_SEEN_KEY, SETTINGS_KEY, adoptLegacyArchive, api, backFromDetail, closeDetailToBase, closeLinkConfirm, closeOverlay, closePeek, closePreview, detailRoot, exportActivity, fileScope, look, main, moveGradeCarousel, navigateToDetail, openArchivedFile, openConfirmedD2l, openConfirmedLink, previewConfirmedFile, openPeek, previewFile, recordActivity, redrawAdoptNotice, refreshIfStaleOnFocus, rememberScreen, render, renderSyncStatus, saveLook, setChecklistDone, setDetailMore, stepPeek, setWorkMark, showFileOpen, showLinkConfirm, startSync, state, storageSet, toast, updateGradeCarouselControls, wait } = dash.appModules;
+  const { $, COURSE_OVERRIDES_KEY, COURSE_TEXTBOOKS_KEY, EMBEDDED, READ_KEY, RECREATED_SEEN_KEY, SETTINGS_KEY, adoptLegacyArchive, api, backFromDetail, blobFromDataUrl, closeDetailToBase, closeLinkConfirm, closeOverlay, closePeek, closePreview, detailRoot, exportActivity, fileScope, look, main, moveGradeCarousel, navigateToDetail, openArchivedFile, openConfirmedLink, openPeek, previewFile, recordActivity, redrawAdoptNotice, refreshIfStaleOnFocus, rememberScreen, render, renderSyncStatus, saveLook, setChecklistDone, setDetailMore, showPreview, stepPeek, setWorkMark, showLinkConfirm, startSync, state, storageSet, toast, updateGradeCarouselControls, wait } = dash.appModules;
   // ------------------------------------------------------------- events
 
   function markRead(ids, value = true) {
@@ -14,8 +14,22 @@
     if (state.detail) state.baseStale = true;
   }
 
+  // The account menu slides between its main list and the Help links.
+  function showAccountView(help, focus = false) {
+    const menu = document.getElementById("account-menu");
+    const shown = document.getElementById(help ? "account-help" : "account-main");
+    const away = document.getElementById(help ? "account-main" : "account-help");
+    if (!menu || !shown || !away) return;
+    menu.classList.toggle("view-help", help);
+    away.setAttribute("inert", "");
+    shown.removeAttribute("inert");
+    menu.querySelector(".account-slider").style.height = `${shown.scrollHeight}px`;
+    if (focus) menu.querySelector(help ? ".account-back" : "[data-action=account-help]")?.focus({ preventScroll: true });
+  }
+
   function closeMenu() {
     if (!state.menu) return;
+    document.getElementById(state.menu)?.classList.remove("view-help");
     document.getElementById(state.menu)?.setAttribute("hidden", "");
     document.querySelector(`[aria-controls="${state.menu}"]`)?.setAttribute("aria-expanded", "false");
     state.menu = null;
@@ -159,13 +173,34 @@
   // per-account bucket and backup file. An empty value goes back to the
   // syllabus the archive detected.
   async function saveSyllabusOverride(courseId, value) {
+    const previous = state.courseContactOverrides || {};
+    const course = { ...(previous[courseId] || {}) };
+    if (value && typeof value === "object") {
+      if (value.type === "text") {
+        const text = String(value.text || "").trim();
+        if (text) course.syllabus = { type: "text", title: "Custom syllabus", text };
+        else delete course.syllabus;
+      } else if (value.type === "file" && value.dataUrl) {
+        course.syllabus = {
+          type: "file",
+          title: value.name || "Syllabus",
+          name: value.name || "Syllabus",
+          mime: value.mime || "application/pdf",
+          dataUrl: value.dataUrl
+        };
+      } else {
+        delete course.syllabus;
+      }
+      const next = { ...previous };
+      if (Object.keys(course).length) next[courseId] = course;
+      else delete next[courseId];
+      return persistContactOverrides(next);
+    }
     const url = dash.safeSyllabusUrl(value);
     if (value && !url) {
       toast("Enter a full web link that starts with http:// or https://.");
       return false;
     }
-    const previous = state.courseContactOverrides || {};
-    const course = { ...(previous[courseId] || {}) };
     if (url) course.syllabus = { url };
     else delete course.syllabus;
     const next = { ...previous };
@@ -238,6 +273,179 @@
 
   const CONTACT_FIELD_LABELS = Object.freeze({ name: "instructor name", email: "instructor email", officeHours: "office hours", syllabus: "syllabus link" });
 
+  // ---- textbook shelf: the entries saved here replace whatever the archive
+  // detected for the course, and each edit rewrites the whole list, so the
+  // editor reads from the same list it renders.
+  function textbookEntriesFor(courseId) {
+    const saved = state.courseTextbooks?.[courseId]?.entries;
+    if (saved) return saved.slice(0, dash.MAX_TEXTBOOK_ENTRIES);
+    return dash.normalizeTextbookEntries?.(state.index?.courseById?.get(courseId)?.textbooks) || [];
+  }
+
+  async function persistTextbookEntries(courseId, nextEntries) {
+    if (!state.account.id) {
+      toast("That change wasn't saved: the D2L account isn't known yet.");
+      return false;
+    }
+    const entries = dash.normalizeTextbookEntries?.(nextEntries) || [];
+    const previous = state.courseTextbooks || {};
+    const course = { ...(previous[courseId] || {}) };
+    if (entries.length) course.entries = entries;
+    else delete course.entries;
+    const next = { ...previous };
+    if (Object.keys(course).length) next[courseId] = course;
+    else delete next[courseId];
+    try {
+      await chrome.storage.local.set({ [dash.accountBinding.scopedKey(COURSE_TEXTBOOKS_KEY, state.account.id)]: next });
+    } catch {
+      toast("That change wasn't saved locally.");
+      return false;
+    }
+    state.courseTextbooks = next;
+    if (state.index) state.index.courseTextbooks = next;
+    return true;
+  }
+
+  function closeTextbookEdit() {
+    document.getElementById("textbook-layer")?.remove();
+  }
+
+  function closeAllTextbookEdits() {
+    closeTextbookEdit();
+  }
+
+  function beginTextbookEdit(courseId, entryIndex) {
+    if (!courseId) return;
+    closeAllTextbookEdits();
+    const entries = textbookEntriesFor(courseId);
+    const existing = entryIndex >= 0 && entryIndex < entries.length ? entries[entryIndex] : null;
+    const course = state.index?.courseById?.get(courseId) || {};
+    // The whole page keeps living behind the pop-up, so it never hides the
+    // shelf: a fixed scrim with a small titled panel over it.
+    const layer = document.createElement("div");
+    layer.id = "textbook-layer";
+    layer.className = "textbook-layer";
+    const panel = document.createElement("div");
+    panel.className = "textbook-panel";
+    panel.setAttribute("role", "dialog");
+    panel.setAttribute("aria-modal", "true");
+    panel.setAttribute("aria-labelledby", "textbook-layer-title");
+    const head = document.createElement("div");
+    head.className = "textbook-panel-head";
+    const heading = document.createElement("div");
+    const titleEl = document.createElement("b");
+    titleEl.id = "textbook-layer-title";
+    titleEl.textContent = existing ? "Edit textbook" : "Add textbook";
+    const sub = document.createElement("span");
+    sub.className = "panel-sub";
+    sub.textContent = ["Textbooks & links", course.label || ""].filter(Boolean).join(" · ");
+    const closeBtn = document.createElement("button");
+    closeBtn.className = "icon-btn";
+    closeBtn.type = "button";
+    closeBtn.dataset.action = "cancel-textbook-edit";
+    closeBtn.title = "Close";
+    closeBtn.setAttribute("aria-label", "Close");
+    closeBtn.innerHTML = dash.icon("close", 16);
+    heading.append(titleEl, sub);
+    head.append(heading, closeBtn);
+    layer.append(panel);
+    panel.append(head);
+
+    const form = document.createElement("form");
+    form.className = "textbook-editor";
+    form.id = "textbook-editor-form";
+    form.dataset.textbookEditor = "";
+    form.dataset.courseId = courseId;
+    form.dataset.entryIndex = String(entryIndex);
+    if (existing) form.__textbookEntry = existing;
+
+    const field = (name, placeholder, label, value, mode) => {
+      const wrap = document.createElement("label");
+      wrap.className = "textbook-field";
+      const caption = document.createElement("span");
+      caption.textContent = label;
+      const input = document.createElement("input");
+      input.className = "instructor-edit-input";
+      input.name = name;
+      input.type = "text";
+      input.value = value || "";
+      input.autocomplete = "off";
+      input.placeholder = placeholder;
+      input.setAttribute("aria-label", label);
+      if (mode) input.inputMode = mode;
+      wrap.append(caption, input);
+      return wrap;
+    };
+
+    form.append(field("title", "Type the title, like World of Art", "Title", existing?.title));
+    form.append(field("meta", "Edition, author, type — optional", "Details (optional)", existing?.meta));
+    const linksRow = document.createElement("div");
+    linksRow.className = "textbook-field-inline";
+    linksRow.append(
+      field("linkUrl", "https://…", "Link (optional)", existing?.links?.[0]?.url, "url"),
+      field("linkUrl2", "https://…", "Extra link (optional)", existing?.links?.[1]?.url, "url")
+    );
+    form.append(linksRow);
+
+    const coverWrap = document.createElement("label");
+    coverWrap.className = "textbook-field";
+    const coverCaption = document.createElement("span");
+    coverCaption.textContent = "Cover (optional)";
+    const coverPicker = document.createElement("label");
+    coverPicker.className = "textbook-file-picker-label";
+    const coverInput = document.createElement("input");
+    coverInput.type = "file";
+    coverInput.className = "syllabus-file-input sr-only";
+    coverInput.accept = "image/png,image/jpeg,image/webp,image/gif";
+    const coverText = document.createElement("span");
+    coverText.className = "textbook-file-chosen-text";
+    coverText.textContent = existing?.cover ? "Choose an image to replace the cover..." : "Choose a cover image...";
+    coverPicker.append(coverInput, coverText);
+    coverWrap.append(coverCaption, coverPicker);
+    coverInput.addEventListener("change", () => {
+      const file = coverInput.files?.[0];
+      if (!file) return;
+      coverText.textContent = file.name;
+      const reader = new FileReader();
+      reader.onload = () => {
+        form.__textbookCover = String(reader.result || "");
+        if (!dash.safeCoverUrl?.(form.__textbookCover)) {
+          form.__textbookCover = "";
+          coverText.textContent = "That image type can't be used — pick a PNG, JPEG, WebP or GIF.";
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+    form.append(coverWrap);
+
+    const actions = document.createElement("div");
+    actions.className = "textbook-editor-actions";
+    const save = document.createElement("button");
+    save.className = "btn btn-primary instructor-save";
+    save.type = "submit";
+    save.setAttribute("form", form.id);
+    save.textContent = "Save";
+    const cancel = document.createElement("button");
+    cancel.className = "btn instructor-cancel";
+    cancel.type = "button";
+    cancel.dataset.action = "cancel-textbook-edit";
+    cancel.textContent = "Cancel";
+    actions.append(cancel, save);
+    if (existing) {
+      const remove = document.createElement("button");
+      remove.className = "btn instructor-cancel";
+      remove.type = "button";
+      remove.dataset.action = "remove-textbook";
+      remove.textContent = "Remove";
+      actions.prepend(remove);
+    }
+    panel.append(form);
+    panel.append(actions);
+    document.body.append(layer);
+    form.querySelector("input[name=title]")?.focus();
+  }
+
+
   function cancelContactEdit(row) {
     if (!row?.__instructorHTML) return;
     row.innerHTML = row.__instructorHTML;
@@ -264,7 +472,12 @@
     input.value = value;
     input.autocomplete = "off";
     input.setAttribute("aria-label", `Edit ${label}`);
-    if (field === "email") input.inputMode = "email";
+    if (field === "name") input.placeholder = "Type the instructor's name";
+    if (field === "email") {
+      input.inputMode = "email";
+      input.placeholder = "Type the instructor's email address";
+    }
+    if (field === "officeHours") input.placeholder = "Type the office hours, like Mon and Wed 2–4 PM";
     if (field === "syllabus") {
       input.inputMode = "url";
       input.placeholder = "Paste a link, or leave empty to use the detected one";
@@ -278,10 +491,104 @@
     cancel.type = "button";
     cancel.dataset.action = "cancel-instructor-edit";
     cancel.textContent = "Cancel";
-    form.append(input, save, cancel);
-    row.append(form);
-    input.focus();
-    input.select();
+
+    if (field === "syllabus") {
+      form.classList.add("is-syllabus-chips-row");
+      const chipsWrap = document.createElement("div");
+      chipsWrap.className = "syllabus-choice-chips";
+
+      const btnLink = document.createElement("button");
+      btnLink.type = "button";
+      btnLink.className = "syllabus-chip-btn";
+      btnLink.innerHTML = `${dash.icon("link", 14)}<span>Link</span>`;
+
+      const btnFile = document.createElement("button");
+      btnFile.type = "button";
+      btnFile.className = "syllabus-chip-btn";
+      btnFile.innerHTML = `${dash.icon("file", 14)}<span>File</span>`;
+
+      const btnText = document.createElement("button");
+      btnText.type = "button";
+      btnText.className = "syllabus-chip-btn";
+      btnText.innerHTML = `${dash.icon("pencil", 14)}<span>Text</span>`;
+
+      chipsWrap.append(btnLink, btnFile, btnText);
+
+      const cancelRowBtn = document.createElement("button");
+      cancelRowBtn.type = "button";
+      cancelRowBtn.className = "instructor-cancel syllabus-cancel-icon";
+      cancelRowBtn.dataset.action = "cancel-instructor-edit";
+      cancelRowBtn.setAttribute("aria-label", "Cancel edit");
+      cancelRowBtn.innerHTML = dash.icon("close", 14);
+
+      form.append(chipsWrap, cancelRowBtn);
+
+      const openModeEditor = (mode) => {
+        form.innerHTML = "";
+        form.classList.remove("is-syllabus-chips-row");
+        form.classList.add("is-syllabus-step2");
+        form.dataset.syllabusMode = mode;
+
+        if (mode === "link") {
+          input.hidden = false;
+          form.append(input, save, cancel);
+          input.focus();
+          input.select();
+        } else if (mode === "file") {
+          const fileWrap = document.createElement("label");
+          fileWrap.className = "syllabus-file-picker-label";
+          const fileInput = document.createElement("input");
+          fileInput.type = "file";
+          fileInput.className = "syllabus-file-input sr-only";
+          fileInput.accept = ".pdf,.doc,.docx,.txt,.rtf,image/*";
+          const fileText = document.createElement("span");
+          fileText.className = "syllabus-file-chosen-text";
+          fileText.textContent = "Choose PDF or document...";
+          fileWrap.append(fileInput, fileText);
+
+          fileInput.addEventListener("change", () => {
+            const file = fileInput.files?.[0];
+            if (!file) return;
+            fileText.textContent = file.name;
+            const reader = new FileReader();
+            reader.onload = () => {
+              form.__syllabusFile = {
+                name: file.name,
+                mime: file.type || "application/pdf",
+                dataUrl: reader.result
+              };
+            };
+            reader.readAsDataURL(file);
+          });
+
+          form.append(fileWrap, save, cancel);
+          fileInput.focus();
+        } else if (mode === "text") {
+          const textArea = document.createElement("textarea");
+          textArea.className = "instructor-edit-textarea";
+          textArea.name = "syllabusText";
+          textArea.rows = 2;
+          textArea.placeholder = "Paste raw syllabus text here...";
+          textArea.value = value;
+          const actions = document.createElement("div");
+          actions.className = "syllabus-editor-actions";
+          actions.append(save, cancel);
+          form.append(textArea, actions);
+          textArea.focus();
+        }
+      };
+
+      btnLink.addEventListener("click", () => openModeEditor("link"));
+      btnFile.addEventListener("click", () => openModeEditor("file"));
+      btnText.addEventListener("click", () => openModeEditor("text"));
+      row.append(form);
+      btnLink.focus();
+    } else {
+      form.append(input, save, cancel);
+      row.append(form);
+      input.focus();
+      input.select();
+    }
   }
 
   async function copyToClipboard(value) {
@@ -315,19 +622,15 @@
       return;
     }
     if (EMBEDDED && event.target.closest("[data-action=close-overlay]")) {
+      closeMenu();
       closeOverlay();
       return;
     }
-    // A saved file can be previewed here or opened on D2L. Its row stays an
-    // anchor, so modified clicks still open the D2L original in a new tab.
-    if (link && plain && link.hasAttribute("data-file-open")) {
+    // A file row previews here. It stays an anchor to the D2L page, so
+    // modified clicks still open D2L in a new tab.
+    if (link && plain && link.hasAttribute("data-preview")) {
       event.preventDefault();
-      showFileOpen({
-        path: link.getAttribute("data-path"),
-        name: link.getAttribute("data-name") || "File",
-        d2l: link.getAttribute("data-d2l") || link.href,
-        download: link.getAttribute("data-download") || ""
-      });
+      previewFile(link);
       return;
     }
     // Every link that leaves the archive asks once. Modified clicks keep the
@@ -355,6 +658,7 @@
         document.getElementById(id).removeAttribute("hidden");
         toggle.setAttribute("aria-expanded", "true");
         state.menu = id;
+        if (id === "account-menu") showAccountView(false);
       }
       return;
     }
@@ -377,15 +681,90 @@
       navigateToDetail(link.getAttribute("href"), link);
     }
 
+    if (event.target.id === "textbook-layer") {
+      closeTextbookEdit();
+      return;
+    }
     const actionNode = event.target.closest("[data-action]");
     if (!actionNode) return;
     const action = actionNode.dataset.action;
+    if (action === "account-help" || action === "account-back") {
+      showAccountView(action === "account-help", true);
+      return;
+    }
     if (action === "edit-instructor") {
       beginContactEdit(actionNode.closest("[data-contact-row]"));
       return;
     }
     if (action === "cancel-instructor-edit") {
       cancelContactEdit(actionNode.closest("[data-contact-row]"));
+      return;
+    }
+    if (action === "add-textbook" || action === "edit-textbook") {
+      beginTextbookEdit(actionNode.dataset.courseId || "", action === "edit-textbook" ? Number(actionNode.dataset.entryIndex) : -1);
+      return;
+    }
+    if (action === "cancel-textbook-edit") {
+      closeTextbookEdit();
+      return;
+    }
+    if (action === "remove-textbook") {
+      const form = event.target.closest(".textbook-panel")?.querySelector("[data-textbook-editor]") || event.target.closest("[data-textbook-editor]");
+      if (!form) return;
+      actionNode.disabled = true;
+      const courseId = form.dataset.courseId || "";
+      const entries = textbookEntriesFor(courseId).slice(0, dash.MAX_TEXTBOOK_ENTRIES);
+      const index = Number(form.dataset.entryIndex);
+      if (index >= 0 && index < entries.length) entries.splice(index, 1);
+      closeTextbookEdit();
+      if (await persistTextbookEntries(courseId, entries)) {
+        render.keepScroll = true;
+        await render();
+        toast("Item removed from the shelf.");
+      }
+      return;
+    }
+    if (action === "view-custom-syllabus") {
+      const courseId = actionNode.dataset.courseId;
+      const syllabus = state.courseContactOverrides?.[courseId]?.syllabus || state.index?.courseContactOverrides?.[courseId]?.syllabus;
+      if (!syllabus) return;
+      if (syllabus.type === "text") {
+        const text = syllabus.text || "";
+        const blob = new Blob([text], { type: "text/plain" });
+        showPreview({
+          name: syllabus.title || "Custom syllabus",
+          state: "ready",
+          kind: "text",
+          text,
+          src: URL.createObjectURL(blob),
+          mime: "text/plain"
+        });
+      } else if (syllabus.type === "file" && syllabus.dataUrl) {
+        const mime = syllabus.mime || "application/pdf";
+        const blob = blobFromDataUrl(syllabus.dataUrl, mime);
+        const src = URL.createObjectURL(blob);
+        if (mime === "text/plain" || mime === "text/markdown") {
+          blob.text().then((text) => {
+            showPreview({
+              name: syllabus.name || syllabus.title || "Syllabus",
+              state: "ready",
+              kind: "text",
+              text,
+              src,
+              mime
+            });
+          });
+        } else {
+          showPreview({
+            name: syllabus.name || syllabus.title || "Syllabus",
+            state: "ready",
+            kind: mime === "application/pdf" ? "pdf" : mime.startsWith("image/") ? "image" : "unsupported",
+            src,
+            pdf: mime === "application/pdf" ? src : undefined,
+            mime
+          });
+        }
+      }
       return;
     }
     if (action === "copy-instructor") {
@@ -452,6 +831,7 @@
       if (left) actionNode.textContent = `Show ${Math.min(step, left)} more`;
       else actionNode.remove();
     } else if (action === "sync") {
+      closeMenu();
       startSync().catch((error) => toast(`Couldn't start sync: ${error.message}`));
     } else if (action === "adopt-legacy" || action === "adopt-legacy-cancel") {
       state.adopt = { confirming: action === "adopt-legacy", pending: false, error: "" };
@@ -498,10 +878,6 @@
       previewFile(actionNode);
     } else if (action === "confirm-link") {
       openConfirmedLink();
-    } else if (action === "preview-confirmed-file") {
-      previewConfirmedFile();
-    } else if (action === "open-confirmed-d2l") {
-      openConfirmedD2l();
     } else if (action === "close-link-confirm") {
       if (!actionNode.dataset.backdrop || event.target === actionNode) closeLinkConfirm();
     } else if (action === "reload-page") {
@@ -605,6 +981,12 @@
       cancelContactEdit(contactEditor.closest("[data-contact-row]"));
       return;
     }
+    const textbookEditor = event.target.closest?.("[data-textbook-editor]");
+    if ((textbookEditor || document.getElementById("textbook-layer")) && event.key === "Escape") {
+      event.preventDefault();
+      closeTextbookEdit();
+      return;
+    }
     if (event.key === "Escape" && state.filterMenu) {
       event.preventDefault();
       closeFilterMenu(true);
@@ -614,6 +996,13 @@
     // The first Esc in the box only closes the results; the browser's own Esc
     // (clear the box) waits for the second.
     if (event.key === "Escape" && event.target === searchInput() && !searchPanelNode()?.hidden) event.preventDefault();
+    if (event.key === "Escape" && state.menu) {
+      event.preventDefault();
+      const opener = document.querySelector(`[aria-controls="${state.menu}"]`);
+      closeMenu();
+      opener?.focus();
+      return;
+    }
     if (event.key === "Escape") {
       if ($("#action-confirm")?.open) return;
       if (state.preview) {
@@ -691,22 +1080,79 @@
     if (form.matches("[data-contact-editor]")) {
       event.preventDefault();
       const row = form.closest("[data-contact-row]");
+      if (!row) return;
       const input = form.querySelector("input[name=value]");
-      if (!row || !input) return;
       const courseId = row.dataset.courseId || "";
       const contactIndex = row.dataset.contactIndex || "0";
       const field = row.dataset.field || "";
-      const value = String(input.value || "").trim();
-      const saved = field === "syllabus"
-        ? await saveSyllabusOverride(courseId, value)
-        : await saveContactOverride(courseId, contactIndex, field, value);
+      const value = String(input?.value || "").trim();
+      let saved = false;
+      if (field === "syllabus") {
+        const mode = form.dataset.syllabusMode || "link";
+        if (mode === "file") {
+          if (!form.__syllabusFile) {
+            toast("Choose a file to upload or click Cancel.");
+            return;
+          }
+          saved = await saveSyllabusOverride(courseId, { type: "file", ...form.__syllabusFile });
+        } else if (mode === "text") {
+          const text = form.querySelector("textarea[name=syllabusText]")?.value || "";
+          saved = await saveSyllabusOverride(courseId, { type: "text", text });
+        } else {
+          saved = await saveSyllabusOverride(courseId, value);
+        }
+      } else {
+        if (!input) return;
+        saved = await saveContactOverride(courseId, contactIndex, field, value);
+      }
       if (!saved) {
-        input.focus();
+        const focusTarget = form.querySelector("input, textarea") || form;
+        focusTarget.focus();
         return;
       }
       render.keepScroll = true;
       await render();
       main()?.querySelector(`[data-contact-row][data-course-id="${CSS.escape(courseId)}"][data-contact-index="${CSS.escape(contactIndex)}"][data-field="${CSS.escape(field)}"] .instructor-edit`)?.focus({ preventScroll: true });
+      return;
+    }
+    if (form.matches("[data-textbook-editor]")) {
+      event.preventDefault();
+      const courseId = form.dataset.courseId || "";
+      const view = Number(form.dataset.entryIndex) >= 0 ? Number(form.dataset.entryIndex) : -1;
+      const title = String(form.querySelector("input[name=title]")?.value || "").trim();
+      if (!title) {
+        toast("Type a title for the item first.");
+        form.querySelector("input[name=title]")?.focus();
+        return;
+      }
+      const rawLinks = [{ value: form.querySelector("input[name=linkUrl]")?.value, title: "View textbook" }, { value: form.querySelector("input[name=linkUrl2]")?.value, title: "Extra link" }];
+      const links = [];
+      for (const one of rawLinks) {
+        const typed = String(one.value || "").trim();
+        if (!typed) continue;
+        const url = dash.safeLinkUrl(typed);
+        if (!url) {
+          toast("Enter a full web link that starts with http:// or https://.");
+          return;
+        }
+        links.push({ title: one.title, url });
+      }
+      const base = textbookEntriesFor(courseId).slice(0, dash.MAX_TEXTBOOK_ENTRIES);
+      const previous = view >= 0 && view < base.length ? base[view] : null;
+      const entry = {
+        title,
+        meta: String(form.querySelector("input[name=meta]")?.value || "").trim(),
+        cover: form.__textbookCover || previous?.cover || "",
+        links
+      };
+      if (view >= 0) base[view] = entry;
+      else base.push(entry);
+      if (await persistTextbookEntries(courseId, base)) {
+        closeTextbookEdit();
+        render.keepScroll = true;
+        await render();
+        toast(view >= 0 ? "Shelf item saved." : "Added to the shelf.");
+      }
       return;
     }
     if (form.matches("[data-action=search]")) {

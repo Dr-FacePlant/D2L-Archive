@@ -41,8 +41,24 @@
       for (const [rawIndex, values] of Object.entries(contacts)) {
         if (Object.keys(kept).length >= MAX_CONTACTS) break;
         if (rawIndex === SYLLABUS_KEY) {
-          const url = safeSyllabusUrl(values?.url);
-          if (url) kept[SYLLABUS_KEY] = { url };
+          if (values?.type === "text" && typeof values.text === "string" && values.text.trim()) {
+            kept[SYLLABUS_KEY] = {
+              type: "text",
+              title: clean(values.title || "Custom syllabus").slice(0, 100),
+              text: String(values.text).slice(0, 500000)
+            };
+          } else if (values?.type === "file" && typeof values.dataUrl === "string" && values.dataUrl) {
+            kept[SYLLABUS_KEY] = {
+              type: "file",
+              title: clean(values.title || values.name || "Syllabus").slice(0, 100),
+              name: clean(values.name || "Syllabus").slice(0, 100),
+              mime: clean(values.mime || "application/pdf").slice(0, 100),
+              dataUrl: String(values.dataUrl).slice(0, 15000000)
+            };
+          } else {
+            const url = safeSyllabusUrl(values?.url);
+            if (url) kept[SYLLABUS_KEY] = { url };
+          }
           continue;
         }
         if (!/^\d{1,2}$/.test(rawIndex) || Number(rawIndex) >= MAX_CONTACTS) continue;
@@ -62,7 +78,10 @@
   function contactEditCount(overrides) {
     let count = 0;
     for (const contacts of Object.values(normalizeOverrides(overrides))) {
-      for (const fields of Object.values(contacts)) count += Object.keys(fields).length;
+      for (const [key, fields] of Object.entries(contacts)) {
+        if (key === SYLLABUS_KEY) count += 1;
+        else count += Object.keys(fields).length;
+      }
     }
     return count;
   }

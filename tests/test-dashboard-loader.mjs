@@ -12,7 +12,7 @@ const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..")
 export function loadDashboard() {
   const context = vm.createContext({ URL, URLSearchParams, console, setTimeout, clearTimeout });
   for (const file of [
-    "appearance.js", "format.js", "model.js", "model-archive.js", "model-updates.js", "model-work.js",
+    "appearance.js", "format.js", "model.js", "model-textbooks.js", "model-archive.js", "model-updates.js", "model-work.js",
     "model-details.js", "model-resources.js", "model-related.js", "model-dashboard.js", "model-courses.js", "model-contact-backup.js", "model-grades.js",
     "model-calendar.js", "model-search.js", "model-routes.js",
     "render.js", "render-dashboard.js", "render-updates.js", "render-courses.js", "render-calendar.js",

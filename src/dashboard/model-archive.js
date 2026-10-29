@@ -102,6 +102,7 @@
             }].filter((c) => c.name || c.email || c.officeHours);
           }
         }
+        const textbooks = dash.parseTextbookMentions ? dash.parseTextbookMentions(combinedText) : [];
         const completion = list(course.courseId, "studentProgress").find((entity) => entity.progressKind === "courseCompletion") || null;
         const finalGrade = list(course.courseId, "gradeRecord").find((entity) => entity.kind === "final") || null;
         return {
@@ -114,6 +115,7 @@
           term: termOf(course.title) || course.semester || "",
           instructors,
           instructorContacts,
+          textbooks,
           completion: completion && completion.requiredItems
             ? { completed: completion.completedItems, required: completion.requiredItems, pct: percent(completion.completedItems, completion.requiredItems) }
             : null,
@@ -131,7 +133,7 @@
     const courses = allCourses.filter((course) => !hidden.has(course.courseId) && (!course.defaultHidden || shown.has(course.courseId)));
     const courseById = new Map(allCourses.map((course) => [course.courseId, course]));
     const visible = new Set(courses.map((course) => course.courseId));
-    const index = { raw, now, entities, byId, list, allCourses, courses, courseById, visible, courseContactOverrides: raw.courseContactOverrides || {}, lessonDue: lessonDeadlines(entities, byId) };
+    const index = { raw, now, entities, byId, list, allCourses, courses, courseById, visible, courseContactOverrides: raw.courseContactOverrides || {}, courseTextbooks: raw.courseTextbooks || {}, lessonDue: lessonDeadlines(entities, byId) };
     index.checklistLinks = checklistLinks(index);
     return index;
   }
