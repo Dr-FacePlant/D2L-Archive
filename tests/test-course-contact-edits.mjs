@@ -81,6 +81,7 @@ check(events.includes("async function saveContactOverride"), "saving a contact e
 check(events.includes("async function saveSyllabusOverride") && events.includes("dash.safeSyllabusUrl(value)"), "saving a syllabus link should be wired and validated");
 check(events.includes('dash.icon(copied ? "check" : "close", 15)'), "copy feedback should swap the icon, not a text label");
 check(events.includes("dash.accountBinding.scopedKey(COURSE_OVERRIDES_KEY, state.account.id)"), "edits should be stored per D2L account");
+check(events.includes(`input.placeholder = "Type the instructor's name"`) && events.includes(`input.placeholder = "Type the instructor's email address"`) && events.includes('input.placeholder = "Type the office hours, like Mon and Wed 2–4 PM"'), "the name, email and office hours editors should each say what to type");
 check(events.includes('save.type = "submit"') && events.includes('cancel.textContent = "Cancel"'), "the inline editor should offer Save and Cancel");
 check(archive.includes("courseContactOverrides: await dash.accountBinding.loadScoped"), "the account binder should load saved edits");
 check(archive.includes("courseContactOverrides: state.courseContactOverrides"), "saved edits should reach the course model");

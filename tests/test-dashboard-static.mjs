@@ -60,6 +60,11 @@ check(!/fetch\([^)]*kennesaw/i.test(dashboardJs), "dashboard must not call D2L d
 check(!/D2L_ACTION_(PREPARE|COMMIT)/.test(dashboardJs), "dashboard action UI must stay read-only, with no D2L change boundary");
 check(!read("dashboard.html").includes('id="action-confirm"') && !read("dashboard.html").includes("This action changes D2L"), "dashboard must not carry an action confirmation dialog");
 
+// The study card names what its link opens, and shows no course-progress line.
+const studyCard = read("src/dashboard/render-dashboard.js");
+check(studyCard.includes('class="study-lnk" href="#/work?type=quiz">All quizzes &amp; tests') && !studyCard.includes("See everything ahead"), "the study card's link should say it opens all quizzes and tests");
+check(!studyCard.includes("Prep ${done"), "the study card should not show a Prep percentage");
+
 if (failures.length) {
   console.error(failures.join("\n"));
   process.exit(1);

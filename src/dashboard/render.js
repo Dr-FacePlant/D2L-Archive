@@ -124,11 +124,11 @@
     return `<button class="btn" type="button" data-action="preview-file" data-path="${e(file.localPath)}" data-name="${e(file.name)}" data-d2l="${e(file.d2lUrl || file.url || "")}" data-download="${e(file.downloadUrl || "")}">${icon("eye", 16)} ${e(label)}</button>`;
   }
 
+  // A file D2L can hand over, or one with a saved copy, previews here.
   function fileRow(file) {
-    const actions = [
-      file.localPath ? previewButton(file) : "",
-      !file.localPath && file.url ? `<a class="btn" href="${e(file.url)}" rel="noopener noreferrer">Download from D2L ${icon("external", 14)}</a>` : ""
-    ].join("");
+    const actions = file.localPath || dash.isD2lFileUrl(file.downloadUrl)
+      ? previewButton(file)
+      : file.url ? `<a class="btn" href="${e(file.url)}" rel="noopener noreferrer">Download from D2L ${icon("external", 14)}</a>` : "";
     return `<div class="file">${icon("file", 18)}<span class="n">${e(file.name)}</span>${file.size ? `<span class="s">${e(file.size)}</span>` : ""}${actions}</div>`;
   }
 
@@ -190,37 +190,8 @@
     </div>`;
   }
 
-  // A saved file has two useful destinations: the copy in the archive and the
-  // original on D2L. The row itself stays a link so a new tab is possible.
-  function fileOpenPanel({ name }) {
-    return `<div class="viewer link-confirm" data-action="close-link-confirm" data-backdrop="true">
-      <div class="link-confirm-panel file-open-panel" role="dialog" aria-modal="true" aria-labelledby="file-open-title">
-        <div class="link-confirm-icon">${icon("file", 20)}</div>
-        <h2 id="file-open-title">How do you want to open this file?</h2>
-        <p>You have a saved copy in your archive, or you can open the original in D2L.</p>
-        <div class="file-open-file">
-          <span class="file-open-badge">${icon("file", 18)}</span>
-          <span class="grow"><span class="file-open-name">${e(name)}</span><span class="file-open-sub">Saved in your archive</span></span>
-          <span class="file-open-saved">Saved</span>
-        </div>
-        <button class="file-open-choice primary" type="button" data-action="preview-confirmed-file">
-          <span class="file-open-choice-icon">${icon("eye", 17)}</span>
-          <span class="grow"><span class="file-open-choice-title">Preview saved copy</span><span class="file-open-choice-note">Open it here without leaving the dashboard.</span></span>
-          ${icon("arrowRight", 15)}
-        </button>
-        <button class="file-open-choice" type="button" data-action="open-confirmed-d2l">
-          <span class="file-open-choice-icon">${icon("external", 17)}</span>
-          <span class="grow"><span class="file-open-choice-title">Open in D2L</span><span class="file-open-choice-note">Go to the original file on D2L in this tab.</span></span>
-          ${icon("arrowRight", 15)}
-        </button>
-        <div class="link-confirm-actions">
-          <button class="btn" type="button" data-action="close-link-confirm">Cancel</button>
-        </div>
-      </div>
-    </div>`;
-  }
 
   Object.assign(dash, {
-    icon, selectMenu, statusMark, gradeText, instructorNames, dateBox, extLink, previewButton, fileRow, rubricTable, emptyState, cardHead, notFoundPage, loadingPage, noAccountPage, linkConfirmPanel, fileOpenPanel, ICONS, KIND_ICON, STEP_MARK, DONE_KEYS, LATE_KEYS, pressed
+    icon, selectMenu, statusMark, gradeText, instructorNames, dateBox, extLink, previewButton, fileRow, rubricTable, emptyState, cardHead, notFoundPage, loadingPage, noAccountPage, linkConfirmPanel, ICONS, KIND_ICON, STEP_MARK, DONE_KEYS, LATE_KEYS, pressed
   });
 })(globalThis);
