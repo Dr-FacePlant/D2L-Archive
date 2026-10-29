@@ -70,6 +70,16 @@ const syllabusMerge = dash.mergeContactOverrides(withSyllabus, { "1001": { sylla
 check(syllabusMerge.changed === 1 && syllabusMerge.next["1001"].syllabus.url === "https://example.edu/new", "an imported syllabus link should win");
 check(syllabusMerge.next["1001"][0].name === "Sarah Carrico", "a syllabus import should leave contacts alone");
 
+// Text and file syllabi also survive the backup round trip
+const withCustomSyllabus = {
+  "1002": { syllabus: { type: "text", text: "Text content" } },
+  "1003": { syllabus: { type: "file", name: "art.pdf", mime: "application/pdf", dataUrl: "data:application/pdf;base64,abc" } }
+};
+check(dash.contactEditCount(withCustomSyllabus) === 2, "custom syllabi should count towards contact edits");
+const customRoundTrip = dash.parseContactBackup(JSON.stringify(dash.contactBackupDocument(withCustomSyllabus)));
+check(customRoundTrip.ok === true && customRoundTrip.overrides["1002"].syllabus.text === "Text content", "text syllabus should survive backup round-trip");
+check(customRoundTrip.ok === true && customRoundTrip.overrides["1003"].syllabus.name === "art.pdf", "file syllabus should survive backup round-trip");
+
 const settings = read("src/dashboard/render-settings.js");
 const events = read("src/dashboard/app-events.js");
 const appearance = read("src/dashboard/app-appearance.js");

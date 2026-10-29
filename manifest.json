@@ -7,13 +7,15 @@
     "scripting",
     "downloads",
     "downloads.open",
+    "declarativeNetRequestWithHostAccess",
     "tabs",
     "alarms",
     "storage",
     "unlimitedStorage"
   ],
   "host_permissions": [
-    "https://kennesaw.view.usg.edu/d2l/*"
+    "https://kennesaw.view.usg.edu/d2l/*",
+    "https://www.youtube-nocookie.com/*"
   ],
   "action": {
     "default_title": "D2L Archive (on D2L: open or close it on the page)",

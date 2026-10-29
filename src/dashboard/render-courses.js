@@ -37,6 +37,9 @@
 
   function syllabusVisitButton(syllabus, courseId) {
     if (!syllabus) return `<button class="instructor-visit" type="button" disabled aria-label="Visit syllabus (not available)" title="No syllabus found">${icon("link", 15)}</button>`;
+    if (syllabus.type === "text" || syllabus.type === "file") {
+      return `<button class="instructor-visit" type="button" data-action="view-custom-syllabus" data-course-id="${e(courseId)}" aria-label="Visit syllabus: ${e(syllabus.title)}" title="Visit syllabus">${icon("file", 15)}</button>`;
+    }
     const targetUrl = syllabus.url || (syllabus.id ? `#/resources/${encodeURIComponent(courseId)}?item=${encodeURIComponent(syllabus.id)}` : `#/resources/${encodeURIComponent(courseId)}`);
     return `<a class="instructor-visit" href="${e(targetUrl)}" aria-label="Visit syllabus: ${e(syllabus.title)}" title="Visit syllabus">${icon("link", 15)}</a>`;
   }
