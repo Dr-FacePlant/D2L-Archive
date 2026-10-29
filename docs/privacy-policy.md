@@ -1,6 +1,6 @@
 # D2L Archive — Privacy Policy
 
-Last updated: 2026-10-21
+Last updated: 2026-10-27
 
 Published at <https://dr-faceplant.github.io/D2L-Archive/privacy-policy.html>.
 
@@ -30,12 +30,15 @@ Downloads folder.
 
 ## Data that leaves your device
 
-- **Requests to your D2L site only.** The extension calls the same
+- **Requests to your D2L site.** The extension calls the same
   `https://kennesaw.view.usg.edu/d2l/*` pages and API routes your browser already
-  uses, with your existing session. `manifest.json` lists that host as the only
-  host permission.
+  uses, with your existing session.
+- **YouTube videos you open.** When you open a YouTube link in Related items,
+  the panel loads YouTube's player from `https://www.youtube-nocookie.com`, and
+  YouTube sees that request as it would for any embedded video. Nothing loads
+  from YouTube until you open one.
 - **No other network traffic.** There is no telemetry, no crash reporting, no
-  remote configuration, no advertising, and no third-party service. The extension
+  remote configuration, no advertising, and no other third-party service. The extension
   contains no analytics SDK and no remote code.
 
 ## Permissions and why
@@ -43,6 +46,7 @@ Downloads folder.
 | Permission | Why it is needed |
 | --- | --- |
 | `host_permissions: https://kennesaw.view.usg.edu/d2l/*` | Read the D2L pages and API routes the archive is built from. |
+| `host_permissions: https://www.youtube-nocookie.com/*`, `declarativeNetRequestWithHostAccess` | Name the archive to YouTube's player, which refuses to play without it. The rule applies only to players the archive opens. |
 | `scripting` | Load the content scripts that read the visible D2L page. |
 | `tabs` | Find an existing D2L tab to sync in, instead of opening new tabs. |
 | `alarms` | Resume queued, rate-limited sync work after a short delay. |
@@ -50,8 +54,9 @@ Downloads folder.
 | `unlimitedStorage` | Hold the local archive index when it grows past the normal quota. |
 | `downloads`, `downloads.open` | Write export files and opened previews into your Downloads folder. |
 
-The extension requests no permission for any site other than D2L, and no
-permission to read or change unrelated browsing history.
+The extension requests no permission for any site other than D2L and
+YouTube's player, and no permission to read or change unrelated browsing
+history.
 
 ## D2L actions it can take
 

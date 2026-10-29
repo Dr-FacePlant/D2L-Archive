@@ -4,22 +4,26 @@
   const { emptyState, escapeHtml: e, selectMenu, icon, plural } = dash;
   // ------------------------------------------------------------ resources
 
-  // One control per topic: the whole row offers a saved file's two
-  // destinations, opens the course link, or opens the topic in D2L. The icon
-  // on the right is only a destination marker; it is never a second hit area.
+  // One control per topic: the whole row previews a file, opens the course
+  // link, or opens the topic in D2L. A file is a topic D2L hands over as a
+  // file, or one with a saved copy. The icon on the right is only a marker
+  // of where the row goes; it is never a second hit area.
   function resourceRow(item, highlight) {
     const typeIcon = item.icon || "doc";
+    const file = !item.external && (item.localPath || dash.isTopicFileUrl(item.downloadUrl));
     const meta = e([item.type, item.dates, item.exempt ? "Exempt" : ""].filter(Boolean).join(" · "));
     const body = `<span class="ico">${icon(typeIcon, 20)}</span>
       <span class="grow"><span class="title plain">${e(item.title)}</span><span class="meta">${meta}</span></span>
-      <span class="row-icon" aria-hidden="true">${icon("external", 16)}</span>`;
+      <span class="row-icon" aria-hidden="true">${icon(file ? "eye" : "external", 16)}</span>`;
     const id = `id="${e(item.id)}" style="${highlight === item.id ? "background:var(--cal-selected)" : ""}" data-entity="${e(item.id)}"`;
-    const fileData = `data-path="${e(item.localPath)}" data-name="${e(item.title)}" data-d2l="${e(item.d2lUrl || "")}" data-download="${e(item.downloadUrl || "")}"`;
-    if (item.localPath && item.d2lUrl) {
-      return `<a class="row compact resource-row" ${id} href="${e(item.d2lUrl)}" ${fileData} data-file-open>${body}<span class="sr-only"> Opens file options.</span></a>`;
+    const fileData = `data-path="${e(item.localPath || "")}" data-name="${e(item.title)}" data-d2l="${e(item.d2lUrl || "")}" data-download="${e(item.downloadUrl || "")}"`;
+    // A file row stays a link to its D2L page, so a modified click still
+    // opens D2L in a new tab; a plain click previews it here.
+    if (file && item.d2lUrl) {
+      return `<a class="row compact resource-row" ${id} href="${e(item.d2lUrl)}" ${fileData} data-preview>${body}<span class="sr-only"> Previews the file.</span></a>`;
     }
-    if (item.localPath) {
-      return `<button class="row compact resource-row" type="button" ${id} data-action="preview-file" ${fileData}>${body}<span class="sr-only"> Previews the saved file.</span></button>`;
+    if (file) {
+      return `<button class="row compact resource-row" type="button" ${id} data-action="preview-file" ${fileData}>${body}<span class="sr-only"> Previews the file.</span></button>`;
     }
     if (item.external) {
       return `<a class="row compact resource-row" ${id} href="${e(item.external)}" rel="noopener noreferrer" data-confirm-external="${e(item.title)}">${body}<span class="sr-only"> Opens an external site.</span></a>`;

@@ -45,6 +45,8 @@ const at = (now) => dash.buildIndex({ now, courses: [{ courseId: C, title: "Worl
 
   const barbarians = dash.allWork(index).find((item) => item.id === `discussionThread:${C}:4`);
   check(barbarians && !barbarians.dueAt && dash.dueLine(barbarians, index.now) === "No due date", "L3: a discussion that isn't in any dated lesson keeps No due date");
+  const closeOnly = dash.dueLine({ kind: "assignment", status: { key: "open" }, dueAt: "2026-11-02T04:00:00.000Z", hasDueDate: false, closesAt: "2026-11-02T04:00:00.000Z" }, index.now);
+  check(/^Closes /.test(closeOnly) && !/no due date/i.test(closeOnly), `L4: an item with only a close date says when it closes, not "No due date" (got "${closeOnly}")`);
 }
 
 {
