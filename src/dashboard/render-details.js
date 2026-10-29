@@ -1,7 +1,7 @@
 // Detail pages and file preview.
 (function initDashboardRenderDetails(global) {
   const dash = global.D2LDashboard ||= {};
-  const { STEP_MARK, escapeHtml: e, extLink, fileRow, fmtDateTime, icon, notFoundPage, plural, rubricTable } = dash;
+  const { STEP_MARK, escapeHtml: e, extLink, fileRow, fmtBytes, fmtDateTime, icon, notFoundPage, plural, rubricTable } = dash;
   // ---------------------------------------------------------- detail pages
 
   const HIDEABLE_KINDS = new Set(["assignment", "quiz", "discussion"]);
@@ -232,23 +232,62 @@
 
   // --------------------------------------------------------- file preview
 
+  // Why a file isn't showing, one reason per state the loader reports.
   const PREVIEW_NOTES = Object.freeze({
     loading: "Opening the file…",
-    missing: "This file couldn't be loaded from D2L, and it isn't saved on this computer. Sign in to D2L in another tab, then try again.",
-    access: "This file couldn't be loaded from D2L. To show the copy saved on this computer instead, open your browser's Extensions page, choose Details under D2L Archive, and turn on “Allow access to file URLs”. Then try again.",
+    missing: "There's no copy of this file to show. D2L doesn't offer it as a file, and it isn't saved on this computer.",
+    access: "The copy saved on this computer can't be read yet. Open your browser's Extensions page, choose Details under D2L Archive, and turn on “Allow access to file URLs”. Then try again.",
+    "signed-out": "D2L asked you to sign in. Sign in to D2L in another tab, then try again.",
+    "not-file": "D2L sent back a web page instead of this file. You may need to sign in to D2L again.",
+    "not-found": "D2L couldn't find this file. It may have been moved or taken out of the course.",
+    "no-access": "D2L didn't hand over a file for this item. It may be a link or a tool, or it may be hidden right now. Open it in D2L to see it.",
+    "too-large": "This file is too big to preview here. Open it in D2L instead.",
+    offline: "D2L couldn't be reached. Check your internet connection, then try again.",
+    "no-answer": "D2L didn't answer. Try again in a moment.",
+    http: "D2L had a problem sending this file. Try again later, or open it in D2L.",
     stale: "The extension was updated after this page opened. Reload the page to keep using it.",
-    unsupported: "This kind of file can't be shown inside the browser. Open it on this computer instead.",
+    unsupported: "This kind of file",
     error: "The file couldn't be read."
   });
+  const ACCESS_HINT = "To use the copy saved on this computer instead, turn on “Allow access to file URLs” for D2L Archive on your browser's Extensions page.";
 
+  function previewNote(view) {
+    if (view.message) return view.message;
+    if (view.state === "unsupported") {
+      const next = view.d2lUrl ? " Open it in D2L to read it." : view.src ? " Download it to read it." : "";
+      return `${view.label || PREVIEW_NOTES.unsupported} can't be shown here.${next}`;
+    }
+    if (view.state === "too-large" && view.size && view.limit) return `This file is ${fmtBytes(view.size)}, more than the ${fmtBytes(view.limit)} that can be previewed here. Open it in D2L instead.`;
+    if (view.state === "http" && view.status) return `D2L had a problem sending this file (error ${view.status}). Try again later, or open it in D2L.`;
+    const note = PREVIEW_NOTES[view.state] || PREVIEW_NOTES.error;
+    return view.hint === "access" ? `${note} ${ACCESS_HINT}` : note;
+  }
+
+  // A D2L page or a Word file shows as a page in a frame that runs no
+  // scripts. Its links open in a new tab. Slides show as the PDF D2L made of
+  // them (view.pdf); Download still saves the original (view.src).
   function previewBody(view) {
+    const label = e(view.name || view.title);
     return view.state === "ready"
-      ? view.kind === "pdf" ? `<iframe src="${e(view.src)}" title="${e(view.name || view.title)}"></iframe>`
-        : view.kind === "image" ? `<img src="${e(view.src)}" alt="${e(view.name || view.title)}">`
+      ? view.kind === "pdf" ? `<iframe src="${e(view.pdf || view.src)}" title="${label}"></iframe>`
+        : view.kind === "page" || view.kind === "docx" ? `<iframe class="doc-frame" sandbox="allow-popups allow-popups-to-escape-sandbox" srcdoc="${e(view.html || "")}" title="${label}"></iframe>`
+        : view.kind === "image" ? `<img src="${e(view.src)}" alt="${label}">`
         : view.kind === "video" ? `<video src="${e(view.src)}" controls></video>`
         : view.kind === "audio" ? `<audio src="${e(view.src)}" controls></audio>`
         : `<pre>${e(view.text || "")}</pre>`
-      : `<div class="viewer-note">${e(view.message || PREVIEW_NOTES[view.state] || PREVIEW_NOTES.error)}${view.state === "stale" ? `<button class="btn btn-primary" type="button" data-action="reload-page">Reload</button>` : ""}</div>`;
+      : `<div class="viewer-note">${e(previewNote(view))}${view.state === "stale" ? `<button class="btn btn-primary" type="button" data-action="reload-page">Reload</button>` : ""}</div>`;
+  }
+
+  const DOWNLOAD_EXT = Object.freeze({ "application/pdf": ".pdf", "image/png": ".png", "image/jpeg": ".jpg", "image/gif": ".gif", "image/webp": ".webp", "image/svg+xml": ".svg", "video/mp4": ".mp4", "audio/mpeg": ".mp3", "text/plain": ".txt", "text/html": ".html", "application/zip": ".zip", "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx", "application/vnd.openxmlformats-officedocument.presentationml.presentation": ".pptx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ".xlsx" });
+
+  // A loaded file can be saved, named after the file or topic. A name that
+  // already ends in an extension keeps it.
+  function downloadLink(view) {
+    if (!view.src) return "";
+    const name = view.name || view.title || "File";
+    const ext = DOWNLOAD_EXT[String(view.mime || "").split(";")[0]] || "";
+    const file = ext && !/\.[a-z0-9]{2,5}$/i.test(name) ? `${name}${ext}` : name;
+    return `<a class="btn" href="${e(view.src)}" download="${e(file)}">Download</a>`;
   }
 
   function filePreview(view) {
@@ -257,6 +296,7 @@
       <div class="viewer-panel" role="dialog" aria-modal="true" aria-label="${e(`Preview of ${view.name}`)}">
         <div class="viewer-head">
           ${icon("file", 18)}<b>${e(view.name)}</b>
+          ${downloadLink(view)}
           ${view.localPath ? `<button class="btn" type="button" data-action="open-file" data-path="${e(view.localPath)}">Open on this computer</button>` : ""}
           ${view.d2lUrl ? `<a class="btn" href="${e(view.d2lUrl)}" rel="noopener noreferrer" data-d2l-link>Open in D2L ${icon("external", 14)}</a>` : ""}
           <button class="icon-btn" type="button" data-action="close-preview" aria-label="Close preview">${icon("close", 18)}</button>
@@ -269,10 +309,31 @@
 
   // ------------------------------------------ side panel for Related items
 
-  const PEEK_EXT = Object.freeze({ "application/pdf": ".pdf", "image/png": ".png", "image/jpeg": ".jpg", "image/gif": ".gif", "image/webp": ".webp", "image/svg+xml": ".svg", "video/mp4": ".mp4", "audio/mpeg": ".mp3" });
-
   function siteOf(url) {
     try { return new URL(url).hostname.replace(/^www\./i, ""); } catch { return ""; }
+  }
+
+  // "90", "90s", "1m30s" or "1h2m3s" as seconds.
+  function seconds(value) {
+    const parts = /^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s?)?$/i.exec(value || "");
+    return parts ? (+parts[1] || 0) * 3600 + (+parts[2] || 0) * 60 + (+parts[3] || 0) : 0;
+  }
+
+  // A link to one YouTube video, as the address of its player, or "". The
+  // player comes from youtube-nocookie.com, which sets no cookies until the
+  // video plays. Channels, playlists and searches stay plain links.
+  function youtubePlayer(url) {
+    let link;
+    try { link = new URL(url); } catch { return ""; }
+    const host = link.hostname.toLowerCase().replace(/^(www|m)\./, "");
+    const [first = "", second = ""] = link.pathname.split("/").filter(Boolean);
+    const id = host === "youtu.be" ? first
+      : !/^youtube(-nocookie)?\.com$/.test(host) ? ""
+      : first === "watch" ? link.searchParams.get("v")
+      : /^(embed|shorts|live|v)$/.test(first) ? second : "";
+    if (!/^[\w-]{11}$/.test(id || "")) return "";
+    const start = seconds(link.searchParams.get("t") || link.searchParams.get("start"));
+    return `https://www.youtube-nocookie.com/embed/${id}${start ? `?start=${start}` : ""}`;
   }
 
   // The panel's summary of a quiz, assignment or grade.
@@ -281,10 +342,9 @@
     return `<div class="peek-body peek-summary">${facts}${view.text ? `<p class="peek-text">${e(view.text)}</p>` : `<p class="peek-text none">No description.</p>`}</div>`;
   }
 
-  // What the panel says when it can't show the item itself. Word and
-  // PowerPoint files, links and D2L pages all end here, with Open in D2L.
+  // What the panel says about an item that isn't a file: a D2L page or tool,
+  // or a link. Files the viewer can't show explain themselves (previewNote).
   function peekNote(view) {
-    if (view.state === "unsupported") return "This kind of file can't be shown here. Open it in D2L to read it.";
     if (view.state === "page") return "This is a page in D2L, which can't be shown here yet. Open it in D2L to read it.";
     if (view.state === "link") return `This links to ${siteOf(view.external) || "another site"}, which can't be shown here.`;
     return "";
@@ -292,11 +352,12 @@
 
   function relatedPeek(view) {
     const title = e(view.title);
+    const video = view.state === "link" ? youtubePlayer(view.external) : "";
     const message = peekNote(view);
     const open = view.d2lUrl
       ? `<a class="btn btn-primary" href="${e(view.d2lUrl)}" rel="noopener noreferrer" data-d2l-link data-confirm-title="${title}">Open in D2L ${icon("external", 14)}</a>`
       : view.external ? `<a class="btn btn-primary" href="${e(view.external)}" rel="noopener noreferrer" data-confirm-external="${title}">Open link ${icon("external", 14)}</a>` : "";
-    const save = view.state === "ready" && view.src ? `<a class="btn" href="${e(view.src)}" download="${e(`${view.title}${PEEK_EXT[view.mime] || ""}`)}">Download</a>` : "";
+    const save = downloadLink({ ...view, name: "" });
     const step = (by, label, name) => `<button class="icon-btn" type="button" data-action="peek-step" data-step="${by}" aria-label="${label}" ${view.at + by < 0 || view.at + by >= view.count ? "disabled" : ""}>${icon(name, 18)}</button>`;
     const pager = view.count > 1 ? `<span class="peek-pager">${step(-1, "Previous item", "chevronLeft")}<span aria-live="polite">${view.at + 1} of ${view.count}</span>${step(1, "Next item", "chevronRight")}</span>` : "";
     const full = view.mode === "summary" ? `<a class="btn" href="${e(view.route)}">Open full page</a>` : "";
@@ -308,11 +369,13 @@
           <button class="icon-btn" type="button" data-action="close-peek" aria-label="Close preview">${icon("close", 18)}</button>
         </div>
         <div class="peek-bar">${open}${full}${save}${pager}</div>
-        ${view.state === "summary" ? peekSummary(view) : `<div class="viewer-body peek-body ${e(view.state === "ready" ? view.kind : "note")}">${previewBody(message ? { ...view, message } : view)}</div>`}
+        ${view.state === "summary" ? peekSummary(view)
+          : video ? `<div class="viewer-body peek-body video"><iframe class="yt-frame" src="${e(video)}" title="${title}" allow="encrypted-media; picture-in-picture; fullscreen"></iframe></div>`
+          : `<div class="viewer-body peek-body ${e(view.state === "ready" ? view.kind : "note")}">${previewBody(message ? { ...view, message } : view)}</div>`}
       </aside>`;
   }
 
   Object.assign(dash, {
-    followNote, stepRow, stepList, hideLine, moreLink, todoCard, checklistBody, detailMeta, detailPage, detailShell, detailBody, detailLayer, filePreview, relatedPeek, HIDEABLE_KINDS, TYPE_LABEL, WORK_KINDS, STEP_WORD, PREVIEW_NOTES
+    followNote, stepRow, stepList, hideLine, moreLink, todoCard, checklistBody, detailMeta, detailPage, detailShell, detailBody, detailLayer, previewNote, filePreview, relatedPeek, youtubePlayer, HIDEABLE_KINDS, TYPE_LABEL, WORK_KINDS, STEP_WORD, PREVIEW_NOTES
   });
 })(globalThis);

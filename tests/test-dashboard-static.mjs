@@ -14,7 +14,18 @@ const check = (condition, message) => { if (!condition) failures.push(message); 
 const manifest = JSON.parse(read("manifest.json"));
 check(!manifest.action?.default_popup, "toolbar icon must open the dashboard tab, not a popup");
 const dashboardHtml = read("dashboard.html");
-check(dashboardHtml.includes('id="sync-button" class="icon-btn sync-btn"') && !dashboardHtml.includes("sync-label") && !dashboardHtml.includes("sync-note"), "the header sync should be one icon button like Help and Close, with no separate note");
+const header = dashboardHtml.slice(dashboardHtml.indexOf('<header class="topbar">'), dashboardHtml.indexOf("</header>"));
+check((header.match(/data-menu-toggle/g) || []).length === 1 && header.includes('id="profile-button"') && header.includes('aria-controls="account-menu"') && !header.includes('id="more-button"') && !header.includes('id="help-menu"'), "the header should have one profile button that opens the account menu, and no Help or ⋯ button");
+check(/id="account-menu"[\s\S]*id="sync-button"[\s\S]*>Sync from D2L<[\s\S]*>Settings<[\s\S]*data-action="account-help"[\s\S]*>Help &amp; campus links<[\s\S]*class="overlay-only"[\s\S]*id="overlay-close"[\s\S]*>Close D2L Archive</.test(header), "the account menu should list Sync, Settings, Help & campus links, and Close (only over D2L), in words");
+check(!header.includes(">About<") && !header.includes(">Open D2L<"), "the account menu should not contain About or Open D2L");
+check(/id="account-menu"[^>]*>\s*<div class="account-header">[\s\S]*?id="sync-hint"[\s\S]*?class="account-avatar-recess"[\s\S]*?<div class="account-slider">/.test(header) && header.indexOf('class="account-avatar-recess"') < header.indexOf('id="sync-button"'), "the account card should open with one header (account info and sync status left, avatar recess right) above the sliding panes");
+check(header.includes('id="account-help" inert') && header.includes('data-action="account-back"') && header.includes("KSU Libraries") && header.includes("Writing Center"), "the Help links should sit on their own slide, with a Back row");
+check(!dashboardHtml.includes("sync-note") && !/id="overlay-close"[^>]*\bhidden\b/.test(header), "Close should show through the embedded class, not a hidden flag");
+const syncStatus = read("src/dashboard/app-sync.js");
+check(syncStatus.includes('$("#profile-button")') && syncStatus.includes('more.classList.toggle("syncing", running)') && syncStatus.includes('$("#sync-hint")') && syncStatus.includes('$("#sync-label")'), "the profile button should show the sync ring and the menu should say when it last ran");
+const accountEvents = read("src/dashboard/app-events.js");
+check(accountEvents.includes("function showAccountView") && accountEvents.includes('action === "account-help"') && accountEvents.includes('event.key === "Escape" && state.menu'), "the account menu should slide to Help and back, and close on Esc");
+check(accountEvents.includes('classList.remove("view-help")'), "closing the menu should reset it to the main list");
 const dashboardRender = read("src/dashboard/render-dashboard.js");
 check(/firstRunPage[\s\S]{0,700}data-action="sync"/.test(dashboardRender) && dashboardRender.includes("Sync from D2L"), "first run should offer its own Sync from D2L action");
 check(manifest.permissions.includes("downloads.open"), "opening archived files needs downloads.open");
@@ -59,6 +70,12 @@ for (const method of calls) check(readMethods.includes(`"${method}"`), `dashboar
 check(!/fetch\([^)]*kennesaw/i.test(dashboardJs), "dashboard must not call D2L directly");
 check(!/D2L_ACTION_(PREPARE|COMMIT)/.test(dashboardJs), "dashboard action UI must stay read-only, with no D2L change boundary");
 check(!read("dashboard.html").includes('id="action-confirm"') && !read("dashboard.html").includes("This action changes D2L"), "dashboard must not carry an action confirmation dialog");
+
+// The study card names what its link opens, and shows no course-progress line.
+const studyCard = read("src/dashboard/render-dashboard.js");
+check(studyCard.includes('class="study-lnk" href="#/work?type=quiz">All quizzes &amp; tests') && !studyCard.includes("See everything ahead"), "the study card's link should say it opens all quizzes and tests");
+check(!studyCard.includes("Prep ${done"), "the study card should not show a Prep percentage");
+check(css.includes(".study-banner .promo-label { margin-top: 13px; }") && css.includes(".study-banner .prow { margin-bottom: 13px; }"), "the study card should keep its height now the Prep line is gone");
 
 if (failures.length) {
   console.error(failures.join("\n"));

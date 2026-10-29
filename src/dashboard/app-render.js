@@ -2,7 +2,7 @@
 (function initDashboardAppRender(global) {
   const dash = global.D2LDashboard ||= {};
   const mod = dash.appModules ||= {};
-  const { $, DEFAULT_AVATAR_SVG, adoptNotice, api, bundleFor, closePeek, main, recreatedNotice, rememberScreen, renderSettings, renderUserProfile, state, toast } = dash.appModules;
+  const { $, adoptNotice, api, bundleFor, closePeek, main, recreatedNotice, rememberScreen, renderSettings, renderUserProfile, state, toast } = dash.appModules;
   // ------------------------------------------------------------- render
 
   const NAV = [
@@ -15,24 +15,18 @@
     ["resources", "#/resources", "folder", "Content"]
   ];
   // Search lives in the top bar. Settings and account-related links live in
-  // the profile menu anchored at the bottom of the sidebar.
+  // the account menu on the profile button at the top right.
   const NAV_OF = { course: "courses", assignment: "work", quiz: "work", discussion: "work", task: "work", checklist: "work", announcement: "updates", grade: "grades", event: "calendar" };
 
   function renderNav(active) {
     state.activeNav = active;
     $("#nav").innerHTML = NAV.map(([key, href, iconName, label]) => key === "sep"
       ? `<div class="nav-sep"></div>`
-      : `<a class="nav-item" href="${href}" ${key === active ? 'aria-current="page"' : ""} title="${label}">${dash.icon(iconName, 20)}${label}</a>`).join("")
-      + `<div class="nav-profile menu-root">
-          <button class="profile-trigger" type="button" data-menu-toggle aria-controls="profile-menu" aria-expanded="false" aria-label="Open profile menu" ${active === "settings" ? 'aria-current="page"' : ""}>
-            <span class="profile-avatar"><img id="profile-avatar" alt="" draggable="false" hidden><span id="profile-avatar-fallback" class="profile-avatar-fallback" aria-hidden="true">${DEFAULT_AVATAR_SVG}</span></span>
-          </button>
-          <div id="profile-menu" class="menu profile-menu" hidden>
-            <a class="menu-item" href="#/settings"><span class="menu-item-icon">${dash.icon("settings", 18)}</span><b>Settings</b></a>
-            <a class="menu-item" href="#/settings/about"><span class="menu-item-icon">${dash.icon("help", 18)}</span><b>About</b></a>
-            <a class="menu-item" href="https://kennesaw.view.usg.edu/d2l/home" rel="noopener noreferrer" data-d2l-link><span class="menu-item-icon">${dash.icon("external", 18)}</span><b>Open D2L</b></a>
-          </div>
-        </div>`;
+      : `<a class="nav-item" href="${href}" ${key === active ? 'aria-current="page"' : ""} title="${label}">${dash.icon(iconName, 20)}${label}</a>`).join("");
+    // The profile button lives in the top bar; it shows Settings as current.
+    const profileButton = $("#profile-button");
+    if (active === "settings") profileButton?.setAttribute("aria-current", "page");
+    else profileButton?.removeAttribute("aria-current");
     renderUserProfile();
   }
 

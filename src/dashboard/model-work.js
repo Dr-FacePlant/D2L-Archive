@@ -321,7 +321,7 @@
     if (isLate(item) && item.kind !== "task") return `Was due${item.lesson ? ` with ${item.lesson} ·` : ""} ${fmtDateTime(item.dueAt, now)} · still open`;
     if (item.status.key === "notOpen" && item.opensAt) return `Opens ${fmtDateTime(item.opensAt, now)}`;
     if (!item.dueAt) return "No due date";
-    if (!item.hasDueDate) return `No due date · closes ${fmtShortDate(item.closesAt, now)} · ${fmtTime(item.closesAt)}`;
+    if (!item.hasDueDate) return `Closes ${fmtShortDate(item.closesAt, now)} · ${fmtTime(item.closesAt)}`;
     const late = item.closesAt && item.dueAt && time(item.closesAt) > time(item.dueAt) + 60000 ? ` · accepted until ${fmtDateTime(item.closesAt, now)}` : "";
     return `${dueVerb(item)} ${fmtTime(item.dueAt)}${late}`;
   }

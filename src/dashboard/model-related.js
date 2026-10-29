@@ -112,36 +112,7 @@
     return bundle && bundle.entityId !== self.entityId ? workItemFor(index, bundle, kind, moduleTitle) : null;
   }
 
-  function gradeItem(index, entity) {
-    const grade = entity.gradeEntityId
-      ? index.byId.get(entity.gradeEntityId)
-      : index.list(entity.courseId, "gradeRecord").find((record) => record.sourceEntityId === entity.entityId);
-    if (!grade) return null;
-    const graded = dash.isGradedGrade(grade);
-    const score = dash.gradeLabel(grade);
-    const label = graded ? (score ? `Graded · ${score}` : "Graded") : "Not graded yet";
-    const route = dash.routeFor(grade);
-    return {
-      id: grade.entityId,
-      kind: "grade",
-      icon: "grade",
-      title: grade.canonicalTitle,
-      line: `Grade item · ${label}`,
-      peek: {
-        mode: "summary",
-        title: grade.canonicalTitle,
-        icon: "grade",
-        meta: "Grade item · Grades",
-        facts: [{ k: "Status", v: label }],
-        text: graded ? (score ? `Your score: ${score}.` : "D2L has graded this.") : "D2L hasn't posted a grade yet.",
-        d2lUrl: web(grade.urls?.d2l),
-        route
-      },
-      route
-    };
-  }
-
-  // Groups, in the order the pop-up lists them: Work & grades, then Content.
+  // Groups, in the order the pop-up lists them: Assignments, then Content.
   // An empty group is dropped, so an archive with no module data shows only
   // what links exactly, and an item with nothing related shows no section.
   function relatedItems(index, entity, kind) {
@@ -155,9 +126,8 @@
       if (neighbor) work.push(neighbor);
       else if (!topicKind(topic)) content.push(contentItem(index, topic, moduleTitle));
     }
-    const grade = gradeItem(index, entity);
     const groups = [
-      { id: "work", label: "Work & grades", items: [...work.slice(0, MAX_WORK), grade].filter(Boolean), more: null },
+      { id: "work", label: "Assignments", items: work.slice(0, MAX_WORK), more: null },
       { id: "content", label: "Content", items: content.slice(0, MAX_CONTENT), more: content.length > MAX_CONTENT ? { count: content.length - MAX_CONTENT, route: `#/resources/${encodeURIComponent(entity.courseId)}?module=${encodeURIComponent(near.moduleId)}` } : null }
     ];
     return groups.filter((group) => group.items.length);

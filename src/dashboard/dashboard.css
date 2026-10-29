@@ -313,18 +313,49 @@ p { margin: 0; }
 .nav-item[aria-current="page"] svg { color: var(--nav-on-ink); }
 .nav-sep { height: 1px; background: var(--nav-sep); margin: 10px 6px; }
 .nav-foot { margin-top: auto; padding: 14px 8px 2px; font-size: 11.5px; line-height: 1.45; color: var(--muted); }
-.nav-profile { margin-top: auto; padding: 12px 0 0 3px; display: flex; justify-content: flex-start; }
-.profile-trigger { width: 42px; height: 42px; display: grid; place-items: center; padding: 3px; border: 0; border-radius: 50%; background: transparent; color: var(--avatar-ink); cursor: pointer; }
+.profile-trigger { position: relative; flex: none; width: 42px; height: 42px; display: grid; place-items: center; padding: 3px; border: 0; border-radius: 50%; background: transparent; color: var(--avatar-ink); cursor: pointer; }
 .profile-trigger:hover, .profile-trigger[aria-expanded="true"], .profile-trigger[aria-current="page"] { background: var(--profile-hover); color: var(--ink); }
 .profile-avatar { width: 36px; height: 36px; flex: none; overflow: hidden; border: 1px solid var(--avatar-ring); border-radius: 50%; background: var(--surface); display: grid; place-items: center; }
 .profile-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; pointer-events: none; user-select: none; -webkit-user-drag: none; }
 .profile-avatar-fallback { width: 100%; height: 100%; display: grid; place-items: center; background: var(--surface); color: var(--avatar-ink); }
 .profile-avatar-fallback.initials { background: var(--nav-on); color: var(--nav-on-ink); font-size: 13.5px; font-weight: 600; letter-spacing: .02em; }
-.profile-menu { position: fixed; top: auto; right: auto; left: 18px; bottom: 68px; width: 196px; padding: 5px; max-height: calc(100vh - 84px); overflow-y: auto; }
-.profile-menu .menu-item { align-items: center; gap: 9px; padding: 8px 9px; }
-.profile-menu .menu-item-icon { width: 22px; flex: none; display: grid; place-items: center; color: var(--muted); }
-.profile-menu .menu-item span { margin-top: 0; }
-.profile-menu .menu-item b { flex: 1; min-width: 0; font-size: 13.5px; font-weight: 500; }
+/* The account menu on the profile button: status and Sync on top, then the
+   links. Help & campus links slides in over the list, and Back slides it home. */
+.profile-trigger .sync-dot { top: 3px; right: 3px; }
+.profile-trigger.syncing::after { content: ""; position: absolute; inset: 0; border-radius: 50%; border: 2px solid transparent; border-top-color: var(--accent); animation: spin 1s linear infinite; }
+/* Unified card: when open it grows out of the profile button. The button keeps
+   its place (42px, 11px below the top bar's top edge, flush with the right
+   padding) and sits above the card inside the recess in the header's right
+   corner, so nothing jumps. Card sits 7px past the button on top and right (6px padding + 1px border). */
+.profile-trigger[aria-expanded="true"] { z-index: 41; background: transparent; }
+.account-menu { top: -7px; right: -7px; width: 254px; padding: 0 6px 6px; max-height: calc(100vh - 56px); overflow-y: auto; animation: viewerIn .14s ease both; }
+.account-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 54px; padding: 0 0 0 9px; }
+.account-header .account-avatar-recess { flex: none; width: 48px; height: 48px; margin-right: -3px; border-radius: 50%; background: var(--sunk); box-shadow: inset 0 1px 3px rgba(var(--shadow-rgb), .22), inset 0 0 0 1px var(--line-2); }
+.account-slider { overflow: hidden; border-radius: 8px; transition: height .22s ease; }
+.account-track { display: flex; align-items: flex-start; width: 200%; transition: transform .22s ease; }
+.account-pane { width: 50%; flex: none; }
+.account-menu.view-help .account-track { transform: translateX(-50%); }
+.account-who { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.account-who b { display: block; font-size: 14px; font-weight: 600; color: var(--ink); max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.account-status { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; color: var(--muted); max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.account-status::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--muted); flex: none; }
+.account-status.is-fresh::before { background: var(--good); }
+.account-status.is-stale::before { background: var(--warn-mark); }
+.account-status.is-failed::before { background: var(--bad); }
+.account-status.is-syncing::before { background: var(--accent); }
+.account-sync { display: flex; align-items: center; justify-content: center; gap: 8px; width: calc(100% - 8px); height: 34px; margin: 0 4px 6px; border: 1px solid var(--accent); border-radius: var(--control-radius); background: transparent; color: var(--accent); font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; }
+.account-sync:hover { background: rgba(var(--accent-rgb), .06); }
+.account-sync.syncing { cursor: progress; }
+.account-sep { height: 1px; background: var(--line-2); margin: 4px 6px; }
+.account-menu .menu-item { align-items: center; gap: 9px; padding: 8px 9px; font: inherit; }
+.account-menu .menu-item span { margin-top: 0; }
+.account-menu .menu-item-icon { width: 22px; flex: none; display: grid; place-items: center; color: var(--muted); }
+.account-menu .menu-chev { flex: none; display: grid; place-items: center; color: var(--muted); }
+.account-menu .menu-item b { flex: 1; min-width: 0; font-size: 13.5px; font-weight: 500; }
+.account-menu .account-back b { font-weight: 600; }
+.overlay-only { display: none; }
+.embedded .overlay-only { display: block; }
+@media (prefers-reduced-motion: reduce) { .account-slider, .account-track { transition: none; } }
 .main { flex: 1; min-width: 0; overflow-y: auto; position: relative; transition: opacity .25s ease; }
 .main.is-faded { opacity: 0; }
 .page { max-width: 1320px; margin: 0 auto; padding: 40px 44px 48px; display: flex; flex-direction: column; gap: 20px; }
@@ -567,6 +598,7 @@ p { margin: 0; }
 .viewer-head b { flex: 1; min-width: 0; font-size: 14.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .viewer-body { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; background: var(--sunk); overflow: auto; }
 .viewer-body iframe { width: 100%; height: 100%; border: 0; background: var(--paper); }
+.viewer-body iframe.yt-frame { height: auto; aspect-ratio: 16 / 9; background: #000; }
 .viewer-body img, .viewer-body video { max-width: 100%; max-height: 100%; object-fit: contain; }
 .viewer-body pre { align-self: stretch; flex: 1; margin: 0; padding: 18px 20px; background: var(--surface); font-size: 13px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
 .viewer-note { max-width: 520px; padding: 24px; text-align: center; font-size: 14.5px; line-height: 1.6; color: var(--ink-3); }
@@ -584,24 +616,6 @@ p { margin: 0; }
 .link-confirm-dest .k { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; font-weight: 600; color: var(--ink-2); }
 .link-confirm-dest .v { display: block; margin-top: 2px; font-size: 11.5px; color: var(--muted); }
 .link-confirm-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
-.file-open-panel { width: min(510px, 100%); }
-.file-open-panel p { margin-bottom: 16px; }
-.file-open-file { display: flex; align-items: center; gap: 11px; padding: 12px; border: 1px solid var(--line-2); border-radius: 10px; background: var(--rail); }
-.file-open-badge { flex: none; display: grid; place-items: center; width: 38px; height: 38px; border-radius: 9px; background: var(--nav-on); color: var(--nav-on-ink); }
-.file-open-file .grow { flex: 1; min-width: 0; }
-.file-open-name { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 600; color: var(--ink-2); }
-.file-open-sub { display: block; margin-top: 2px; font-size: 11.5px; color: var(--muted); }
-.file-open-saved { flex: none; padding: 4px 8px; border-radius: 999px; background: var(--good-tint); color: var(--good); font-size: 10.5px; font-weight: 650; }
-.file-open-choice { display: flex; align-items: center; gap: 12px; width: 100%; margin-top: 10px; padding: 13px 12px; border: 1px solid var(--line); border-radius: 11px; background: var(--surface); color: var(--ink-2); font: inherit; text-align: left; cursor: pointer; }
-.file-open-choice:hover { border-color: var(--line-3); background: var(--hover); }
-.file-open-choice.primary { border-color: var(--accent); background: var(--nav-on); color: var(--nav-on-ink); }
-.file-open-choice.primary:hover { border-color: var(--accent-hover); background: var(--nav-on); }
-.file-open-choice .grow { flex: 1; min-width: 0; }
-.file-open-choice-icon { flex: none; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 8px; background: var(--sunk); color: var(--ink-3); }
-.file-open-choice.primary .file-open-choice-icon { background: var(--surface); color: var(--accent); }
-.file-open-choice-title { display: block; font-size: 13.5px; font-weight: 600; }
-.file-open-choice-note { display: block; margin-top: 2px; font-size: 12px; line-height: 1.4; color: var(--muted); }
-.file-open-choice.primary .file-open-choice-note { color: var(--nav-on-ink); }
 @media (max-width: 620px) { .link-confirm-actions { flex-direction: column-reverse; } .link-confirm-actions .btn { width: 100%; } }
 
 /* ---------- contextual item details ---------- */
@@ -694,10 +708,11 @@ p { margin: 0; }
   .course-main-column, .course-side-column { display: contents; }
   .course-header-card { order: 0; }
   .instructor-contact-card { order: 1; }
-  .sec-announcements { order: 2; }
-  .sec-discussions { order: 3; }
-  .sec-upcoming { order: 4; }
-  .sec-content { order: 5; }
+  .sec-textbooks { order: 2; }
+  .sec-announcements { order: 3; }
+  .sec-discussions { order: 4; }
+  .sec-upcoming { order: 5; }
+  .sec-content { order: 6; }
 }
 .course-header-card { min-width: 0; overflow: hidden; }
 .course-page-layout .course-hero { height: 96px; }
@@ -725,6 +740,119 @@ p { margin: 0; }
 .instructor-edit-input { flex: 1; min-width: 0; height: 30px; padding: 0 8px; border: 1px solid var(--line-3); border-radius: 6px; background: var(--surface); color: var(--ink); font: inherit; font-size: 13px; }
 .instructor-edit-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(var(--accent-rgb), .15); }
 .instructor-save, .instructor-cancel { height: 28px; padding: 0 8px; border-radius: 6px; font-size: 11.5px; }
+.instructor-contact-editor.is-syllabus-chips-row { display: flex; align-items: center; justify-content: space-between; width: 100%; }
+.syllabus-choice-chips { display: flex; align-items: center; gap: 5px; flex: 1; }
+.syllabus-chip-btn { height: 28px; padding: 0 9px; border: 1px solid var(--line-3); border-radius: 6px; background: var(--surface); font-size: 11.5px; font-weight: 500; color: var(--ink-2); display: inline-flex; align-items: center; gap: 5px; cursor: pointer; transition: all .12s ease; }
+.syllabus-chip-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--hover-soft); }
+.syllabus-cancel-icon { width: 28px; height: 28px; padding: 0; display: grid; place-items: center; border: 1px solid var(--line-3); border-radius: 6px; background: var(--surface); color: var(--ink-3); cursor: pointer; flex: none; }
+.syllabus-cancel-icon:hover { background: var(--hover-soft); color: var(--ink); }
+
+.instructor-contact-editor.is-syllabus-step2 { display: flex; align-items: center; gap: 6px; width: 100%; }
+.instructor-contact-row:has(.instructor-edit-textarea) { align-items: flex-start; }
+.instructor-contact-row:has(.instructor-edit-textarea) > .ico { margin-top: 10px; }
+.instructor-contact-editor.is-syllabus-step2:has(.instructor-edit-textarea) { flex-direction: column; align-items: stretch; gap: 6px; padding: 4px 0; }
+.syllabus-file-picker-label { flex: 1; height: 30px; padding: 0 10px; border: 1px dashed var(--line-2); border-radius: 6px; background: var(--surface-sunken, #f8fafc); display: flex; align-items: center; font-size: 12px; color: var(--ink-3); cursor: pointer; overflow: hidden; }
+.syllabus-file-picker-label:hover { border-color: var(--accent); color: var(--ink); }
+.syllabus-file-chosen-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.instructor-edit-textarea { width: 100%; min-height: 56px; max-height: 140px; padding: 6px 8px; border: 1px solid var(--line-3); border-radius: 6px; background: var(--surface); color: var(--ink); font: inherit; font-size: 12.5px; resize: vertical; }
+.instructor-edit-textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(var(--accent-rgb), .15); }
+.syllabus-editor-actions { display: flex; gap: 6px; justify-content: flex-end; }
+
+/* ---------- textbooks and links ---------- */
+/* The bookshelf: two portrait covers per row, a title and edition under each
+   one, its links under that, and a pencil that appears on hover. Covers with
+   no image are drawn from the course's own theme. */
+.sec-textbooks .card-head { padding-bottom: 10px; }
+.sec-textbooks .empty { padding: 26px 12px 20px; }
+.textbook-add-head { display: inline-grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 1px solid var(--line-3); border-radius: 6px; background: var(--surface); color: var(--ink-2); cursor: pointer; transition: background .12s ease; }
+.textbook-add-head:hover { background: var(--hover-soft); }
+.textbook-shelf { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 18px; padding: 14px 0 4px; }
+.textbook-tile { position: relative; display: flex; flex-direction: column; align-items: center; text-align: center; min-width: 0; max-width: 150px; margin: 0 auto; width: 100%; }
+.textbook-frame { position: relative; width: 84px; height: 116px; flex: none; border-radius: 4px; overflow: hidden; box-shadow: 0 1px 3px rgba(var(--shadow-rgb), .18); }
+.textbook-cover-img { width: 100%; height: 100%; object-fit: cover; display: block; pointer-events: none; user-select: none; -webkit-user-drag: none; }
+.textbook-cover-default { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: space-between; padding: 8px 7px 7px 13px; overflow: hidden; }
+.tc-spine { position: absolute; inset: 0 auto 0 0; width: 6px; background: rgba(0, 0, 0, .22); }
+.tc-title { position: relative; font-size: 9.5px; font-weight: 700; line-height: 1.25; text-align: left; text-shadow: 0 1px 2px rgba(0, 0, 0, .25); padding-right: 2px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
+.tc-mark { position: relative; align-self: flex-end; opacity: .55; flex: none; }
+.textbook-edit { position: absolute; top: 3px; left: calc(50% + 15px); z-index: 1; display: inline-grid; place-items: center; width: 26px; height: 26px; padding: 0; border: 1px solid var(--line-3); border-radius: 6px; background: var(--surface); color: var(--ink-2); cursor: pointer; opacity: 0; transition: background .12s ease, opacity .12s ease; }
+.textbook-tile:hover .textbook-edit, .textbook-edit:focus-visible, .textbook-tile:focus-within .textbook-edit { opacity: 1; }
+.textbook-edit:hover { background: var(--hover-soft); }
+@media (pointer: coarse) { .textbook-edit { opacity: 1; } }
+.textbook-tile .tt { margin-top: 9px; font-size: 12.5px; font-weight: 500; color: var(--ink-2); line-height: 1.35; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.textbook-tile .tm { margin-top: 1px; font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.textbook-links { margin-top: 5px; display: flex; flex-direction: column; align-items: center; gap: 3px; max-width: 100%; }
+.textbook-link { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; font-size: 11.5px; font-weight: 500; color: var(--link); text-decoration: none; }
+.textbook-link:hover { color: var(--link-hover); }
+.textbook-link .tl-ico { flex: none; color: var(--ink-4); display: inline-grid; place-items: center; }
+.textbook-link span:last-child { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.textbook-editor { display: flex; flex-direction: column; gap: 9px; padding: 18px 18px 8px; flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; }
+/* Direct children only: the caption. A bare "span" here also hit the cover and
+   icon previews nested in the field and pushed their contents to a corner. */
+.textbook-field > span, .textbook-field-inline > span { display: block; margin: 0 0 3px 1px; font-size: 11.5px; font-weight: 500; color: var(--muted); }
+.textbook-field .instructor-edit-input, .textbook-field-inline input { width: 100%; }
+.textbook-field-inline { display: flex; gap: 10px; }
+.textbook-field-inline > span { flex: 1; min-width: 0; }
+.textbook-file-picker-label { height: 30px; padding: 0 10px; border: 1px dashed var(--line-2); border-radius: 6px; background: var(--surface-sunken, #f8fafc); display: flex; align-items: center; font-size: 12px; color: var(--ink-3); cursor: pointer; overflow: hidden; }
+.textbook-file-picker-label:hover { border-color: var(--accent); color: var(--ink); }
+.textbook-file-chosen-text { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* A link on the shelf is an app-style tile, not a book: a rounded square in
+   one of six colours, bottom-aligned with the covers beside it. */
+.textbook-art { display: flex; align-items: flex-end; justify-content: center; height: 116px; }
+.link-tile { position: relative; display: flex; align-items: center; justify-content: center; width: 84px; height: 84px; flex: none; border-radius: 19px; overflow: hidden; text-decoration: none; box-shadow: 0 1px 3px rgba(var(--shadow-rgb), .18), inset 0 0 0 1px rgba(0, 0, 0, .04); }
+.link-tile svg, .link-tile-letter { display: block; flex: none; margin: 0; }
+a.link-tile:hover { filter: brightness(.97); }
+a.link-tile:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.link-tile-letter { font-size: 38px; font-weight: 700; line-height: 1; }
+.tone-violet { background: #EDE9FE; color: #6D28D9; }
+.tone-blue { background: #E4EEFE; color: #0A4FB8; }
+.tone-green { background: #E3F6EA; color: #15803D; }
+.tone-yellow { background: #FEF6DA; color: #A16207; }
+.tone-rose { background: #FDE8EC; color: #BE123C; }
+.tone-gray { background: #F1F3F6; color: #4B5563; }
+:root[data-mode="dark"] .tone-violet { background: #2B2447; color: #C4B5FD; }
+:root[data-mode="dark"] .tone-blue { background: #1B2B47; color: #8DB8FF; }
+:root[data-mode="dark"] .tone-green { background: #173225; color: #6EE7A7; }
+:root[data-mode="dark"] .tone-yellow { background: #3A3016; color: #FCD34D; }
+:root[data-mode="dark"] .tone-rose { background: #3B1D27; color: #FDA4B5; }
+:root[data-mode="dark"] .tone-gray { background: #262C35; color: #B6C0CD; }
+.textbook-tile.is-link .textbook-edit { top: 35px; }
+/* The editor's Textbook | Link tabs and the link tile's icon picker. */
+.textbook-pane { display: flex; flex-direction: column; gap: 9px; }
+.textbook-kind-tabs { display: flex; padding: 2px; border-radius: 8px; background: var(--surface-sunken, #f3f5f8); }
+.textbook-kind-tabs button { flex: 1; padding: 5px; border: 0; border-radius: 6px; background: transparent; color: var(--muted); font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+.textbook-kind-tabs button.is-on { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(var(--shadow-rgb), .12); }
+.link-icon-row { display: flex; align-items: center; gap: 12px; }
+.link-tile.is-preview { width: 52px; height: 52px; border-radius: 12px; }
+.link-icon-row { min-height: 72px; }
+.link-tile.is-preview .link-tile-letter { font-size: 24px; }
+/* The Textbook tab's cover preview is a small copy of the shelf's book. */
+.textbook-frame.is-preview { width: 48px; height: 66px; margin: 3px 8px; }
+.textbook-frame.is-preview .textbook-cover-default { padding: 5px 4px 4px 9px; }
+.textbook-frame.is-preview .tc-spine { width: 4px; }
+.textbook-frame.is-preview .tc-title { font-size: 7px; }
+.link-icon-controls { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.link-icon-modes { display: flex; flex-wrap: wrap; gap: 6px; }
+.link-icon-chip { display: inline-flex; align-items: center; padding: 2px 8px; border: 1px solid var(--line-3); border-radius: 6px; background: var(--surface); color: var(--ink-3, var(--ink-2)); font: inherit; font-size: 11.5px; font-weight: 600; cursor: pointer; }
+.link-icon-chip.is-on { border-color: var(--accent); color: var(--accent); }
+.link-swatches { display: flex; gap: 6px; }
+.link-swatch { width: 24px; height: 24px; padding: 0; border: 0; border-radius: 7px; cursor: pointer; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .06); }
+.link-swatch.is-course { background: var(--hover-soft); }
+.link-swatch.is-on { outline: 2px solid var(--accent); outline-offset: 2px; }
+.textbook-editor-actions { display: flex; align-items: center; justify-content: flex-end; gap: 6px; padding: 12px 18px 14px; border-top: 1px solid var(--line-2); flex: none; }
+/* The editor opens as a centered pop-up, like the contextual item details:
+   a scrim over the page, a small panel with a titled head, the form in a
+   scrollable middle and the buttons pinned at the bottom. */
+.textbook-layer { position: fixed; inset: 0; z-index: 140; display: flex; align-items: center; justify-content: center; padding: 24px; background: rgba(var(--shadow-rgb), .42); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); animation: viewerIn .15s ease both; }
+.textbook-panel { position: relative; width: min(560px, calc(100vw - 48px)); height: min(580px, calc(100vh - 48px)); display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--line); border-radius: 12px; background: var(--paper); box-shadow: var(--shadow-pop); }
+.textbook-panel-head { min-height: 54px; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 14px; padding: 8px 12px 8px 18px; border-bottom: 1px solid var(--line); }
+.textbook-panel-head b { font-size: 15px; font-weight: 600; }
+.textbook-panel-head .panel-sub { display: block; margin-top: 1px; font-size: 12px; color: var(--muted); }
+@media (prefers-reduced-motion: reduce) { .textbook-layer { animation: none; } }
+@media (max-width: 780px) {
+  .textbook-layer { padding: 0; }
+  .textbook-panel { width: 100%; height: 100%; max-height: none; border: 0; border-radius: 0; }
+}
+.textbook-editor .instructor-cancel[data-action="remove-textbook"] { color: var(--bad); margin-right: auto; }
 /* Items from earlier terms, folded away under a quiet link. */
 .earlier { margin-top: 6px; }
 .earlier > summary { display: inline-flex; align-items: center; gap: 6px; padding: 8px 0; color: var(--link); font-size: 13px; font-weight: 500; cursor: pointer; list-style: none; }
@@ -982,9 +1110,6 @@ details[open] > .module-head .fold { transform: rotate(180deg); }
   .sidenav { width: 64px; padding: 12px 8px; }
   .nav-item { padding: 0; justify-content: center; font-size: 0; gap: 0; }
   .nav-foot { display: none; }
-  .nav-profile { width: 100%; display: flex; justify-content: center; padding-left: 0; }
-  .profile-trigger { width: 42px; height: 42px; padding: 3px; }
-  .profile-menu { left: 72px; bottom: 12px; }
   .page { padding: 24px 18px 40px; }
   .page[data-screen="dashboard"] { --promo-lift: 12px; padding-top: calc(24px - var(--promo-lift)); }
   .dashboard-overview > .card { min-height: 0; }
@@ -1110,6 +1235,10 @@ a.study-chip:focus-visible { outline: 3px solid var(--link); outline-offset: 2px
 .study-chip.warn { background: var(--attention-tint); box-shadow: inset 0 0 0 1px var(--attention-tint-hover); }
 .study-chip.warn b, .study-chip.warn span { color: var(--attention-ink); }
 .study-banner .prow { display: flex; align-items: center; gap: 16px; margin-top: 14px; }
+/* The card kept its height when the Prep line (26px) left it: the same space
+   now sits above the label and below the button, so the text stays centered. */
+.study-banner .promo-label { margin-top: 13px; }
+.study-banner .prow { margin-bottom: 13px; }
 .study-banner .study-lnk { position: absolute; z-index: 3; right: 22px; bottom: 14px; display: inline-flex; align-items: center; gap: 5px; color: var(--link); font-size: 13px; font-weight: 500; line-height: 1.2; text-decoration: none; }
 .study-banner .study-lnk:hover { text-decoration: none; }
 .study-banner .study-lnk:focus-visible { outline: 3px solid var(--link); outline-offset: 2px; }
