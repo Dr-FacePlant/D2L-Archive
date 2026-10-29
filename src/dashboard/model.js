@@ -10,6 +10,19 @@
 
   const D2L_ORIGIN = "https://kennesaw.view.usg.edu";
 
+  // A D2L address the viewer can load a file from. Quick links open tools,
+  // not files.
+  function isD2lFileUrl(url) {
+    return typeof url === "string" && url.startsWith(`${D2L_ORIGIN}/d2l/`) && !/quickLink/i.test(url);
+  }
+
+  // A Content topic D2L hands over as a file (a PDF, a Word file, a page made
+  // in D2L). Quizzes, discussions and tools keep their D2L page address in
+  // the same place, so only D2L's file download address counts.
+  function isTopicFileUrl(url) {
+    return isD2lFileUrl(url) && /\/DirectFileTopicDownload$/i.test(url);
+  }
+
   // Colors and banners follow the mockup's course cards; unknown courses get
   // the palette in order.
   // In the dark theme a course's tint and text color are mixed from its main
@@ -70,6 +83,6 @@
 
 
   Object.assign(dash, {
-    time, routeFor, themeFor, D2L_ORIGIN, shaded, COURSE_THEMES, PALETTE, KIND_LABELS, KIND_PLURALS, ROUTE_BY_TYPE, DETAIL_ROUTES
+    time, routeFor, themeFor, D2L_ORIGIN, isD2lFileUrl, isTopicFileUrl, shaded, COURSE_THEMES, PALETTE, KIND_LABELS, KIND_PLURALS, ROUTE_BY_TYPE, DETAIL_ROUTES
   });
 })(globalThis);

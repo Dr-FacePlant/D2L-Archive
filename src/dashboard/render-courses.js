@@ -37,6 +37,9 @@
 
   function syllabusVisitButton(syllabus, courseId) {
     if (!syllabus) return `<button class="instructor-visit" type="button" disabled aria-label="Visit syllabus (not available)" title="No syllabus found">${icon("link", 15)}</button>`;
+    if (syllabus.type === "text" || syllabus.type === "file") {
+      return `<button class="instructor-visit" type="button" data-action="view-custom-syllabus" data-course-id="${e(courseId)}" aria-label="Visit syllabus: ${e(syllabus.title)}" title="Visit syllabus">${icon("file", 15)}</button>`;
+    }
     const targetUrl = syllabus.url || (syllabus.id ? `#/resources/${encodeURIComponent(courseId)}?item=${encodeURIComponent(syllabus.id)}` : `#/resources/${encodeURIComponent(courseId)}`);
     return `<a class="instructor-visit" href="${e(targetUrl)}" aria-label="Visit syllabus: ${e(syllabus.title)}" title="Visit syllabus">${icon("link", 15)}</a>`;
   }
@@ -50,6 +53,51 @@
     </div>`).join("");
     const syllabusRow = `<div class="instructor-contact-row instructor-syllabus-row" data-contact-row data-course-id="${e(courseId)}" data-contact-index="0" data-field="syllabus" data-edit-value="${e(syllabusOverride)}"><span class="ico">${icon("book", 16)}</span><span class="instructor-contact-value">Syllabus: ${syllabus ? e(syllabus.title) : "N/A"}</span><span class="instructor-actions">${syllabusVisitButton(syllabus, courseId)}${instructorEditButton("syllabus link")}</span></div>`;
     return `<section class="card instructor-contact-card" aria-label="Instructor and course information">${rows}${syllabusRow}</section>`;
+  }
+
+  // A shelf entry: the cover (an uploaded image, or a tinted default built
+  // from the course's own theme), its title and edition, and its links.
+  function textbookHost(url) {
+    try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return ""; }
+  }
+
+  function textbookLinks(entry, courseId) {
+    if (!entry.links.length) return "";
+    return `${entry.links.map((link) => {
+      const label = link.title || textbookHost(link.url) || "Open link";
+      return `<a class="textbook-link" href="${e(link.url)}" data-confirm-external="${e(label)}" rel="noopener noreferrer"><span class="tl-ico">${icon("link", 13)}</span><span>${e(label)}</span></a>`;
+    }).join("")}`;
+  }
+
+  function textbookTile(entry, index, courseId, c) {
+    const highlighted = entry.cover
+      ? `<img class="textbook-cover-img" src="${e(entry.cover)}" alt="" draggable="false">`
+      : `<span class="textbook-cover-default" style="background:${e(c.tint)};color:${e(c.ink)}"><span class="tc-spine" aria-hidden="true"></span><span class="tc-title">${e(entry.title)}</span>${icon("book", 15, 'class="tc-mark"')}</span>`;
+    const label = [entry.title, entry.meta].filter(Boolean).join(", ");
+    return `<div class="textbook-tile" data-textbook-tile>
+      <span class="textbook-frame">${highlighted}</span>
+      <button class="textbook-edit" type="button" data-action="edit-textbook" data-course-id="${e(courseId)}" data-entry-index="${index}" aria-label="Edit ${e(label)}" title="Edit ${e(label)}">${icon("pen", 13)}</button>
+      <span class="tt">${e(entry.title)}</span>
+      ${entry.meta ? `<span class="tm">${e(entry.meta)}</span>` : ""}
+      <span class="textbook-links">${textbookLinks(entry)}</span>
+    </div>`;
+  }
+
+  function textbooksCard(model, c) {
+    const courseId = e(c.courseId);
+    const entries = model.textbooks || [];
+    const addAllowed = entries.length < dash.MAX_TEXTBOOK_ENTRIES;
+    const addHead = addAllowed ? `<button class="textbook-add-head" type="button" data-action="add-textbook" data-course-id="${courseId}" aria-label="Add a textbook or link" title="Add a textbook or link">${icon("plus", 15)}</button>` : "";
+    return `<section class="card card-pad sec-textbooks" aria-label="Textbooks and links">
+      ${cardHead("Textbooks & links", null, entries.length ? plural(entries.length, "item") : "", addHead)}
+      ${entries.length
+        ? `<div class="textbook-shelf">${entries.map((entry, index) => textbookTile(entry, index, courseId, c)).join("")}</div>${addAllowed ? `<div class="textbook-add-row"><button class="link-btn" type="button" data-action="add-textbook" data-course-id="${courseId}">${icon("plus", 14)}<span>Add item</span></button></div>` : ""}`
+        : `<div class="empty">
+            <b>No textbook found</b>
+            Nothing from this course's syllabus texts yet. You can add a cover and any links yourself.
+            ${addAllowed ? `<div><button class="link-btn" type="button" data-action="add-textbook" data-course-id="${courseId}">${icon("plus", 14)}<span>Add item</span></button></div>` : ""}
+          </div>`}
+    </section>`;
   }
 
   function courseHomePage(model) {
@@ -80,6 +128,7 @@
         </div>
         <div class="course-side-column stack">
           ${instructorContactCard(model.contacts, model.syllabus, c.courseId, model.syllabusOverride)}
+          ${textbooksCard(model, c)}
           <section class="card card-pad sec-announcements">
             ${cardHead("Announcements", model.announcementTotal ? { href: `#/updates?course=${encodeURIComponent(c.courseId)}`, label: "View all" } : null, model.announcementTotal ? plural(model.announcementTotal, "announcement") : "")}
             ${model.announcements.length ? model.announcements.map(announcementRow).join("") : emptyState("", model.earlierAnnouncements.length ? "No announcements this term yet." : "This course has no announcements.")}

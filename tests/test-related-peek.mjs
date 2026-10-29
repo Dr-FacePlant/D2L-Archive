@@ -1,7 +1,7 @@
-// A Work & grades or Content pill in Related items opens a side panel over the
-// pop-up. Work and grades get a short summary. A content topic shows its PDF,
-// image, video, audio or text file; Word files, links and D2L pages get a plain
-// note with Open in D2L. Esc and the scrim close only the panel.
+// An Assignments or Content pill in Related items opens a side panel over the
+// pop-up. Assignments get a short summary. A content topic shows its PDF,
+// image, video, audio or text file; a YouTube link plays; Word files, other
+// links and D2L pages get a plain note with Open in D2L. Esc and the scrim close only the panel.
 process.env.TZ = "America/New_York";
 
 import fs from "node:fs";
@@ -35,11 +35,27 @@ const word = panel({ state: "unsupported" });
 check(word.includes(dash.escapeHtml("This kind of file can't be shown here. Open it in D2L to read it.")), "a Word or PowerPoint file should say it can't be shown here");
 check(word.includes("data-d2l-link") && !word.includes("download="), "an unshown file should still offer Open in D2L and no Download");
 check(/D2L page|page in D2L/.test(panel({ state: "page" })), "a D2L page should say what it is");
-const link = panel({ state: "link", external: "https://www.youtube.com/watch?v=abc", d2lUrl: "" });
-check(link.includes("This links to youtube.com") && link.includes('data-confirm-external="Step 2 Validation Form: Take to Museum"') && link.includes("Open link"), "a link with no D2L page should name the site and offer Open link through the leave-the-archive prompt");
+const link = panel({ state: "link", external: "https://www.nytimes.com/2020/story.html", d2lUrl: "" });
+check(link.includes("This links to nytimes.com") && link.includes('data-confirm-external="Step 2 Validation Form: Take to Museum"') && link.includes("Open link"), "a link with no D2L page should name the site and offer Open link through the leave-the-archive prompt");
 check(panel({ state: "stale" }).includes('data-action="reload-page"'), "a stale page should offer Reload");
 
-// Work and grades: a summary, a link to the full pop-up, no file loading.
+// A YouTube video plays in the panel, from the no-cookie player.
+const player = (url) => dash.youtubePlayer(url);
+const ID = "M7lc1UVf-VE";
+for (const url of [`https://www.youtube.com/watch?v=${ID}`, `https://m.youtube.com/watch?feature=share&v=${ID}`, `https://youtu.be/${ID}`, `https://www.youtube.com/shorts/${ID}`, `https://www.youtube.com/embed/${ID}`, `https://www.youtube.com/live/${ID}`, `https://www.youtube-nocookie.com/embed/${ID}`]) {
+  check(player(url) === `https://www.youtube-nocookie.com/embed/${ID}`, `${url} should play as video ${ID}`);
+}
+check(player(`https://youtu.be/${ID}?t=90`).endsWith("?start=90") && player(`https://www.youtube.com/watch?v=${ID}&t=1m30s`).endsWith("?start=90") && player(`https://www.youtube.com/watch?v=${ID}&t=1h2m3s`).endsWith("?start=3723"), "a start time should carry over");
+for (const url of ["https://www.youtube.com/@GoogleDevelopers", "https://www.youtube.com/playlist?list=PL123", "https://www.youtube.com/results?search_query=x", "https://www.youtube.com/watch?v=short", "https://notyoutube.com/watch?v=M7lc1UVf-VE", "https://youtube.com.evil.example/watch?v=M7lc1UVf-VE", "not a url", ""]) {
+  check(player(url) === "", `${url || "an empty link"} should stay a plain link`);
+}
+const video = panel({ state: "link", external: `https://youtu.be/${ID}`, d2lUrl: "" });
+check(video.includes(`<iframe class="yt-frame" src="https://www.youtube-nocookie.com/embed/${ID}" title="Step 2 Validation Form: Take to Museum" allow="encrypted-media; picture-in-picture; fullscreen">`) && !video.includes("This links to"), "a YouTube link should show the player, not the note");
+check(video.includes('data-confirm-external="Step 2 Validation Form: Take to Museum"') && video.includes("Open link"), "a YouTube video should still offer Open link");
+check(panel({ state: "link", external: `https://youtu.be/${ID}` }).includes("data-d2l-link"), "a YouTube topic with a D2L page should still offer Open in D2L");
+check(!panel({ state: "page", external: `https://youtu.be/${ID}` }).includes("yt-frame"), "only a link item should load the player");
+
+// Assignments: a summary, a link to the full pop-up, no file loading.
 const quiz = { mode: "summary", title: "Week 3 Quiz", icon: "quiz", meta: "Quiz · Week 3", facts: [{ k: "Due", v: "Fri, Oct 30 · 11:59 PM" }, { k: "Worth", v: "10 points" }, { k: "Status", v: "Open" }], text: "Ten questions.", d2lUrl: "https://kennesaw.view.usg.edu/d2l/lms/quizzing/user/quiz_summary.d2l?ou=9&qi=12", route: "#/quiz/quizBundle%3A9%3A12", at: 0, count: 3, state: "summary" };
 const summary = dash.relatedPeek(quiz);
 check(summary.includes('<div class="fact"><div class="k">Due</div><div class="v">Fri, Oct 30 · 11:59 PM</div></div>') && summary.includes(">Worth<") && summary.includes(">Status<"), "a quiz summary should list Due, Worth and Status");
@@ -72,12 +88,22 @@ check(preview.includes(`(again || node.querySelector("[aria-label='Close preview
 check(preview.includes("async function loadFile") && preview.includes("const shown = await loadFile(base);") && preview.includes("await loadFile({ ...item, name: \"\" })"), "the panel and the Content screen's viewer should share one file loader");
 check(preview.includes("part.inert = true") && preview.includes("part.inert = false"), "the pop-up behind the panel should be inert while it is open");
 check(preview.includes("state.peek?.ticket !== ticket") && preview.includes("URL.revokeObjectURL"), "a slow load should not replace a newer item, and old file URLs should be released");
-check(preview.includes('item.external ? "link" : "page"') && preview.includes("isD2lFileUrl(item.downloadUrl)") && preview.includes('if (item.mode === "summary") return "summary";'), "only a D2L file or a saved copy should be loaded; summaries and the rest are described");
+check(preview.includes('item.external ? "link" : "page"') && preview.includes("dash.isTopicFileUrl(item.downloadUrl)") && preview.includes('if (item.mode === "summary") return "summary";'), "only a D2L file or a saved copy should be loaded; summaries and the rest are described");
 check(events.includes('action === "peek-item"') && events.includes('action === "peek-step"') && events.includes('action === "close-peek"'), "the pill, the arrows and the scrim should be wired");
 check(/if \(state\.peek\) \{\s*event\.preventDefault\(\);\s*closePeek\(\);\s*return;\s*\}/.test(events), "Esc should close the panel before the pop-up");
 check(events.includes('state.peek ? document.getElementById("related-peek")'), "Tab should stay inside the panel while it is open");
 check(render.includes("closePeek({ restoreFocus: false })") && render.includes("titleOf() !== shown"), "closing the pop-up or moving to another item should close the panel");
 check(read("src/dashboard/app-state.js").includes("peek: null"), "the panel's state should start empty");
+check(/\.viewer-body iframe\.yt-frame \{ height: auto; aspect-ratio: 16 \/ 9;/.test(css), "the YouTube player should keep the video's shape");
+
+// YouTube refuses to play inside the archive (Error 153) unless the request
+// names the page around it. The rule does that only for the archive's players.
+const manifest = JSON.parse(read("manifest.json"));
+const background = read("background.js");
+check(manifest.permissions.includes("declarativeNetRequestWithHostAccess") && manifest.host_permissions.includes("https://www.youtube-nocookie.com/*") && manifest.host_permissions.length === 2, "the manifest should add only the YouTube player's site");
+check(background.includes('urlFilter: "||www.youtube-nocookie.com/embed/", resourceTypes: ["sub_frame"], initiatorDomains: [chrome.runtime.id]') && background.includes('header: "referer", operation: "set"'), "the referer rule should touch only players the archive opens");
+check(/onInstalled\?\.addListener\([^\n]*configureYoutubePlayer\(\)/.test(background) && /onStartup\?\.addListener\([^\n]*configureYoutubePlayer\(\)/.test(background), "the rule should be set on install and on browser start");
+for (const doc of ["docs/privacy-policy.md", "docs/privacy-policy.html"]) check(read(doc).includes("youtube-nocookie.com") && read(doc).includes("declarativeNetRequestWithHostAccess"), `${doc} should name the YouTube player and its permission`);
 
 if (failures.length) {
   for (const failure of failures) console.error(`FAIL: ${failure}`);

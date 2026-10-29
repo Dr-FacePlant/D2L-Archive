@@ -46,3 +46,13 @@ node_modules/
 /tests/test-detail-screens-e.mjs
 /tests/test-list-status-marks.mjs
 /tests/test-discussion-replies.mjs
+# Project Lifecycle Secret Protection
+.env
+.env.*
+*.key
+*.pem
+*.p12
+id_rsa*
+id_ed25519*
+!.env.example
+!.env.template
