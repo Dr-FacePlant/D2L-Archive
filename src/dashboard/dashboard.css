@@ -601,6 +601,14 @@ p { margin: 0; }
 .viewer-body iframe.yt-frame { height: auto; aspect-ratio: 16 / 9; background: #000; }
 .viewer-body img, .viewer-body video { max-width: 100%; max-height: 100%; object-fit: contain; }
 .viewer-body pre { align-self: stretch; flex: 1; margin: 0; padding: 18px 20px; background: var(--surface); font-size: 13px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+/* The EPUB reader: the book's pages on white (the book brings its own text
+   colours), a slim bar with previous / where you are / next. */
+.viewer-body.epub { align-items: stretch; justify-content: stretch; overflow: hidden; }
+.epub-reader { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.epub-stage { flex: 1; min-height: 0; background: #fff; }
+.epub-stage foliate-view { display: block; width: 100%; height: 100%; }
+.epub-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 12px; border-top: 1px solid var(--line); background: var(--surface); }
+.epub-where { flex: 1; min-width: 0; text-align: center; font-size: 12.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .viewer-note { max-width: 520px; padding: 24px; text-align: center; font-size: 14.5px; line-height: 1.6; color: var(--ink-3); }
 .viewer-note .btn { display: flex; width: max-content; margin: 16px auto 0; }
 
@@ -769,9 +777,10 @@ p { margin: 0; }
 .textbook-shelf { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 18px; padding: 14px 0 4px; }
 .textbook-tile { position: relative; display: flex; flex-direction: column; align-items: center; text-align: center; min-width: 0; max-width: 150px; margin: 0 auto; width: 100%; }
 .textbook-frame { position: relative; width: 84px; height: 116px; flex: none; border-radius: 4px; overflow: hidden; box-shadow: 0 1px 3px rgba(var(--shadow-rgb), .18); }
-a.textbook-frame { display: block; cursor: pointer; }
-a.textbook-frame:hover { filter: brightness(.97); }
-a.textbook-frame:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+a.textbook-frame, button.textbook-frame { display: block; cursor: pointer; }
+button.textbook-frame { padding: 0; border: 0; background: none; font: inherit; }
+a.textbook-frame:hover, button.textbook-frame:hover { filter: brightness(.97); }
+a.textbook-frame:focus-visible, button.textbook-frame:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .textbook-cover-img { width: 100%; height: 100%; object-fit: cover; display: block; pointer-events: none; user-select: none; -webkit-user-drag: none; }
 .textbook-cover-default { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: space-between; padding: 8px 7px 7px 13px; overflow: hidden; }
 .tc-spine { position: absolute; inset: 0 auto 0 0; width: 6px; background: rgba(0, 0, 0, .22); }
@@ -856,6 +865,9 @@ a.link-tile:focus-visible { outline: 2px solid var(--accent); outline-offset: 2p
 .textbook-panel .textbook-pane { gap: 18px; }
 .textbook-panel .textbook-field > span { margin: 0 0 6px 1px; font-size: 13.5px; }
 .textbook-panel .textbook-field .instructor-edit-input { height: 42px; padding: 0 12px; border-radius: 8px; font-size: 15px; }
+.textbook-file-row { display: flex; align-items: center; gap: 10px; }
+.textbook-file-row .textbook-file-picker-label { flex: 1; min-width: 0; }
+.textbook-panel .textbook-file-picker-label { height: 42px; padding: 0 12px; border-radius: 8px; font-size: 14.5px; }
 .textbook-panel .textbook-kind-tabs { padding: 3px; border-radius: 10px; }
 .textbook-panel .textbook-kind-tabs button { padding: 9px; border-radius: 8px; font-size: 14px; }
 .textbook-panel .link-icon-row { gap: 18px; min-height: 108px; }

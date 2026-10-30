@@ -1,0 +1,2 @@
+foliate-js (https://github.com/johnfactotum/foliate-js), MIT, commit 78914ae.
+Only the files needed to open an EPUB are copied; zip.js is BSD-3-Clause (see its header).

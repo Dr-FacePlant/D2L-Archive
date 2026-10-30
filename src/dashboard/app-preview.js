@@ -166,6 +166,41 @@
     }
     node.innerHTML = dash.filePreview(view);
     node.querySelector("[aria-label='Close preview']")?.focus();
+    state.epub = null;
+    if (view.state === "ready" && view.kind === "epub" && view.file) mountEpub(node, view);
+  }
+
+  // An EPUB is drawn by the bundled foliate-js reader: pages in a frame that
+  // runs no scripts (the extension's own policy blocks them), with previous
+  // and next buttons and the arrow keys.
+  async function mountEpub(node, view) {
+    const stage = node.querySelector(".epub-stage");
+    const where = node.querySelector("[data-epub-where]");
+    if (!stage || !where) return;
+    try {
+      await import(chrome.runtime.getURL("src/vendor/foliate-js/view.js"));
+      if (state.preview !== view) return;
+      const reader = document.createElement("foliate-view");
+      stage.replaceChildren(reader);
+      reader.addEventListener("relocate", (event) => {
+        const { fraction, tocItem } = event.detail || {};
+        const percent = Number.isFinite(fraction) ? `${Math.round(fraction * 100)}%` : "";
+        where.textContent = [tocItem?.label?.trim(), percent].filter(Boolean).join(" · ");
+      });
+      await reader.open(view.file);
+      if (state.preview !== view) return;
+      await reader.init({ showTextStart: true });
+      state.epub = reader;
+    } catch (error) {
+      if (state.preview !== view) return;
+      showPreview({ name: view.name, state: "error", message: "This EPUB couldn't be opened. Download it to read it in another app.", src: view.src, mime: view.mime });
+    }
+  }
+
+  function turnEpub(direction) {
+    const reader = state.epub;
+    if (!reader) return;
+    if (direction < 0) reader.prev(); else reader.next();
   }
 
   function closePreview() {
@@ -173,6 +208,7 @@
     release(state.preview);
     state.preview = null;
     state.previewFocus = null;
+    state.epub = null;
     document.getElementById("viewer")?.remove();
     if (focus?.isConnected) focus.focus({ preventScroll: true });
   }
@@ -359,6 +395,6 @@
     if (restoreFocus && current.focus?.isConnected) current.focus.focus({ preventScroll: true });
   }
 
-  Object.assign(mod, { extensionAlive, fileUrlOf, readLocalFile, isD2lFileUrl, blobFromDataUrl, fileScope, fetchFromD2l, fileFromD2l, pdfFromD2l, fileFromComputer, loadFile, showPreview, closePreview, previewFile, openPeek, stepPeek, closePeek, PREVIEW_LIMIT });
+  Object.assign(mod, { extensionAlive, fileUrlOf, readLocalFile, isD2lFileUrl, blobFromDataUrl, fileScope, fetchFromD2l, fileFromD2l, pdfFromD2l, fileFromComputer, loadFile, showPreview, closePreview, turnEpub, previewFile, openPeek, stepPeek, closePeek, PREVIEW_LIMIT });
   Object.assign(dash, { showPreview, closePreview, blobFromDataUrl });
 })(globalThis);

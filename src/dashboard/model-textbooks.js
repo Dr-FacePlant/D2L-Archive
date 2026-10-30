@@ -8,12 +8,32 @@
   const TITLE_LIMIT = 140;
   const META_LIMIT = 140;
   const COVER_LIMIT = 5000000;
+  // An attached book file (PDF or EPUB) is kept inside the extension, so cap it.
+  const FILE_BYTES_LIMIT = 25 * 1024 * 1024;
+  const FILE_MIMES = ["application/pdf", "application/epub+zip"];
   const URL_LIMIT = 2000;
   const MAX_ENTRIES = 8;
   const MAX_LINKS = 4;
   const MAX_DETECTED = 3;
   // A link shows as a rounded app tile in one of these colours.
   const LINK_TONES = ["violet", "blue", "green", "yellow", "rose", "gray"];
+
+  // The pale background each tone uses, so a course colour that is nearly one
+  // of them can be spotted and not offered twice in the cover picker.
+  const TONE_BACKGROUNDS = { violet: "#EDE9FE", blue: "#E4EEFE", green: "#E3F6EA", yellow: "#FEF6DA", rose: "#FDE8EC", gray: "#F1F3F6" };
+  function toneMatchingTint(tint) {
+    const hex = /#([0-9a-f]{6})/i.exec(String(tint || ""))?.[1];
+    if (!hex) return "";
+    const rgb = (h) => [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16));
+    const target = rgb(hex);
+    let best = "";
+    let bestDistance = 40;
+    for (const [name, value] of Object.entries(TONE_BACKGROUNDS)) {
+      const distance = Math.hypot(...rgb(value.slice(1)).map((n, i) => n - target[i]));
+      if (distance < bestDistance) { best = name; bestDistance = distance; }
+    }
+    return best;
+  }
 
   const clean = (value) => String(value ?? "").trim();
   const UNSAFE_KEYS = new Set(["__proto__", "constructor", "prototype"]);
@@ -36,6 +56,17 @@
   function safeCoverUrl(value) {
     const text = String(value ?? "");
     return /^data:image\/(?:png|jpeg|jpg|webp|gif);base64,[A-Za-z0-9+/=]+$/.test(text) && text.length <= COVER_LIMIT ? text : "";
+  }
+
+  // A book's attached PDF/EPUB: {name, mime, dataUrl}, or null when it isn't one.
+  function safeBookFile(file) {
+    if (!file || typeof file !== "object" || Array.isArray(file)) return null;
+    const mime = FILE_MIMES.find((one) => one === file.mime);
+    const dataUrl = String(file.dataUrl ?? "");
+    if (!mime || dataUrl.length > Math.ceil(FILE_BYTES_LIMIT * 4 / 3) + 100) return null;
+    if (!dataUrl.startsWith(`data:${mime};base64,`) || !/^[A-Za-z0-9+/=]+$/.test(dataUrl.slice(dataUrl.indexOf(",") + 1))) return null;
+    const fallback = mime === "application/pdf" ? "Textbook.pdf" : "Textbook.epub";
+    return { name: clean(file.name).slice(0, TITLE_LIMIT) || fallback, mime, dataUrl };
   }
 
   function normalizeTextbookEntry(entry) {
@@ -66,7 +97,8 @@
         links: links.slice(0, 1)
       };
     }
-    return { kind, title, meta, cover, ...(LINK_TONES.includes(entry.tone) ? { tone: entry.tone } : {}), links };
+    const file = safeBookFile(entry.file);
+    return { kind, title, meta, cover, ...(LINK_TONES.includes(entry.tone) ? { tone: entry.tone } : {}), ...(file ? { file } : {}), links };
   }
 
   function normalizeTextbookEntries(input) {
@@ -168,10 +200,13 @@
   Object.assign(dash, {
     MAX_TEXTBOOK_ENTRIES: MAX_ENTRIES,
     TEXTBOOK_LINK_TONES: LINK_TONES,
+    TEXTBOOK_FILE_BYTES_LIMIT: FILE_BYTES_LIMIT,
     normalizeTextbookEntry,
     normalizeTextbookEntries,
     parseTextbookMentions: detectTextbooks,
     safeLinkUrl,
-    safeCoverUrl
+    safeCoverUrl,
+    safeBookFile,
+    toneMatchingTint
   });
 })(globalThis);
