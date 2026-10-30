@@ -70,6 +70,7 @@ const fileHtml = dash.courseHomePage({ ...model, textbooks: [withFile[0], { titl
 check(fileHtml.includes('<button class="textbook-frame" type="button" data-action="open-textbook-file"'), "a book with a file opens it from its cover");
 check(!fileHtml.includes(pdfData), "the file's bytes never print into the page");
 check((fileHtml.match(/class="textbook-link"/g) || []).length === 1, "a book with both a file and a URL keeps the URL as a small text link");
+check(/<section class="card card-pad instructor-contact-card"[^>]*><div class="card-head"><div><h2>Basic Info<\/h2>/.test(html), "the instructor, email, office hours and syllabus card has a Basic Info header like the other cards");
 check(html.indexOf("sec-textbooks") < html.indexOf("sec-announcements") && html.indexOf("instructor-contact-card") < html.indexOf("sec-textbooks"), "the shelf sits after the instructor card and before announcements");
 check(html.includes(`data-action="edit-textbook"`), "each shelf item should own an edit pencil");
 check(html.includes('href="https://vadds.student.pearson.com/art"'), "the item link should point at its saved URL");

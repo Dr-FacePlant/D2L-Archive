@@ -728,7 +728,7 @@ p { margin: 0; }
 .course-header-meta { flex: 1 1 260px; min-width: 0; }
 .course-main-column, .course-side-column { min-width: 0; }
 .course-side-column { gap: 16px; }
-.instructor-contact-card { padding: 9px 14px; }
+.instructor-contact-card .card-head { padding-bottom: 10px; margin-bottom: 6px; }
 .instructor-contact-group + .instructor-contact-group { margin-top: 7px; padding-top: 7px; }
 .instructor-contact-row { display: flex; align-items: center; gap: 9px; min-width: 0; min-height: 34px; color: var(--ink-4); font-size: 13.5px; }
 .instructor-contact-row > .ico { width: 18px; height: 18px; flex: none; display: grid; place-items: center; color: var(--muted); }
