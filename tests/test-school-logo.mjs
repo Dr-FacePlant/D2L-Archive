@@ -69,7 +69,7 @@ check(scripts.includes("src/content/school-logo.js") && scripts.indexOf("src/con
 // ---- dashboard side: corner shows the logo, never the old name
 const html = read("dashboard.html");
 const brand = html.match(/<a class="brand"[\s\S]*?<\/a>/)?.[0] || "";
-check(brand.includes('id="school-logo"') && brand.includes('id="brand-fallback"'), "corner: has a logo image and a fallback icon");
+check(brand.includes('id="school-logo"') && brand.includes('id="brand-fallback"') && brand.includes("src/dashboard/img/d2l-brightspace.png"), "corner: has a logo image that starts as the D2L Brightspace wordmark");
 check(!/>\s*SA\s*</.test(brand) && !/Student Archive|D2L Archive/i.test(brand), "corner: no SA badge or Student Archive name");
 
 function cornerDom() {
@@ -89,9 +89,9 @@ if (renderSource) {
   const withLogo = run({ dataUrl: "data:image/png;base64,AAAA", alt: "Example University" });
   check(!withLogo.img.hidden && withLogo.fallback.hidden && withLogo.img.src.startsWith("data:image/") && withLogo.img.alt === "Example University", "corner: saved logo is shown");
   const noLogo = run(null);
-  check(noLogo.img.hidden && !noLogo.fallback.hidden, "corner: with no saved logo the fallback icon shows");
+  check(!noLogo.img.hidden && noLogo.fallback.hidden && noLogo.img.src === "src/dashboard/img/d2l-brightspace.png" && noLogo.img.alt === "D2L Brightspace", "corner: with no saved logo the D2L Brightspace wordmark shows");
   const badLogo = run({ dataUrl: "https://tracker.example/x.png" });
-  check(badLogo.img.hidden && !badLogo.fallback.hidden, "corner: only saved image data is shown, never a remote URL");
+  check(badLogo.img.src === "src/dashboard/img/d2l-brightspace.png" && !/tracker/.test(badLogo.img.src), "corner: only saved image data is shown, never a remote URL");
 }
 check(/onChanged\?\.addListener[\s\S]{0,120}LOGO_KEY/.test(app), "corner: logo updates when a sync saves a new one");
 

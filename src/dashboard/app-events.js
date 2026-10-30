@@ -2,7 +2,7 @@
 (function initDashboardAppEvents(global) {
   const dash = global.D2LDashboard ||= {};
   const mod = dash.appModules ||= {};
-  const { $, COURSE_OVERRIDES_KEY, COURSE_TEXTBOOKS_KEY, EMBEDDED, READ_KEY, RECREATED_SEEN_KEY, SETTINGS_KEY, adoptLegacyArchive, api, backFromDetail, blobFromDataUrl, closeDetailToBase, closeLinkConfirm, closeOverlay, closePeek, closePreview, detailRoot, exportActivity, fileScope, look, main, moveGradeCarousel, navigateToDetail, openArchivedFile, openConfirmedLink, openPeek, previewFile, recordActivity, redrawAdoptNotice, refreshIfStaleOnFocus, rememberScreen, render, renderSyncStatus, saveLook, setChecklistDone, setDetailMore, showPreview, stepPeek, setWorkMark, showLinkConfirm, startSync, state, storageSet, toast, updateGradeCarouselControls, wait } = dash.appModules;
+  const { $, COURSE_OVERRIDES_KEY, COURSE_TEXTBOOKS_KEY, EMBEDDED, READ_KEY, RECREATED_SEEN_KEY, SETTINGS_KEY, adoptLegacyArchive, api, backFromDetail, blobFromDataUrl, closeDetailToBase, closeLinkConfirm, closeOverlay, closePeek, closePreview, detailRoot, exportActivity, fileScope, look, main, moveGradeCarousel, navigateToDetail, openArchivedFile, openConfirmedLink, openPeek, previewFile, recordActivity, turnEpub, redrawAdoptNotice, refreshIfStaleOnFocus, rememberScreen, render, renderSyncStatus, saveLook, setChecklistDone, setDetailMore, showPreview, stepPeek, setWorkMark, showLinkConfirm, startSync, state, storageSet, toast, updateGradeCarouselControls, wait } = dash.appModules;
   // ------------------------------------------------------------- events
 
   function markRead(ids, value = true) {
@@ -387,6 +387,56 @@
     bookPane.append(field("meta", "Edition, author, type — optional", "Details (optional)", existing?.meta));
     bookPane.append(field("linkUrl", "website.com", "URL (optional)", existing?.links?.[0]?.url, "url"));
 
+    // An attached PDF or EPUB: the shelf cover opens it. Kept inside the extension.
+    let bookFile = existing?.kind !== "link" ? existing?.file || null : null;
+    const fileField = document.createElement("div");
+    fileField.className = "textbook-field";
+    const fileCaption = document.createElement("span");
+    fileCaption.textContent = "Attach a PDF or EPUB (optional)";
+    const fileRow = document.createElement("div");
+    fileRow.className = "textbook-file-row";
+    const filePicker = document.createElement("label");
+    filePicker.className = "textbook-file-picker-label";
+    const fileInput = document.createElement("input");
+    fileInput.type = "file";
+    fileInput.className = "sr-only";
+    fileInput.accept = ".pdf,.epub,application/pdf,application/epub+zip";
+    const fileText = document.createElement("span");
+    fileText.className = "textbook-file-chosen-text";
+    const fileRemove = document.createElement("button");
+    fileRemove.type = "button";
+    fileRemove.className = "link-icon-chip";
+    fileRemove.textContent = "Remove";
+    const paintFile = () => {
+      fileText.textContent = bookFile ? bookFile.name : "Choose a file…";
+      fileRemove.hidden = !bookFile;
+    };
+    fileInput.addEventListener("change", () => {
+      const file = fileInput.files?.[0];
+      fileInput.value = "";
+      if (!file) return;
+      const isEpub = /\.epub$/i.test(file.name) || file.type === "application/epub+zip";
+      const isPdf = /\.pdf$/i.test(file.name) || file.type === "application/pdf";
+      if (!isEpub && !isPdf) { toast("Choose a PDF or EPUB file."); return; }
+      if (file.size > dash.TEXTBOOK_FILE_BYTES_LIMIT) { toast("That file is over 25 MB. Choose a smaller one."); return; }
+      const mime = isEpub ? "application/epub+zip" : "application/pdf";
+      const reader = new FileReader();
+      reader.onload = () => {
+        const chosen = { name: file.name, mime, dataUrl: `data:${mime};base64,${String(reader.result).slice(String(reader.result).indexOf(",") + 1)}` };
+        bookFile = dash.safeBookFile?.(chosen) || null;
+        if (!bookFile) toast("Couldn't read that file.");
+        paintFile();
+      };
+      reader.readAsDataURL(file);
+    });
+    fileRemove.addEventListener("click", () => { bookFile = null; paintFile(); });
+    filePicker.append(fileInput, fileText);
+    fileRow.append(filePicker, fileRemove);
+    fileField.append(fileCaption, fileRow);
+    bookPane.append(fileField);
+    form.__bookFile = () => bookFile;
+    paintFile();
+
     // The cover row mirrors the Link tab's icon row: a live preview of the
     // book that will sit on the shelf, plus the choices that change it. With
     // no image the preview is the default cover drawn from the title.
@@ -437,7 +487,11 @@
     });
     coverModes.append(defaultChip, coverUpload);
     const coverSwatches = {};
+    // The course colour is often nearly one of the tones, which showed as two
+    // of the same colour: offer only one of the pair (the saved one wins).
+    const sameAsCourse = dash.toneMatchingTint?.(course.tint) || "";
     for (const name of ["", ...(dash.TEXTBOOK_LINK_TONES || [])]) {
+      if (sameAsCourse && (name === "" ? coverTone === sameAsCourse : name === sameAsCourse && coverTone !== sameAsCourse)) continue;
       const swatch = document.createElement("button");
       swatch.type = "button";
       swatch.className = name ? `link-swatch tone-${name}` : "link-swatch is-course";
@@ -937,6 +991,22 @@
       }
       return;
     }
+    if (action === "open-textbook-file") {
+      const file = textbookEntriesFor(actionNode.dataset.courseId || "")[Number(actionNode.dataset.entryIndex)]?.file;
+      if (!file) return;
+      const blob = blobFromDataUrl(file.dataUrl, file.mime);
+      const src = URL.createObjectURL(blob);
+      if (file.mime === "application/pdf") {
+        showPreview({ name: file.name, state: "ready", kind: "pdf", src, pdf: src, mime: file.mime });
+      } else {
+        showPreview({ name: file.name, state: "ready", kind: "epub", src, file: new File([blob], file.name, { type: file.mime }), mime: file.mime });
+      }
+      return;
+    }
+    if (action === "epub-prev" || action === "epub-next") {
+      turnEpub(action === "epub-prev" ? -1 : 1);
+      return;
+    }
     if (action === "view-custom-syllabus") {
       const courseId = actionNode.dataset.courseId;
       const syllabus = state.courseContactOverrides?.[courseId]?.syllabus || state.index?.courseContactOverrides?.[courseId]?.syllabus;
@@ -1216,6 +1286,11 @@
       opener?.focus();
       return;
     }
+    if (state.preview?.kind === "epub" && (event.key === "ArrowLeft" || event.key === "ArrowRight")) {
+      event.preventDefault();
+      turnEpub(event.key === "ArrowLeft" ? -1 : 1);
+      return;
+    }
     if (event.key === "Escape") {
       if ($("#action-confirm")?.open) return;
       if (state.preview) {
@@ -1383,6 +1458,7 @@
           meta: String(form.querySelector("input[name=meta]")?.value || "").trim(),
           cover: form.__coverState?.().cover || "",
           tone: form.__coverState?.().tone || "",
+          ...(form.__bookFile?.() ? { file: form.__bookFile() } : {}),
           links
         };
       }

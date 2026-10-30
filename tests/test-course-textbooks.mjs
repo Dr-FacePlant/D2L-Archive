@@ -35,6 +35,19 @@ check(dangerous.length === 3, `only safe entries are kept, got ${dangerous.lengt
 check(dangerous[0].links.length === 0, "a javascript: link must be dropped");
 check(dangerous[1].title.length === 140, "titles are truncated");
 check(dangerous[2].cover === "" && dangerous[2].title === "Covered Book", "a non-image cover must be dropped");
+check(dash.toneMatchingTint("light-dark(#E4EEFE, color-mix(in srgb, #0A66F2 18%, var(--surface)))") === "blue" && dash.toneMatchingTint("#E3F4EC") === "green" && dash.toneMatchingTint("#7A0FEB") === "", "a course colour nearly equal to a tone is spotted so the picker doesn't show it twice");
+// ---- attached book files ----------------------------------------------------
+const pdfData = `data:application/pdf;base64,${Buffer.from("%PDF-1.4 test").toString("base64")}`;
+const withFile = dash.normalizeTextbookEntries([
+  { title: "Filed PDF", file: { name: "book.pdf", mime: "application/pdf", dataUrl: pdfData } },
+  { title: "Filed EPUB", file: { name: "book.epub", mime: "application/epub+zip", dataUrl: "data:application/epub+zip;base64,UEsDBA==" } },
+  { title: "Bad Mime", file: { name: "x.html", mime: "text/html", dataUrl: "data:text/html;base64,PGI+" } },
+  { title: "Mismatched", file: { name: "x.pdf", mime: "application/pdf", dataUrl: "data:text/html;base64,PGI+" } },
+  { title: "Bad Body", file: { name: "x.pdf", mime: "application/pdf", dataUrl: "data:application/pdf;base64,<script>" } }
+]);
+check(withFile[0].file?.name === "book.pdf" && withFile[1].file?.mime === "application/epub+zip", "a PDF and an EPUB attach to a book");
+check(!withFile[2].file && !withFile[3].file && !withFile[4].file, "other file types, a mismatched address or a bad body are dropped");
+check(!dash.safeBookFile({ name: "big.pdf", mime: "application/pdf", dataUrl: `data:application/pdf;base64,${"A".repeat(Math.ceil(dash.TEXTBOOK_FILE_BYTES_LIMIT * 4 / 3) + 200)}` }), "a file over the 25 MB cap is refused");
 check(dash.safeLinkUrl("https://ok.example.com/book") === "https://ok.example.com/book", "an https link survives");
 check(dash.safeLinkUrl("website.com") === "https://website.com/" && dash.safeLinkUrl("www.site.org/a b".replace(" ", "")) === "https://www.site.org/ab", "a bare website.com is read as https");
 check(dash.safeLinkUrl("javascript:alert(1)") === "" && dash.safeLinkUrl("ftp://x.example.com") === "" && dash.safeLinkUrl("not a link") === "" && dash.safeLinkUrl("word") === "", "schemes other than http(s) and non-addresses are still refused");
@@ -53,6 +66,10 @@ check(index.courseById.get("1001").textbooks.length === 0, "the shelf must stay 
 const html = dash.courseHomePage(model);
 check(html.includes("Textbooks &amp; Links") && html.includes("sec-textbooks"), "the shelf block should have its card and head");
 check(/<a class="textbook-frame" href="https:\/\/vadds\.student\.pearson\.com\/art"/.test(html) && !html.includes("textbook-link\""), "a book's cover is itself the link, with no text link row under it");
+const fileHtml = dash.courseHomePage({ ...model, textbooks: [withFile[0], { title: "Both", links: [{ title: "", url: "https://both.example.com" }], file: withFile[0].file }] });
+check(fileHtml.includes('<button class="textbook-frame" type="button" data-action="open-textbook-file"'), "a book with a file opens it from its cover");
+check(!fileHtml.includes(pdfData), "the file's bytes never print into the page");
+check((fileHtml.match(/class="textbook-link"/g) || []).length === 1, "a book with both a file and a URL keeps the URL as a small text link");
 check(html.indexOf("sec-textbooks") < html.indexOf("sec-announcements") && html.indexOf("instructor-contact-card") < html.indexOf("sec-textbooks"), "the shelf sits after the instructor card and before announcements");
 check(html.includes(`data-action="edit-textbook"`), "each shelf item should own an edit pencil");
 check(html.includes('href="https://vadds.student.pearson.com/art"'), "the item link should point at its saved URL");
@@ -114,6 +131,12 @@ check(/\.link-tile \{[^}]*display: flex; align-items: center; justify-content: c
 check(css.includes(".textbook-field > span") && !/\.textbook-field span[ ,{]/.test(css), "the field caption rule must not reach the previews nested inside the field");
 check(!events.includes("linkUrl2") && !events.includes("Extra link") && !events.includes("linkNote") && !events.includes("Short note"), "the pop-up has no extra-link field and no short-note field");
 check(/\.textbook-panel \.textbook-field \.instructor-edit-input \{[^}]*height: 42px/.test(css) && /\.textbook-panel \.textbook-editor-actions \.btn \{[^}]*height: 40px/.test(css), "the pop-up's fields and buttons are sized for the larger panel");
+check(events.includes("Attach a PDF or EPUB (optional)") && events.includes('action === "open-textbook-file"') && events.includes("__bookFile"), "the Textbook tab can attach a file and the shelf can open it");
+const preview = read("src/dashboard/app-preview.js");
+check(events.includes('kind: "epub"') && !events.includes("Saved the EPUB to your downloads") && preview.includes("src/vendor/foliate-js/view.js") && preview.includes("reader.open(view.file)"), "an EPUB opens in the bundled foliate-js viewer instead of downloading");
+const epubView = dash.filePreview({ name: "Book.epub", state: "ready", kind: "epub", src: "blob:x", mime: "application/epub+zip" });
+check(epubView.includes("data-epub-host") && epubView.includes('data-action="epub-next"') && epubView.includes('download="Book.epub"'), "the viewer shows an EPUB reader with page buttons and still offers Download");
+check(read("src/vendor/README.md").includes("foliate-js/view.js") && fs.existsSync(path.join(repoRoot, "src/vendor/foliate-js/LICENSE")), "the bundled foliate-js is listed with its license");
 check(events.includes("textbook-frame is-preview") && events.includes("__coverState") && events.includes("Default book"), "the Textbook tab has a live cover preview with Default and Upload choices");
 const search = read("src/dashboard/app-state.js");
 const plumbing = read("src/dashboard/app-plumbing.js");

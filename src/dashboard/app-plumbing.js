@@ -97,21 +97,17 @@
   }
 
   // School logo: copied from the D2L header by the sync, shown in the corner.
-  // With no saved logo the corner shows a plain cap icon instead.
+  // With no saved logo the corner shows the D2L Brightspace wordmark instead.
   function renderSchoolLogo(logo) {
+    const DEFAULT_LOGO = "src/dashboard/img/d2l-brightspace.png";
     const img = $("#school-logo");
     const fallback = $("#brand-fallback");
     if (!img || !fallback) return;
     const usable = typeof logo?.dataUrl === "string" && /^data:image\//.test(logo.dataUrl);
-    if (usable) {
-      img.src = logo.dataUrl;
-      img.alt = logo.alt || "School logo";
-    } else {
-      img.removeAttribute("src");
-      img.alt = "";
-    }
-    img.hidden = !usable;
-    fallback.hidden = usable;
+    img.src = usable ? logo.dataUrl : DEFAULT_LOGO;
+    img.alt = usable ? logo.alt || "School logo" : "D2L Brightspace";
+    img.hidden = false;
+    fallback.hidden = true;
   }
 
   function renderUserProfile(profile = state.profile) {

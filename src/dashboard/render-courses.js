@@ -61,9 +61,10 @@
     try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return ""; }
   }
 
-  // The cover itself opens the first link, so only extra links get a text row.
+  // The cover opens the attached file, or else the first link; whatever it
+  // doesn't open gets a small text row.
   function textbookLinks(entry) {
-    const extras = entry.links.slice(1);
+    const extras = entry.links.slice(entry.file ? 0 : 1);
     if (!extras.length) return "";
     return `${extras.map((link) => {
       const label = link.title || textbookHost(link.url) || "Open link";
@@ -98,7 +99,9 @@
       : `<span class="textbook-cover-default${entry.tone ? ` tone-${e(entry.tone)}` : ""}"${entry.tone ? "" : ` style="background:${e(c.tint)};color:${e(c.ink)}"`}><span class="tc-spine" aria-hidden="true"></span><span class="tc-title">${e(entry.title)}</span>${icon("book", 15, 'class="tc-mark"')}</span>`;
     const label = [entry.title, entry.meta].filter(Boolean).join(", ");
     const url = entry.links[0]?.url || "";
-    const frame = url
+    const frame = entry.file
+      ? `<button class="textbook-frame" type="button" data-action="open-textbook-file" data-course-id="${e(courseId)}" data-entry-index="${index}" aria-label="Open ${e(entry.title)}">${highlighted}</button>`
+      : url
       ? `<a class="textbook-frame" href="${e(url)}" data-confirm-external="${e(entry.title)}" rel="noopener noreferrer" aria-label="Open ${e(entry.title)}">${highlighted}</a>`
       : `<span class="textbook-frame">${highlighted}</span>`;
     return `<div class="textbook-tile" data-textbook-tile>

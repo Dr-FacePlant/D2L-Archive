@@ -271,6 +271,7 @@
     return view.state === "ready"
       ? view.kind === "pdf" ? `<iframe src="${e(view.pdf || view.src)}" title="${label}"></iframe>`
         : view.kind === "page" || view.kind === "docx" ? `<iframe class="doc-frame" sandbox="allow-popups allow-popups-to-escape-sandbox" srcdoc="${e(view.html || "")}" title="${label}"></iframe>`
+        : view.kind === "epub" ? `<div class="epub-reader" data-epub-host><div class="epub-stage"></div><div class="epub-bar"><button class="btn" type="button" data-action="epub-prev" aria-label="Previous page">${icon("chevronLeft", 16)}</button><span class="epub-where" data-epub-where aria-live="polite">Opening…</span><button class="btn" type="button" data-action="epub-next" aria-label="Next page">${icon("chevronRight", 16)}</button></div></div>`
         : view.kind === "image" ? `<img src="${e(view.src)}" alt="${label}">`
         : view.kind === "video" ? `<video src="${e(view.src)}" controls></video>`
         : view.kind === "audio" ? `<audio src="${e(view.src)}" controls></audio>`
@@ -278,7 +279,7 @@
       : `<div class="viewer-note">${e(previewNote(view))}${view.state === "stale" ? `<button class="btn btn-primary" type="button" data-action="reload-page">Reload</button>` : ""}</div>`;
   }
 
-  const DOWNLOAD_EXT = Object.freeze({ "application/pdf": ".pdf", "image/png": ".png", "image/jpeg": ".jpg", "image/gif": ".gif", "image/webp": ".webp", "image/svg+xml": ".svg", "video/mp4": ".mp4", "audio/mpeg": ".mp3", "text/plain": ".txt", "text/html": ".html", "application/zip": ".zip", "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx", "application/vnd.openxmlformats-officedocument.presentationml.presentation": ".pptx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ".xlsx" });
+  const DOWNLOAD_EXT = Object.freeze({ "application/pdf": ".pdf", "application/epub+zip": ".epub", "image/png": ".png", "image/jpeg": ".jpg", "image/gif": ".gif", "image/webp": ".webp", "image/svg+xml": ".svg", "video/mp4": ".mp4", "audio/mpeg": ".mp3", "text/plain": ".txt", "text/html": ".html", "application/zip": ".zip", "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx", "application/vnd.openxmlformats-officedocument.presentationml.presentation": ".pptx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ".xlsx" });
 
   // A loaded file can be saved, named after the file or topic. A name that
   // already ends in an extension keeps it.
