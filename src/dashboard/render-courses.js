@@ -61,9 +61,11 @@
     try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return ""; }
   }
 
-  function textbookLinks(entry, courseId) {
-    if (!entry.links.length) return "";
-    return `${entry.links.map((link) => {
+  // The cover itself opens the first link, so only extra links get a text row.
+  function textbookLinks(entry) {
+    const extras = entry.links.slice(1);
+    if (!extras.length) return "";
+    return `${extras.map((link) => {
       const label = link.title || textbookHost(link.url) || "Open link";
       return `<a class="textbook-link" href="${e(link.url)}" data-confirm-external="${e(label)}" rel="noopener noreferrer"><span class="tl-ico">${icon("link", 13)}</span><span>${e(label)}</span></a>`;
     }).join("")}`;
@@ -95,12 +97,16 @@
       ? `<img class="textbook-cover-img" src="${e(entry.cover)}" alt="" draggable="false">`
       : `<span class="textbook-cover-default${entry.tone ? ` tone-${e(entry.tone)}` : ""}"${entry.tone ? "" : ` style="background:${e(c.tint)};color:${e(c.ink)}"`}><span class="tc-spine" aria-hidden="true"></span><span class="tc-title">${e(entry.title)}</span>${icon("book", 15, 'class="tc-mark"')}</span>`;
     const label = [entry.title, entry.meta].filter(Boolean).join(", ");
+    const url = entry.links[0]?.url || "";
+    const frame = url
+      ? `<a class="textbook-frame" href="${e(url)}" data-confirm-external="${e(entry.title)}" rel="noopener noreferrer" aria-label="Open ${e(entry.title)}">${highlighted}</a>`
+      : `<span class="textbook-frame">${highlighted}</span>`;
     return `<div class="textbook-tile" data-textbook-tile>
-      <span class="textbook-frame">${highlighted}</span>
+      ${frame}
       <button class="textbook-edit" type="button" data-action="edit-textbook" data-course-id="${e(courseId)}" data-entry-index="${index}" aria-label="Edit ${e(label)}" title="Edit ${e(label)}">${icon("pen", 13)}</button>
       <span class="tt">${e(entry.title)}</span>
       ${entry.meta ? `<span class="tm">${e(entry.meta)}</span>` : ""}
-      <span class="textbook-links">${textbookLinks(entry)}</span>
+      ${textbookLinks(entry) ? `<span class="textbook-links">${textbookLinks(entry)}</span>` : ""}
     </div>`;
   }
 

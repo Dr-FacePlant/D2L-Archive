@@ -19,10 +19,12 @@
   const UNSAFE_KEYS = new Set(["__proto__", "constructor", "prototype"]);
 
   // Only web links are kept, so a pasted "javascript:" address can never
-  // reach an href.
+  // reach an href. A bare "website.com/page" (no scheme, a dot, no spaces)
+  // is read as https; anything with another scheme is still refused.
   function safeLinkUrl(value) {
-    const text = clean(value);
+    let text = clean(value);
     if (!text || text.length > URL_LIMIT || UNSAFE_KEYS.has(text)) return "";
+    if (!/^[a-z][a-z0-9+.-]*:/i.test(text) && /^[^\s/?#]+\.[^\s/?#]{2,}(?:[/?#]\S*)?$/.test(text)) text = `https://${text}`;
     try {
       const url = new URL(text);
       return url.protocol === "http:" || url.protocol === "https:" ? url.href : "";

@@ -36,6 +36,8 @@ check(dangerous[0].links.length === 0, "a javascript: link must be dropped");
 check(dangerous[1].title.length === 140, "titles are truncated");
 check(dangerous[2].cover === "" && dangerous[2].title === "Covered Book", "a non-image cover must be dropped");
 check(dash.safeLinkUrl("https://ok.example.com/book") === "https://ok.example.com/book", "an https link survives");
+check(dash.safeLinkUrl("website.com") === "https://website.com/" && dash.safeLinkUrl("www.site.org/a b".replace(" ", "")) === "https://www.site.org/ab", "a bare website.com is read as https");
+check(dash.safeLinkUrl("javascript:alert(1)") === "" && dash.safeLinkUrl("ftp://x.example.com") === "" && dash.safeLinkUrl("not a link") === "" && dash.safeLinkUrl("word") === "", "schemes other than http(s) and non-addresses are still refused");
 check(dash.normalizeTextbookEntries([{ title: "a" }, { title: "b" }, { title: "c" }, { title: "d" }, { title: "e" }, { title: "f" }, { title: "g" }, { title: "h" }, { title: "i" }, { title: "j" }]).length === 8, "the shelf holds at most eight entries");
 
 // ---- the shelf renders on the course page --------------------------------
@@ -50,6 +52,7 @@ check(model.textbooks.length === 1 && model.textbooks[0].title === "World of Art
 check(index.courseById.get("1001").textbooks.length === 0, "the shelf must stay empty until the user adds something, even when the syllabus names a book");
 const html = dash.courseHomePage(model);
 check(html.includes("Textbooks &amp; Links") && html.includes("sec-textbooks"), "the shelf block should have its card and head");
+check(/<a class="textbook-frame" href="https:\/\/vadds\.student\.pearson\.com\/art"/.test(html) && !html.includes("textbook-link\""), "a book's cover is itself the link, with no text link row under it");
 check(html.indexOf("sec-textbooks") < html.indexOf("sec-announcements") && html.indexOf("instructor-contact-card") < html.indexOf("sec-textbooks"), "the shelf sits after the instructor card and before announcements");
 check(html.includes(`data-action="edit-textbook"`), "each shelf item should own an edit pencil");
 check(html.includes('href="https://vadds.student.pearson.com/art"'), "the item link should point at its saved URL");
@@ -109,6 +112,8 @@ check(tonedHtml.includes("textbook-cover-default tone-green"), "a book with a sa
 check(/\.textbook-panel \{[^}]*\bheight: min\(700px/.test(css) && !/\.textbook-panel \{[^}]*max-height: min/.test(css), "the pop-up has one fixed height, not a max-height that grows with the tab");
 check(/\.link-tile \{[^}]*display: flex; align-items: center; justify-content: center/.test(css) && css.includes(".link-tile svg"), "the link icon is centered in its tile");
 check(css.includes(".textbook-field > span") && !/\.textbook-field span[ ,{]/.test(css), "the field caption rule must not reach the previews nested inside the field");
+check(!events.includes("linkUrl2") && !events.includes("Extra link") && !events.includes("linkNote") && !events.includes("Short note"), "the pop-up has no extra-link field and no short-note field");
+check(/\.textbook-panel \.textbook-field \.instructor-edit-input \{[^}]*height: 42px/.test(css) && /\.textbook-panel \.textbook-editor-actions \.btn \{[^}]*height: 40px/.test(css), "the pop-up's fields and buttons are sized for the larger panel");
 check(events.includes("textbook-frame is-preview") && events.includes("__coverState") && events.includes("Default book"), "the Textbook tab has a live cover preview with Default and Upload choices");
 const search = read("src/dashboard/app-state.js");
 const plumbing = read("src/dashboard/app-plumbing.js");
