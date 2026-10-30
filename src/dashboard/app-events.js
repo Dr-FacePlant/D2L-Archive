@@ -339,7 +339,7 @@
     titleEl.textContent = existing ? (existing.kind === "link" ? "Edit link" : "Edit textbook") : "Add textbook or link";
     const sub = document.createElement("span");
     sub.className = "panel-sub";
-    sub.textContent = ["Textbooks & links", course.label || ""].filter(Boolean).join(" · ");
+    sub.textContent = ["Textbooks & Links", course.label || ""].filter(Boolean).join(" · ");
     const closeBtn = document.createElement("button");
     closeBtn.className = "icon-btn";
     closeBtn.type = "button";

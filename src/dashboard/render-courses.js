@@ -110,13 +110,10 @@
     const addAllowed = entries.length < dash.MAX_TEXTBOOK_ENTRIES;
     const addHead = addAllowed ? `<button class="textbook-add-head" type="button" data-action="add-textbook" data-course-id="${courseId}" aria-label="Add a textbook or link" title="Add a textbook or link">${icon("plus", 15)}</button>` : "";
     return `<section class="card card-pad sec-textbooks" aria-label="Textbooks and links">
-      ${cardHead("Textbooks & links", null, entries.length ? plural(entries.length, "item") : "", addHead)}
+      ${cardHead("Textbooks & Links", null, entries.length ? plural(entries.length, "item") : "", addHead)}
       ${entries.length
         ? `<div class="textbook-shelf">${entries.map((entry, index) => textbookTile(entry, index, courseId, c)).join("")}</div>`
-        : `<div class="empty">
-            <b>No textbook found</b>
-            Nothing from this course's syllabus texts yet. You can add a cover and any links yourself.
-          </div>`}
+        : `<div class="empty">Nothing added yet</div>`}
     </section>`;
   }
 
