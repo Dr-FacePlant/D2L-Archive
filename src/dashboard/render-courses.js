@@ -52,7 +52,7 @@
       ${instructorContactRow({ courseId, index, field: "officeHours", label: "Office hours", iconName: "clock", value: contact.officeHours, copyLabel: "instructor office hours", editLabel: "office hours" })}
     </div>`).join("");
     const syllabusRow = `<div class="instructor-contact-row instructor-syllabus-row" data-contact-row data-course-id="${e(courseId)}" data-contact-index="0" data-field="syllabus" data-edit-value="${e(syllabusOverride)}"><span class="ico">${icon("book", 16)}</span><span class="instructor-contact-value">Syllabus: ${syllabus ? e(syllabus.title) : "N/A"}</span><span class="instructor-actions">${syllabusVisitButton(syllabus, courseId)}${instructorEditButton("syllabus link")}</span></div>`;
-    return `<section class="card instructor-contact-card" aria-label="Instructor and course information">${rows}${syllabusRow}</section>`;
+    return `<section class="card card-pad instructor-contact-card" aria-label="Instructor and course information">${cardHead("Basic Info")}${rows}${syllabusRow}</section>`;
   }
 
   // A shelf entry: the cover (an uploaded image, or a tinted default built
