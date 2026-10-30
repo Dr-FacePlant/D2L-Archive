@@ -385,13 +385,7 @@
     bookPane.hidden = kind !== "book";
     bookPane.append(field("title", "Type the title, like World of Art", "Title", existing?.title));
     bookPane.append(field("meta", "Edition, author, type — optional", "Details (optional)", existing?.meta));
-    const linksRow = document.createElement("div");
-    linksRow.className = "textbook-field-inline";
-    linksRow.append(
-      field("linkUrl", "https://…", "Link (optional)", existing?.links?.[0]?.url, "url"),
-      field("linkUrl2", "https://…", "Extra link (optional)", existing?.links?.[1]?.url, "url")
-    );
-    bookPane.append(linksRow);
+    bookPane.append(field("linkUrl", "website.com", "URL (optional)", existing?.links?.[0]?.url, "url"));
 
     // The cover row mirrors the Link tab's icon row: a live preview of the
     // book that will sit on the shelf, plus the choices that change it. With
@@ -496,7 +490,7 @@
     bookPane.append(coverWrap);
     paintCover();
 
-    // The Link tab: a name, a web address, an optional note, and the tile's
+    // The Link tab: a name, a web address, and the tile's
     // icon (the link glyph, the name's first letter, or an uploaded image)
     // in one of the tile colours.
     const linkPane = document.createElement("div");
@@ -505,8 +499,7 @@
     const isLink = existing?.kind === "link";
     linkPane.append(
       field("linkTitle", "Type a name, like Class Portal", "Title", isLink ? existing.title : ""),
-      field("linkAddress", "https://…", "Web address", isLink ? existing.links?.[0]?.url : "", "url"),
-      field("linkNote", "Shown under the name — optional", "Short note (optional)", isLink ? existing.meta : "")
+      field("linkAddress", "website.com", "URL", isLink ? existing.links?.[0]?.url : "", "url")
     );
     let tone = isLink ? existing.tone || "violet" : "violet";
     let mode = isLink && existing.cover ? "image" : isLink && existing.mark === "letter" ? "letter" : "glyph";
@@ -1352,7 +1345,7 @@
         }
         const url = dash.safeLinkUrl(String(form.querySelector("input[name=linkAddress]")?.value || "").trim());
         if (!url) {
-          toast("Enter a full web link that starts with http:// or https://.");
+          toast("Enter a web address, like website.com.");
           form.querySelector("input[name=linkAddress]")?.focus();
           return;
         }
@@ -1360,7 +1353,7 @@
         entry = {
           kind: "link",
           title,
-          meta: String(form.querySelector("input[name=linkNote]")?.value || "").trim(),
+          meta: "",
           cover: iconLook.mode === "image" ? iconLook.image : "",
           tone: iconLook.tone,
           mark: iconLook.mode === "letter" ? "letter" : "",
@@ -1373,17 +1366,16 @@
           form.querySelector("input[name=title]")?.focus();
           return;
         }
-        const rawLinks = [{ value: form.querySelector("input[name=linkUrl]")?.value, title: "View textbook" }, { value: form.querySelector("input[name=linkUrl2]")?.value, title: "Extra link" }];
         const links = [];
-        for (const one of rawLinks) {
-          const typed = String(one.value || "").trim();
-          if (!typed) continue;
+        const typed = String(form.querySelector("input[name=linkUrl]")?.value || "").trim();
+        if (typed) {
           const url = dash.safeLinkUrl(typed);
           if (!url) {
-            toast("Enter a full web link that starts with http:// or https://.");
+            toast("Enter a web address, like website.com.");
+            form.querySelector("input[name=linkUrl]")?.focus();
             return;
           }
-          links.push({ title: one.title, url });
+          links.push({ title: "View textbook", url });
         }
         entry = {
           kind: "book",
