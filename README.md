@@ -49,8 +49,8 @@ Built for the daily check: what needs attention today, what's due soon, and how 
   <td>Save a portable archive of JSON, CSV, Markdown, and page snapshots for offline review. Course-file downloads are optional and off by default.</td>
 </tr>
 <tr>
-  <td><b>Agent compatible</b><br><sub><code>available now</code></sub></td>
-  <td>Every export includes an <code>ai-index.ndjson</code> file, and <code>tools/query-ai-index.mjs</code> searches it, so an AI agent can read and search your archive.</td>
+  <td><b>Agent compatible</b><br><sub><code>partly available</code></sub></td>
+  <td>Not fully agent compatible yet. Every export includes an <code>ai-index.ndjson</code> file, and <code>tools/query-ai-index.mjs</code> searches it, so an AI agent can read your exported archive. Full agent compatibility, through an MCP server, is planned.</td>
 </tr>
 <tr>
   <td><b>Private by design</b><br><sub><code>available now</code></sub></td>
@@ -149,6 +149,7 @@ The D2L calls it reads are mapped in [`docs/VALENCE-API-MAP.md`](docs/VALENCE-AP
 - [x] Search across the archive
 - [x] Local export with verification tools
 - [x] Agent-readable index in every export
+- [ ] Full agent compatibility through an MCP server
 - [ ] Support for other D2L portals
 - [ ] Chrome Web Store listing
 
