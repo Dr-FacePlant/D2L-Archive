@@ -1,10 +1,13 @@
 <p align="center">
-  <img src="icons/icon-128.png" alt="D2L Archive icon" width="96">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/banner-dark.png">
+    <img src="docs/banner-light.png" alt="D2L Archive: what's due, what's new, and how you're doing in every course, kept private on your computer" width="100%">
+  </picture>
 </p>
 
-<h1 align="center">D2L Archive</h1>
-
-<p align="center">A read-only Chrome extension for Kennesaw State University that turns your D2L courses into a local archive and a dashboard for upcoming work, updates, and grades.</p>
+<p align="center">
+  <b>A read-only Chrome extension for <a href="https://www.kennesaw.edu/">Kennesaw State University</a> that turns your D2L courses into a local archive and a dashboard for upcoming work, updates, and grades.</b>
+</p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/platform-Chrome-4285F4?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Platform: Chrome">
@@ -14,11 +17,49 @@
   <img src="https://img.shields.io/github/license/Dr-FacePlant/D2L-Archive?style=for-the-badge" alt="License: MIT">
 </p>
 
-> **Chrome Web Store:** D2L Archive isn’t listed yet. We expect to submit the first version in the next couple of days. Once it’s approved and published, installing it will be easier. For now, use the ZIP setup below.
+> [!NOTE]
+> D2L Archive isn't on the Chrome Web Store yet. Install it from the release ZIP; the steps are under [Getting started](#getting-started).
 
-## Screenshots
+> [!IMPORTANT]
+> D2L Archive **only reads** your D2L data. To submit work or post, open the item in D2L and do it there yourself. It is an independent project and is **not affiliated with or endorsed by** Kennesaw State University or D2L Corporation.
 
-Current app captures with real course data:
+---
+
+Built for the daily check: what needs attention today, what's due soon, and how you're doing in every course. When it's time to act, it's two clicks to the assignment upload page instead of digging through the busy interface. Your course data and exports stay on your computer.
+
+---
+
+## Features
+
+<table>
+<tr>
+  <td width="190"><b>Dashboard</b><br><sub><code>available now</code></sub></td>
+  <td>Upcoming assignments and quizzes, recent course updates, and a grade snapshot for every course, on one screen.</td>
+</tr>
+<tr>
+  <td><b>Courses and calendar</b><br><sub><code>available now</code></sub></td>
+  <td>Browse courses, assignments, calendar events, announcements, discussions, grades, and course content, with a link back to each item in D2L.</td>
+</tr>
+<tr>
+  <td><b>Search</b><br><sub><code>available now</code></sub></td>
+  <td>Search everything you've archived and open any result in D2L using its original link.</td>
+</tr>
+<tr>
+  <td><b>Export</b><br><sub><code>available now</code></sub></td>
+  <td>Save a portable archive of JSON, CSV, Markdown, and page snapshots for offline review. Course-file downloads are optional and off by default.</td>
+</tr>
+<tr>
+  <td><b>Agent compatible</b><br><sub><code>available now</code></sub></td>
+  <td>Every export includes an <code>ai-index.ndjson</code> file, and <code>tools/query-ai-index.mjs</code> searches it, so an AI agent can read and search your archive.</td>
+</tr>
+<tr>
+  <td><b>Private by design</b><br><sub><code>available now</code></sub></td>
+  <td>Requests go only to KSU's D2L site, using your existing session. There is no analytics and no third-party server. Read the <a href="https://dr-faceplant.github.io/D2L-Archive/privacy-policy.html">privacy policy</a>.</td>
+</tr>
+</table>
+
+<details>
+<summary><b>Screenshots</b></summary>
 
 <table>
   <tr>
@@ -39,102 +80,94 @@ Current app captures with real course data:
   </tr>
 </table>
 
-## Easy setup
-
-<details>
-<summary>View setup steps and video help</summary>
-
-Prefer a video? [Watch how to download and load an extension from GitHub](https://www.youtube.com/watch?v=PSqcV5eT8FM), or [see Chrome's Load unpacked steps](https://www.youtube.com/watch?v=xiT8c8M1OIw).
-
-### 1. Download the release ZIP
-
-<p align="center"><a href="https://github.com/Dr-FacePlant/D2L-Archive/releases/latest" title="Open the latest release to download the extension ZIP"><img src="docs/installation/01-download-extension.svg" alt="Download the D2L Archive extension ZIP" width="760"></a></p>
-
-Click the button above, then download the `d2l-archive-*.zip` asset under **Assets**. Skip GitHub's **Source code** ZIP.
-
-### 2. Extract the ZIP
-
-<p align="center"><img src="docs/installation/02-extract.svg" alt="A ZIP file being extracted to a folder containing manifest.json" width="760"></p>
-
-Extract the downloaded ZIP. The resulting folder should contain `manifest.json` at its top level.
-
-### 3. Load it in Chrome
-
-<p align="center"><img src="docs/installation/03-load-chrome.svg" alt="Chrome extensions page showing Developer mode on and Load unpacked" width="760"></p>
-
-In desktop Chrome, open `chrome://extensions`, turn on **Developer mode**, then click **Load unpacked** and select the extracted folder that contains `manifest.json`.
-
-### 4. Open D2L Archive
-
-<p align="center"><img src="docs/installation/04-open-d2l.svg" alt="D2L Archive open on a KSU D2L course page" width="760"></p>
-
-Visit [KSU D2L](https://kennesaw.view.usg.edu/d2l/). The overlay opens on your first visit. If D2L was already open, refresh that tab. Use the extension icon or `Alt+Shift+A` to toggle the overlay later.
-
-Course-file downloads are optional and off by default. Turn them on in Settings if you want files included in your export.
-
 </details>
 
-## What you can do
+---
 
-<details>
-<summary>View features</summary>
+## Getting started
 
-- See upcoming assignments and quizzes, recent course updates, and grade summaries from the dashboard.
-- Browse courses, assignments, calendar events, announcements, discussions, grades, and course content.
-- Search archived course data and open items in D2L using their original links.
-- Save a portable archive of JSON, CSV, Markdown, and page snapshots for offline review.
+### Prerequisites
 
-</details>
+- **Desktop Chrome** (the extension uses Manifest V3)
+- A **KSU D2L account**, signed in at [kennesaw.view.usg.edu/d2l](https://kennesaw.view.usg.edu/d2l/)
 
-## Privacy
+### Install
 
-Course data and exports stay on your device. Requests go only to KSU's D2L site using your existing session; the extension has no analytics or third-party server. It only reads D2L data. To submit work or post, open the item in D2L and do it there yourself. Read the full [privacy policy](https://dr-faceplant.github.io/D2L-Archive/privacy-policy.html).
+1. Download the `d2l-archive-*.zip` asset from the [latest release](https://github.com/Dr-FacePlant/D2L-Archive/releases/latest). Skip GitHub's **Source code** ZIP.
+2. Extract it. The folder should have `manifest.json` at its top level.
+3. In Chrome, open `chrome://extensions`, turn on **Developer mode**, click **Load unpacked**, and select that folder.
 
-D2L Archive is an independent project, not affiliated with or endorsed by Kennesaw State University or D2L Corporation.
+Then visit [KSU D2L](https://kennesaw.view.usg.edu/d2l/). The overlay opens on your first visit (refresh the tab if D2L was already open). Use the extension icon or `Alt+Shift+A` to toggle it later.
 
-<details>
-<summary>Developer and archive reference</summary>
+### Build and test
 
-### Development
-
-```sh
+```bash
 node run-local-checks.mjs
 node tools/validate-extension.mjs
 ```
 
-The local checks use Node 20+ and need no additional dependencies. To preview the dashboard against saved exports, first place a `dashboard-test-exports.json` file at the repo root:
+The local checks use Node 20+ and need no extra dependencies. To preview the dashboard against saved exports, put a `dashboard-test-exports.json` at the repo root (see `dashboard-test-exports.example.json`) and run:
 
-```sh
+```bash
 node tools/dev-dashboard-preview.mjs 8791
 ```
 
-### Archive tools
+<details>
+<summary><b>Archive tools</b></summary>
 
-Exports are saved under `~/Downloads/D2L Export/d2l-export-<timestamp>/`. They include a manifest, course data, readable page snapshots, and audit/change reports. Course files are included only when enabled. The ignored `dashboard-test-exports.json` can point local preview tools at personal exports and is not included in Git.
+Exports are saved under `~/Downloads/D2L Export/d2l-export-<timestamp>/`. They include a manifest, course data, readable page snapshots, and audit and change reports. Course files are included only when enabled.
 
-```sh
+```bash
 node tools/verify-archive.mjs "$HOME/Downloads/D2L Export/d2l-export-..."
 node tools/verify-latest.mjs
 node tools/query-ai-index.mjs "$HOME/Downloads/D2L Export/d2l-export-..." "quiz feedback due"
 ```
 
-An export records coverage and gaps. D2L permissions vary by course, so submitted-file downloads, instructor comments, quiz question-level results, and discussion grading feedback may be unavailable.
-
-### Repository layout
-
-```text
-background.js, content.js, popup.*   extension entrypoints
-manifest.json                        Chrome MV3 manifest
-src/                                 extension features and shared code
-tests/                               regression suite and synthetic fixtures
-tools/                               archive, validation, and preview CLIs
-docs/                                specifications, field maps, and notes
-```
-
-`node tools/package.mjs` builds a zip containing only runtime files. See [`docs/VALENCE-API-MAP.md`](docs/VALENCE-API-MAP.md), [`docs/PRE-RELEASE-IMPLEMENTATION-PLAN.md`](docs/PRE-RELEASE-IMPLEMENTATION-PLAN.md), and [`docs/store-listing.md`](docs/store-listing.md) for deeper technical and release notes.
-
 </details>
+
+---
+
+## How it fits together
+
+D2L Archive reads your courses through your own D2L session, keeps them in the browser, and shows them in a dashboard.
+
+The D2L calls it reads are mapped in [`docs/VALENCE-API-MAP.md`](docs/VALENCE-API-MAP.md).
+
+| Part | Where it lives | Role |
+|---|---|---|
+| **Sync and archive** | `background.js`, `src/background/` | Reads your courses, organizes what it finds, and writes exports. |
+| **Page reader** | `src/content/` | Runs on D2L pages: finds the data and opens the overlay. |
+| **Dashboard** | `dashboard.html`, `src/dashboard/` | The screens you use: dashboard, courses, calendar, updates, assignments, grades, content. |
+| **Popup** | `popup.html`, `popup.js` | The extension icon's popup. |
+| **Tools and tests** | `tools/`, `tests/` | Archive verification, search, previews and the test suite. |
+
+---
+
+## Project status & roadmap
+
+- [x] Dashboard, courses, calendar, updates, assignments, grades and content
+- [x] Search across the archive
+- [x] Local export with verification tools
+- [x] Agent-readable index in every export
+- [ ] Chrome Web Store listing
+
+---
+
+## Get involved
+
+Bugs, ideas and feature requests are welcome.
+
+- [Open an issue](https://github.com/Dr-FacePlant/D2L-Archive/issues)
+- Fork, run the checks above, and open a pull request
+
+---
 
 ## License
 
-MIT — see [`LICENSE`](LICENSE).
+Released under the [MIT License](LICENSE).
+
+---
+
+<p align="center">
+  <sub>D2L Archive is an independent project and is not affiliated with or endorsed by Kennesaw State University or D2L Corporation.</sub>
+</p>
