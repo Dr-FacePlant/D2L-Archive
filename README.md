@@ -1,7 +1,7 @@
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/banner-dark.png">
-    <img src="docs/banner-light.png" alt="D2L Archive: what's due, what's new, and how you're doing in every course, kept private on your computer" width="100%">
+    <source media="(prefers-color-scheme: dark)" srcset="docs/banner-light.png">
+    <img src="docs/banner-dark.png" alt="D2L Archive: what's due, what's new, and how you're doing in every course, kept private on your computer" width="100%">
   </picture>
 </p>
 
