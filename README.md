@@ -6,7 +6,7 @@
 </p>
 
 <p align="center">
-  <b>A read-only Chrome extension for <a href="https://www.kennesaw.edu/">Kennesaw State University</a> that turns your D2L courses into a local archive and a dashboard for upcoming work, updates, and grades.</b>
+  <b>A read-only Chrome extension for <a href="https://www.kennesaw.edu/">Kennesaw State University</a> (it will expand to all D2L portals, but for now it only supports Kennesaw State University) that turns your D2L courses into a local archive and a dashboard for upcoming work, updates, and grades.</b>
 </p>
 
 <p align="center">
@@ -18,7 +18,7 @@
 </p>
 
 > [!NOTE]
-> D2L Archive isn't on the Chrome Web Store yet. Install it from the release ZIP; the steps are under [Getting started](#getting-started).
+> D2L Archive currently supports **Kennesaw State University only**. Support for other D2L portals is planned. It isn't on the Chrome Web Store yet, so install it from the release ZIP; the steps are under [Getting started](#getting-started).
 
 > [!IMPORTANT]
 > D2L Archive **only reads** your D2L data. To submit work or post, open the item in D2L and do it there yourself. It is an independent project and is **not affiliated with or endorsed by** Kennesaw State University or D2L Corporation.
@@ -89,7 +89,7 @@ Built for the daily check: what needs attention today, what's due soon, and how 
 ### Prerequisites
 
 - **Desktop Chrome** (the extension uses Manifest V3)
-- A **KSU D2L account**, signed in at [kennesaw.view.usg.edu/d2l](https://kennesaw.view.usg.edu/d2l/)
+- A **KSU D2L account**, signed in at [kennesaw.view.usg.edu/d2l](https://kennesaw.view.usg.edu/d2l/) (other portals aren't supported yet)
 
 ### Install
 
@@ -149,6 +149,7 @@ The D2L calls it reads are mapped in [`docs/VALENCE-API-MAP.md`](docs/VALENCE-AP
 - [x] Search across the archive
 - [x] Local export with verification tools
 - [x] Agent-readable index in every export
+- [ ] Support for other D2L portals
 - [ ] Chrome Web Store listing
 
 ---
