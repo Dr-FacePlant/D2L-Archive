@@ -83,14 +83,15 @@
     return dash.fileCache?.getFile(fileScope(), key).catch(() => null);
   }
 
-  // { blob } or { reason, ... }; null when the address isn't a D2L file.
-  async function fileFromD2l(url) {
+  // { blob } or { reason, ... }; null when the address isn't a D2L file. keep: false
+  // leaves it out of the saved previews (Ask reads files only for their text).
+  async function fileFromD2l(url, { keep = true } = {}) {
     if (!isD2lFileUrl(url)) return null;
     const cached = await keptFile(url);
-    return cached ? { blob: cached } : d2lFile(url, url);
+    return cached ? { blob: cached } : d2lFile(url, keep ? url : "");
   }
 
-  // A file from D2L, kept under key so opening it again is instant.
+  // A file from D2L, kept under key (when there is one) so opening it again is instant.
   async function d2lFile(url, key) {
     let got = await fetchFromD2l(url);
     // Signed out here can still be signed in on a D2L tab, so try there. A
@@ -101,7 +102,7 @@
       // With no D2L tab open, what this page heard is the better clue.
       else if (reply?.reason && reply.reason !== "no-tab") got = { reason: reply.reason, status: reply.status, size: reply.size, limit: reply.limit };
     }
-    if (got.blob) dash.fileCache?.keepFile(fileScope(), key, got.blob).catch(() => {});
+    if (got.blob && key) dash.fileCache?.keepFile(fileScope(), key, got.blob).catch(() => {});
     return got;
   }
 
@@ -124,7 +125,7 @@
   // D2L shows a PowerPoint or Excel file as a PDF it made. The topic's D2L
   // page says where that PDF is, in the page itself or once the page is open.
   // null when there isn't one.
-  async function pdfFromD2l(downloadUrl) {
+  async function pdfFromD2l(downloadUrl, { keep = true } = {}) {
     const parts = dash.isTopicFileUrl(downloadUrl) && /^(.*\/content\/\d+)\/topics\/files\/download\/(\d+)\//i.exec(downloadUrl);
     if (!parts) return null;
     const key = `${downloadUrl}#pdf`;
@@ -133,7 +134,7 @@
       const page = `${parts[1]}/viewContent/${parts[2]}/View`;
       const source = dash.previewFormats.pdfSource(await pageFromD2l(page));
       const where = source?.url || (source?.later ? await openedPagePdf(page) : "");
-      blob = where ? (await d2lFile(where, key)).blob : null;
+      blob = where ? (await d2lFile(where, keep ? key : "")).blob : null;
     }
     return blob && (await dash.previewFormats.identify(blob)).kind === "pdf" ? blob : null;
   }

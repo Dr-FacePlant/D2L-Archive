@@ -163,6 +163,13 @@ d2l.set(signed, { type: "application/pdf", body: "%PDF-1.7\n" });
 shown = await loadFile({ name: "", downloadUrl: topic(48) });
 check(shown.state === "ready" && shown.kind === "pdf" && opened.length === 0, "slides whose page names a PDF in D2L's store should show that PDF");
 check(sentCookies.get(signed) === "omit" && sentCookies.get(view(48)) === "include" && cache.has(`${topic(48)}#pdf`), "the store should be asked without cookies, and its PDF kept under the topic");
+// Ask reads files only for their text, so what it reads isn't added to the saved previews.
+reset();
+d2l.set(topic(47), { type: "application/octet-stream", body: slides });
+d2l.set(view(47), { type: "text/html", body: viewerPage(signed.replace(/&/g, "&amp;")) });
+d2l.set(signed, { type: "application/pdf", body: "%PDF-1.7\n" });
+const { fileFromD2l, pdfFromD2l } = globalThis.D2LDashboard.appModules;
+check((await fileFromD2l(topic(47), { keep: false })).blob && await pdfFromD2l(topic(47), { keep: false }) && fetches === 3 && cache.size === 0, "a file or its PDF read for Ask should not be kept as a preview");
 reset();
 d2l.set(topic(49), { type: "application/octet-stream", body: slides });
 d2l.set(view(49), { type: "text/html", body: convertingPage });
