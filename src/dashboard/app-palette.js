@@ -1,6 +1,5 @@
 // The search pop-up. Opens from the top-bar button or Cmd/Ctrl+K, searches the
-// archive as you type, opens a result, or hands the typed words to the Ask
-// screen. Read-only: it only calls search.query and changes the address.
+// archive as you type, and opens a result. Read-only: it only calls search.query and changes the address.
 (function initDashboardAppPalette(global) {
   const dash = global.D2LDashboard ||= {};
   const { $, api, closeMenu, navigateToDetail, state } = dash.appModules;
@@ -18,12 +17,6 @@
   const list = () => document.getElementById("palette-list");
   const trigger = () => document.querySelector("[data-palette-open]");
 
-  // Until you have visited Ask, nothing knows whether the model can run, so only the known-bad states warn.
-  const askNote = () => {
-    const engine = dash.askScreen.engineState();
-    if (engine === "idle") return "Ask isn't started yet. This opens Ask, where you press Start";
-    return ["missing", "no-gpu", "error"].includes(engine) ? "The model isn't ready yet. This opens Ask to set it up" : "";
-  };
   const home = () => dash.paletteHome({ index: state.index, skip: new Set(Object.keys(state.hiddenWork || {})), now: new Date() });
 
   // ---- drawing --------------------------------------------------------------------
@@ -39,7 +32,7 @@
   }
 
   function show(view) {
-    palette.view = { ...view, askNote: askNote() };
+    palette.view = view;
     palette.options = dash.paletteOptions(palette.view);
     palette.active = dash.paletteStart(palette.options);
     list().innerHTML = dash.paletteList(palette.view, palette.active);
@@ -113,17 +106,12 @@
   function choose(number) {
     const option = palette.options[number];
     if (!option) return;
-    const question = field().value.trim();
     const opener = palette.opener;
     close({ restore: false });
-    if (option.kind === "ask") dash.askScreen.ask(question);
-    else if (dash.isLayerRoute(option.route)) navigateToDetail(option.route, opener);
+    if (dash.isLayerRoute(option.route)) navigateToDetail(option.route, opener);
     else location.hash = option.route;
   }
 
-  const askNow = () => {
-    if (field().value.trim()) choose(palette.options.findIndex((option) => option.kind === "ask"));
-  };
 
   // ---- events (capture phase, so the pop-up gets keys and clicks before the page does) ----
   const isShortcut = (event) => (event.metaKey || event.ctrlKey) && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "k";
@@ -146,9 +134,6 @@
       event.preventDefault();
       // Wait for the search in flight, so Enter never opens a result for words you've since changed.
       if (!event.repeat) settle().then(() => { if (palette.open) choose(palette.active); });
-    } else if (event.key === "Tab") {
-      event.preventDefault();
-      if (!event.shiftKey) askNow();
     }
   }, true);
 

@@ -15,11 +15,11 @@
     return `<div class="palette-scrim" data-palette-close></div>
       <div class="palette" role="dialog" aria-modal="true" aria-label="Search">
         <div class="palette-input-row">${icon("search", 18)}
-          <input id="palette-input" type="text" role="combobox" aria-expanded="true" aria-controls="palette-list" aria-autocomplete="list" autocomplete="off" spellcheck="false" placeholder="Search your archive, or ask a question">
+          <input id="palette-input" type="text" role="combobox" aria-expanded="true" aria-controls="palette-list" aria-autocomplete="list" autocomplete="off" spellcheck="false" placeholder="Search your archive">
           ${key("esc")}
         </div>
         <div id="palette-list" class="palette-list" role="listbox" aria-label="Results"></div>
-        <div class="palette-foot">${key("↑")}${key("↓")} move <span class="palette-dot">·</span> ${key("↵")} open <span class="palette-dot">·</span> ${key("Tab")} ask the model</div>
+        <div class="palette-foot">${key("↑")}${key("↓")} move <span class="palette-dot">·</span> ${key("↵")} open <span class="palette-dot">·</span> ${key("esc")} close</div>
       </div>`;
   }
 
@@ -34,29 +34,21 @@
       ${row.tag ? `<span class="palette-tag">${e(row.tag)}</span>` : ""}${row.right ? `<span class="palette-right">${e(row.right)}</span>` : ""}`;
   }
 
-  function askRow(view, active) {
-    return `<div class="palette-row palette-ask" id="palette-opt-0" role="option" aria-selected="${active === 0}" data-palette-index="0" data-palette-ask>
-      <span class="palette-ico">${icon("chat", 16)}</span>
-      <span class="palette-main"><span class="palette-title">Ask about “${e(view.query)}”</span><span class="palette-sub">${e(view.askNote || "Answers from your archive, using the model on this computer")}</span></span>
-      ${key("Tab")}${ENTER}
-    </div>`;
-  }
-
   function note(text) {
     return `<div class="palette-note" role="presentation">${e(text)}</div>`;
   }
 
   // active is the highlighted option number (see paletteOptions), or -1.
   function paletteList(view, active) {
-    const asking = Boolean(view.query);
-    let number = asking ? 1 : 0;
+    const searching = Boolean(view.query);
+    let number = 0;
     const groups = view.groups.map((group) => `<div class="palette-label" role="presentation">${e(group.name)}</div>${group.rows.map((row) => optionRow(number++, active, { href: row.route, body: hitBody(row, view.query) })).join("")}`).join("");
     const shown = view.groups.reduce((sum, group) => sum + group.rows.length, 0);
-    const all = asking && view.total > shown
+    const all = searching && view.total > shown
       ? optionRow(number++, active, { href: view.allRoute, className: "palette-all", body: `<span class="palette-main"><span class="palette-title">See all ${e(plural(view.total, "result"))}</span></span>` })
       : "";
-    const empty = shown ? "" : note(asking ? (view.pending ? "Searching…" : `Nothing in your archive matches “${view.query}”.`) : "Nothing due soon. Type to search your archive, or ask a question.");
-    return `${asking ? askRow(view, active) : ""}${groups}${empty}${all}`;
+    const empty = shown ? "" : note(searching ? (view.pending ? "Searching…" : `Nothing in your archive matches “${view.query}”.`) : "Nothing due soon. Type to search your archive.");
+    return `${groups}${empty}${all}`;
   }
 
   Object.assign(dash, { paletteShell, paletteList });
