@@ -166,5 +166,5 @@
     return viewer || /\bclass="[^"]*\bd2l-documentToPdfViewer\b/.test(page) ? { later: true } : null;
   }
 
-  dash.previewFormats = Object.freeze({ identify, pageDocument, docxDocument, pdfSource, pdfAddress, d2lAddress, DOCX_TYPE });
+  dash.previewFormats = Object.freeze({ identify, pageDocument, docxDocument, pdfSource, pdfAddress, d2lAddress, zipLibrary, DOCX_TYPE });
 })(globalThis);

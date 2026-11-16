@@ -43,10 +43,14 @@
       seen.add(nameKey);
       if (!groups.has(group)) groups.set(group, []);
       const texts = [entity.body, entity.description, entity.summary, entity.prompt, entity.instructions, entity.feedback, record?.description, record?.title];
+      const kind = KIND_LABELS[ROUTE_BY_TYPE[entity.entityType]] || GROUP_LABELS[entity.entityType] || "";
       groups.get(group).push({
         id: entity.entityId,
+        type: entity.entityType,
         title,
-        sub: [KIND_LABELS[ROUTE_BY_TYPE[entity.entityType]] || GROUP_LABELS[entity.entityType] || "", course?.label].filter(Boolean).join(" · "),
+        kind,
+        course: course?.label || "",
+        sub: [kind, course?.label].filter(Boolean).join(" · "),
         date: searchDate(entity, index.now),
         snippet: snippetOf(result.query, texts),
         route

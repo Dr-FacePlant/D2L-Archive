@@ -1,0 +1,44 @@
+/* The search pop-up and the top-bar button that opens it. Uses the dashboard's
+   own colors, so light and dark both work. Sits above the detail layer (140)
+   and below the file viewer (200). */
+.palette-trigger { display: flex; align-items: center; gap: 8px; width: 100%; max-width: 440px; height: 38px; margin: 0 auto; padding: 0 8px 0 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--muted); font: inherit; font-size: 14px; text-align: left; cursor: pointer; }
+.palette-trigger:hover { border-color: var(--control-line-hover); }
+.palette-trigger:focus-visible { outline: 0; border-color: var(--link); box-shadow: 0 0 0 3px rgba(var(--link-rgb), .15); }
+.palette-trigger span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.palette-layer { position: fixed; inset: 0; z-index: 150; }
+.palette-layer[hidden] { display: none; }
+.palette-scrim { position: absolute; inset: 0; background: rgba(var(--shadow-rgb), .42); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); animation: viewerIn .15s ease both; }
+.palette { position: absolute; top: min(14vh, 120px); left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; width: min(640px, calc(100vw - 32px)); max-height: min(70vh, 560px); background: var(--surface); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow-pop); overflow: hidden; animation: viewerIn .15s ease both; }
+
+.palette-input-row { display: flex; align-items: center; gap: 10px; padding: 0 16px; height: 56px; flex: none; border-bottom: 1px solid var(--line); color: var(--muted); }
+.palette-input-row input { flex: 1; min-width: 0; height: 100%; border: 0; outline: 0; background: transparent; color: var(--ink); font: inherit; font-size: 16px; }
+.palette-input-row input::placeholder { color: var(--faint); }
+
+.palette kbd { flex: none; min-width: 20px; padding: 2px 6px; border: 1px solid var(--line-3); border-radius: 5px; background: var(--sunk); color: var(--muted); font: inherit; font-size: 11.5px; line-height: 1.3; text-align: center; }
+
+.palette-list { flex: 1; min-height: 0; overflow-y: auto; padding: 6px; }
+.palette-label { padding: 10px 10px 4px; font-size: 11.5px; font-weight: 600; letter-spacing: .02em; color: var(--muted); }
+.palette-row { display: flex; align-items: center; gap: 12px; padding: 9px 10px; border-radius: 10px; color: var(--ink); text-decoration: none; cursor: pointer; }
+.palette-row[aria-selected="true"] { background: var(--sunk); }
+.palette-ico { flex: none; display: flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 8px; background: var(--sunk); color: var(--ink-3); }
+.palette-row[aria-selected="true"] .palette-ico { background: var(--surface); }
+.palette-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.palette-title { font-size: 14px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.palette-title mark, .palette .snippet mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1px; }
+.palette-sub, .palette .snippet { font-size: 12.5px; line-height: 1.4; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.palette-tag { flex: none; padding: 2px 8px; border-radius: 999px; background: var(--info-tint); color: var(--info); font-size: 12px; }
+.palette-right { flex: none; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; color: var(--muted); }
+.palette-enter { flex: none; display: none; color: var(--muted); }
+.palette-row[aria-selected="true"] .palette-enter { display: block; }
+.palette-all .palette-title { color: var(--link); }
+.palette-note { padding: 18px 12px; font-size: 13.5px; color: var(--muted); text-align: center; }
+
+.palette-foot { flex: none; display: flex; align-items: center; gap: 6px; padding: 9px 16px; border-top: 1px solid var(--line); font-size: 12px; color: var(--muted); }
+.palette-dot { color: var(--faint); }
+
+@media (max-width: 560px) {
+  .palette { top: 8vh; }
+  .palette-foot { display: none; }
+}
+.palette-trigger kbd { flex: none; padding: 2px 6px; border: 1px solid var(--line-3); border-radius: 5px; background: var(--sunk); color: var(--muted); font: inherit; font-size: 11.5px; line-height: 1.3; }

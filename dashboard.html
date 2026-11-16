@@ -6,6 +6,7 @@
     <title>D2L Archive</title>
     <script src="src/dashboard/appearance.js"></script>
     <link rel="stylesheet" href="src/dashboard/dashboard.css">
+    <link rel="stylesheet" href="src/dashboard/palette.css">
   </head>
   <body>
     <div class="app">
@@ -14,7 +15,7 @@
           <img id="school-logo" class="brand-logo" src="src/dashboard/img/d2l-brightspace.png" alt="D2L Brightspace" draggable="false">
           <span id="brand-fallback" class="brand-mark" aria-hidden="true" hidden><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5 12 5l9 4.5-9 4.5z M7 11.6V16c0 1.4 2.2 2.6 5 2.6s5-1.2 5-2.6v-4.4 M21 9.5v5"/></svg></span>
         </a>
-        <div class="topbar-spacer"><form class="top-search" data-action="search" role="search"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13z M20 20l-4.2-4.2"/></svg><input name="q" type="search" placeholder="Search your D2L archive" aria-label="Search your D2L archive" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="search-panel"></form><div id="search-panel" class="search-panel" role="listbox" aria-label="Search results" hidden></div></div>
+        <div class="topbar-spacer"><button class="palette-trigger" type="button" data-palette-open aria-haspopup="dialog" aria-expanded="false" aria-keyshortcuts="Control+K Meta+K"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13z M20 20l-4.2-4.2"/></svg><span>Search your archive</span><kbd>Ctrl K</kbd></button><div id="search-panel" class="search-panel" role="listbox" aria-label="Search results" hidden></div></div>
         <div class="menu-root">
           <button id="profile-button" class="profile-trigger" type="button" data-menu-toggle aria-controls="account-menu" aria-expanded="false" aria-label="Account menu" title="Account menu">
             <span class="profile-avatar"><img id="profile-avatar" alt="" draggable="false" hidden><span id="profile-avatar-fallback" class="profile-avatar-fallback" aria-hidden="true"></span></span>
@@ -54,6 +55,7 @@
       </div>
     </div>
     <div id="detail-root"></div>
+    <div id="palette-root" class="palette-layer" hidden></div>
     <div id="toast" class="toast" role="status" hidden></div>
     <script src="src/dashboard/format.js"></script>
     <script src="src/dashboard/model.js"></script>
@@ -70,6 +72,7 @@
     <script src="src/dashboard/model-grades.js"></script>
     <script src="src/dashboard/model-calendar.js"></script>
     <script src="src/dashboard/model-search.js"></script>
+    <script src="src/dashboard/model-palette.js"></script>
     <script src="src/dashboard/model-routes.js"></script>
     <script src="src/dashboard/render.js"></script>
     <script src="src/dashboard/render-dashboard.js"></script>
@@ -81,6 +84,7 @@
     <script src="src/dashboard/render-grades.js"></script>
     <script src="src/dashboard/render-resources.js"></script>
     <script src="src/dashboard/render-search.js"></script>
+    <script src="src/dashboard/render-palette.js"></script>
     <script src="src/dashboard/render-settings.js"></script>
     <script src="src/dashboard/file-cache.js"></script>
     <script src="src/dashboard/checklist-state.js"></script>
@@ -96,6 +100,7 @@
     <script src="src/dashboard/app-render.js"></script>
     <script src="src/dashboard/app-sync.js"></script>
     <script src="src/dashboard/app-events.js"></script>
+    <script src="src/dashboard/app-palette.js"></script>
     <script src="src/dashboard/app-selfcheck.js"></script>
     <script src="src/dashboard/app.js"></script>
   </body>

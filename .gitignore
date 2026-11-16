@@ -56,3 +56,9 @@ id_rsa*
 id_ed25519*
 !.env.example
 !.env.template
+
+# Ask model files (1.4 GB, fetched by tools/get-ask-model.mjs)
+/models/
+
+/vendor/
+.agent/

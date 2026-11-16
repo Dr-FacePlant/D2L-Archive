@@ -125,6 +125,13 @@ node tools/query-ai-index.mjs "$HOME/Downloads/D2L Export/d2l-export-..." "quiz 
 
 </details>
 
+<details>
+<summary><b>Archived AI & Voice features</b></summary>
+
+The on-device AI assistant (Ask with Liquid AI LFM3-1.7B), ambient Assignment Dossier, and voice prototype are archived in `src/archive/` with full source, model CLIs, and tests preserved. See [`src/archive/AI-FEATURES-RESTORATION.md`](src/archive/AI-FEATURES-RESTORATION.md) for architecture specifications and restoration instructions.
+
+</details>
+
 ---
 
 ## How it fits together
