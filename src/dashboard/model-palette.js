@@ -59,13 +59,13 @@
     return { query, groups: rows.length ? [{ name: `In your archive · ${plural(panel.total, "result")}`, rows }] : [], total: panel.total, allRoute: panel.allRoute };
   }
 
-  // Everything the arrow keys can land on, top to bottom. With a query, "Ask" comes
-  // first and "See all" (the Search page) last, when there are more hits than rows.
+  // Everything the arrow keys can land on, top to bottom: hits, and "See all"
+  // (the Search page) last, when there are more hits than rows.
   function paletteOptions(view) {
     const hits = view.groups.flatMap((group) => group.rows.map((row) => ({ kind: "hit", route: row.route })));
     if (!view.query) return hits;
     const all = view.total > hits.length ? [{ kind: "all", route: view.allRoute }] : [];
-    return [{ kind: "ask" }, ...hits, ...all];
+    return [...hits, ...all];
   }
 
   // Where the highlight starts: the first archive hit (so Enter opens it), else the first row.

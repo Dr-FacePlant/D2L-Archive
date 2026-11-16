@@ -68,31 +68,29 @@ check(dash.paletteHits({ index: null, result: null, query: "x" }).groups.length 
 
 // ---- what the arrow keys can reach ----------------------------------------------------------------------
 const kinds = (view) => dash.paletteOptions(view).map((option) => option.kind).join(",");
-check(kinds(hits) === `ask,${"hit,".repeat(8)}all`.replace(/,$/, ""), `with a query: Ask first, the hits, then See all (got ${kinds(hits)})`);
+check(kinds(hits) === `${"hit,".repeat(8)}all`.replace(/,$/, ""), `with a query: the hits, then See all (got ${kinds(hits)})`);
 check(dash.paletteOptions(hits).at(-1).route === "#/search?q=essay", "See all opens the Search page");
-check(kinds(none) === "ask", "with a query and no hits, only Ask is left");
+check(kinds(none) === "", "with a query and no hits, no options left");
 check(kinds(home) === "hit,hit,hit,hit,hit,hit", `with no query, only the rows (got ${kinds(home)})`);
 const oneHit = dash.paletteHits({ index, result: { entities: [{ entityId: "assignment:101:1" }], evidence: [] }, query: "lab 4" });
-check(kinds(oneHit) === "ask,hit", "no See all when every hit is already on screen");
-check(dash.paletteStart(dash.paletteOptions(hits)) === 1, "the highlight starts on the first hit, so Enter opens it");
-check(dash.paletteStart(dash.paletteOptions(none)) === 0, "with no hits it starts on Ask");
+check(kinds(oneHit) === "hit", "no See all when every hit is already on screen");
+check(dash.paletteStart(dash.paletteOptions(hits)) === 0, "the highlight starts on the first hit, so Enter opens it");
+check(dash.paletteStart(dash.paletteOptions(none)) === -1, "with no hits nothing is highlighted");
 check(dash.paletteStart(dash.paletteOptions(home)) === 0, "with no query it starts on the first row");
 check(dash.paletteStart([]) === -1, "nothing to highlight in an empty list");
 
 // ---- drawing ------------------------------------------------------------------------------------------------------
-const html = dash.paletteList({ ...hits, query: "essay" }, 1);
-check(html.includes('id="palette-opt-0"') && html.includes("data-palette-ask") && html.includes("Ask about “essay”"), "the Ask row is first");
-check(/id="palette-opt-1"[^>]*aria-selected="true"/.test(html) && /id="palette-opt-2"[^>]*aria-selected="false"/.test(html), "only the highlighted row is selected");
-check(html.includes('id="palette-opt-9"') && html.includes("See all 12 results") && !html.includes('id="palette-opt-10"'), "rows are numbered in order, See all last");
+const html = dash.paletteList({ ...hits, query: "essay" }, 0);
+check(/id="palette-opt-0"[^>]*aria-selected="true"/.test(html) && /id="palette-opt-1"[^>]*aria-selected="false"/.test(html), "only the highlighted row is selected");
+check(html.includes('id="palette-opt-8"') && html.includes("See all 12 results") && !html.includes('id="palette-opt-9"'), "rows are numbered in order, See all last");
 check(html.includes("<mark>Essay</mark> 0"), "the match is marked in the title");
 check(html.includes('href="#/'), "hits are real links, so a new tab still works");
-const evil = dash.paletteList({ query: '<img src=x onerror="boom()">', groups: [{ name: "In your archive · 1 result", rows: [{ id: "a", type: "announcement", title: '<script>boom()</script>', tag: "<b>x</b>", right: "&", route: '#/x"onmouseover="boom()' }] }], total: 1, allRoute: '#/search?q=x', askNote: "" }, 1);
+const evil = dash.paletteList({ query: '<img src=x onerror="boom()">', groups: [{ name: "In your archive · 1 result", rows: [{ id: "a", type: "announcement", title: '<script>boom()</script>', tag: "<b>x</b>", right: "&", route: '#/x"onmouseover="boom()' }] }], total: 1, allRoute: '#/search?q=x' }, 0);
 check(!/<script|<img|<b>/.test(evil) && !/"onmouseover=/.test(evil), "titles, tags, routes and the query are escaped");
 check(dash.paletteList(home, 0).includes("Due soon") && !dash.paletteList(home, 0).includes("palette-ask"), "no Ask row before typing");
 check(dash.paletteList({ query: "", groups: [], total: 0, allRoute: "" }, -1).includes("Nothing due soon"), "an empty home explains itself");
 check(dash.paletteList({ query: "qq", groups: [], total: 0, allRoute: "", pending: true }, 0).includes("Searching…"), "a search on its way says so");
 check(dash.paletteList({ query: "qq", groups: [], total: 0, allRoute: "" }, 0).includes("Nothing in your archive matches “qq”."), "no hits says so");
-check(dash.paletteList({ query: "qq", groups: [], total: 0, allRoute: "", askNote: "Not connected yet." }, 0).includes("Not connected yet."), "a model that isn't connected is flagged on the Ask row");
 const shell = dash.paletteShell();
 check(/role="dialog"[^>]*aria-modal="true"/.test(shell) && /id="palette-input"[^>]*role="combobox"/.test(shell) && shell.includes('id="palette-list"') && shell.includes("data-palette-close"), "the dialog is labelled, has a combobox input, a list and a click-away layer");
 
@@ -102,7 +100,7 @@ check(/<button[^>]*class="palette-trigger"[^>]*data-palette-open/.test(page), "t
 check(!/<form[^>]*top-search/.test(page) && /id="search-panel"[^>]*hidden/.test(page), "the old search box is gone, but the hidden panel node stays (Esc handling reads it)");
 check(/id="palette-root"[^>]*hidden/.test(page) && page.includes("src/dashboard/palette.css"), "the pop-up layer starts hidden and its styles are linked");
 const order = (file) => page.indexOf(`src/dashboard/${file}`);
-check(order("model-search.js") < order("model-palette.js") && order("render-search.js") < order("render-palette.js") && order("app-ask.js") < order("app-palette.js") && order("app-events.js") < order("app-palette.js") && order("app-render.js") < order("app-palette.js"), "the pop-up scripts load after the ones they use");
+check(order("model-search.js") < order("model-palette.js") && order("render-search.js") < order("render-palette.js") && order("app-events.js") < order("app-palette.js") && order("app-render.js") < order("app-palette.js"), "the pop-up scripts load after the ones they use");
 const code = ["model-palette.js", "render-palette.js", "app-palette.js"].map((file) => src(`src/dashboard/${file}`)).join("\n");
 check(!/\bfetch\s*\(|XMLHttpRequest|WebSocket|sendBeacon|eval\(|innerHTML\s*=\s*(?=\S)(?!dash\.palette|"")/.test(code.replace(/\/\/.*$/gm, "")), "the pop-up makes no network requests and sets innerHTML only from its own renderers");
 check([...code.matchAll(/api\("([^"]+)"/g)].every((match) => match[1] === "search.query"), "the pop-up reads the archive only through search.query");
