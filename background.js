@@ -11,6 +11,7 @@ importScripts(
   "src/background/account-registry.js",
   "src/background/account-verification.js",
   "src/background/organizer/assignments.js",
+  "src/background/organizer/assessment-helpers.js",
   "src/background/organizer/assessments.js",
   "src/background/organizer/communications.js",
   "src/background/organizer/resources.js",

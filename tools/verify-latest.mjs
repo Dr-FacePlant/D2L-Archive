@@ -1,4 +1,4 @@
-import { pageVisitChecksFromManifest } from "./verify/latest-checks.mjs";
+import { pageVisitChecksFromManifest, reviewMarkdown } from "./verify/latest-checks.mjs";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -210,71 +210,6 @@ function smokeQuery(archivePath, query, expectedSources = []) {
   } catch (error) {
     return { query, ok: false, error: error.message };
   }
-}
-
-function reviewMarkdown({ latest, previous, coverageSummary, queryResults, pageChecks, needsReview }) {
-  const lines = [
-    "# D2L Export Next Review",
-    "",
-    `Generated: ${new Date().toISOString()}`,
-    `Latest export: ${latest.fullPath}`,
-    `Previous export: ${previous?.fullPath || "(none)"}`,
-    "",
-    "## Coverage",
-    ""
-  ];
-  if (coverageSummary.available) {
-    const s = coverageSummary.summary || {};
-    lines.push(`- Covered: ${s.covered || "?"}`);
-    lines.push(`- Partial: ${s.partial || "?"}`);
-    lines.push(`- Missing: ${s.missing || "?"}`);
-    lines.push(`- Failed pages: ${s.failed_pages || "?"}`);
-    lines.push(`- Uncertain pages: ${s.uncertain_pages || "?"}`);
-  } else {
-    lines.push("- Offline verification summary was not available.");
-  }
-  lines.push("", "## Needs Review", "");
-  if (needsReview.length) {
-    for (const item of needsReview) {
-      const expected = item.expectedSources?.length ? ` Expected sources: ${item.expectedSources.join(", ")}.` : "";
-      lines.push(`- ${String(item.status || "review").toUpperCase()} - ${item.label || item.query}: ${item.evidence || ""}${expected}`);
-    }
-  } else {
-    lines.push("- No missing, partial, or unproven categories were reported by the offline verifier.");
-  }
-  lines.push("", "## Smoke Checks", "");
-  for (const result of queryResults) {
-    if (!result.ok) {
-      lines.push(`- ${result.query}: failed - ${result.error}`);
-      continue;
-    }
-    const status = result.evidenceStatus === "unproven" ? "UNPROVEN" : "FOUND";
-    const expected = result.expectedSources?.length ? `; expected sources ${result.expectedSources.join(", ")}` : "";
-    const example = result.expectedExamples?.[0] || result.top;
-    lines.push(`- ${status} - ${result.query}: ${result.matches} keyword matches, ${result.expectedMatches || 0} expected-source matches${expected}${example?.title ? `; example ${example.source} | ${example.title}` : ""}`);
-  }
-  lines.push("", "## Page Visit Checks", "");
-  for (const check of pageChecks.checks || []) {
-    const area = check.area ? ` [${check.area}]` : "";
-    lines.push(`- ${String(check.status).toUpperCase()} - ${check.label}${area}: ${check.evidence}`);
-  }
-  lines.push(
-    "",
-    "## Next Live Run Gate",
-    "",
-    "A fresh extension run should be treated as meaningfully better only if it produces:",
-    "",
-    "- A final `manifest.json` with `phase: \"final\"`, or a clearly inspectable `phase: \"pre-files\"` partial manifest if interrupted.",
-    "- At least one `apiProbe` row per probed read-only area, including successful-empty assignment submission and quiz attempt probes where no evidence is returned.",
-    "- Audit probe summaries for assignment and quiz probe pages showing whether probe pages ran, failed, or produced zero rows.",
-    "- Saved page visits for assignment submission history and feedback probe URLs, specifically `folders_history.d2l` and `folder_user_view_feedback.d2l`.",
-    "- Assignment evidence as `assignmentSubmission`, `submittedFile`, or `assignmentFeedback` when D2L exposes it, or `apiProbe` rows explaining empty/denied/unavailable access.",
-    "- Saved page visits for quiz result URLs when released results are linked, specifically `quiz_submissions_attempt.d2l`, `quiz_submissions.d2l`, or `quiz_summary.d2l`.",
-    "- Quiz result evidence as `quizAttempt`, `quizSubmission`, `quizAttemptRow`, or `quizSummaryRow`, without starting new attempts.",
-    "- Downloaded files with local paths that exist inside the course folder.",
-    "- A `student-action-brief.md`, `audit-report.md`, and this review file showing no unexplained missing categories."
-  );
-  return `${lines.join("\n")}\n`;
 }
 
 if (args.includes("--help") || args.includes("-h")) {
