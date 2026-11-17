@@ -220,6 +220,35 @@
     if (!feedbackSignal(before) && feedbackSignal(row)) state.newlyFeedback.push(row);
   }
 
+  function buildChangeReport(state, previous, current) {
+    const limit = (items) => items.slice(0, 200);
+    return {
+      available: true,
+      previousExportedAt: previous.exportedAt || "",
+      currentExportedAt: current.exportedAt || "",
+      totals: {
+        added: state.added.length,
+        removed: state.removed.length,
+        changed: state.changed.length,
+        newlyGraded: state.newlyGraded.length,
+        newlyDue: state.newlyDue.length,
+        dueChanged: state.dueChanged.length,
+        availabilityChanged: state.availabilityChanged.length,
+        newlyDownloaded: state.newlyDownloaded.length,
+        newlyFeedback: state.newlyFeedback.length
+      },
+      added: limit(state.added),
+      removed: limit(state.removed),
+      changed: limit(state.changed),
+      newlyGraded: limit(state.newlyGraded),
+      newlyDue: limit(state.newlyDue),
+      dueChanged: limit(state.dueChanged),
+      availabilityChanged: limit(state.availabilityChanged),
+      newlyDownloaded: limit(state.newlyDownloaded),
+      newlyFeedback: limit(state.newlyFeedback)
+    };
+  }
+
   function summarizeChanges(previous, current, customNormalize) {
     const normalize = customNormalize || shared.normalizeText || ((s) => String(s || "").trim());
     if (!previous?.rows?.length) return emptyChangeReport(previous, current);
@@ -247,32 +276,7 @@
       if (!currentById.has(row.id)) state.removed.push(row);
     }
 
-    const limit = (items) => items.slice(0, 200);
-    return {
-      available: true,
-      previousExportedAt: previous.exportedAt || "",
-      currentExportedAt: current.exportedAt || "",
-      totals: {
-        added: state.added.length,
-        removed: state.removed.length,
-        changed: state.changed.length,
-        newlyGraded: state.newlyGraded.length,
-        newlyDue: state.newlyDue.length,
-        dueChanged: state.dueChanged.length,
-        availabilityChanged: state.availabilityChanged.length,
-        newlyDownloaded: state.newlyDownloaded.length,
-        newlyFeedback: state.newlyFeedback.length
-      },
-      added: limit(state.added),
-      removed: limit(state.removed),
-      changed: limit(state.changed),
-      newlyGraded: limit(state.newlyGraded),
-      newlyDue: limit(state.newlyDue),
-      dueChanged: limit(state.dueChanged),
-      availabilityChanged: limit(state.availabilityChanged),
-      newlyDownloaded: limit(state.newlyDownloaded),
-      newlyFeedback: limit(state.newlyFeedback)
-    };
+    return buildChangeReport(state, previous, current);
   }
 
 
