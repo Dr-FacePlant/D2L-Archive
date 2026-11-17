@@ -8,141 +8,149 @@
     downloadResults, categoryFreshness
   } = background;
 
-  async function downloadApiOnlyExport(apiPayloads, courseTitles = {}, options = {}, senderTabId = null) {
-  const withPageProbes = options?.pageProbes === true;
-  const archiveRoot = `D2L Export/${withPageProbes ? "d2l-course-export" : "d2l-api-export"}-${new Date().toISOString().replace(/[:.]/g, "-")}`;
-  const rows = [];
-  const pages = [];
-  const apiSummary = apiExportSummary(options);
-  const deltaProbes = options?.deltaProbes === true;
-  const probeCacheKey = "d2lProbeSignatures";
-  // Destination archive = the account D2L verified in the payloads (and the expected one, if known). Nothing is written before this passes.
-  const { repository: activityRepository, accountId: exportAccountId } = await background.resolveExportRepository({ payloads: apiPayloads, tabId: senderTabId, expectedAccountId: options?.expectedAccountId });
-  const probeCache = deltaProbes ? ((await background.readAccountScoped(probeCacheKey, exportAccountId)) || {}) : {};
-  const activityCorrelationId = `api-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  await activityRepository.recordActivity({ operation: "sync.api-collection", category: "sync", status: "started", source: withPageProbes ? "api-plus-page-probes" : "api", correlationId: activityCorrelationId, details: { courses: (apiPayloads || []).length, deltaProbes } }).catch(() => {});
-  pages.push(...apiCollectionFailurePages(options, courseTitles));
+  async function setupProbeWorkerTab(apiPayloads, options, senderTabId, withPageProbes) {
+    let workerTabs = [];
+    let probeTab = null;
+    if (withPageProbes) {
+      const firstPayload = (apiPayloads || []).find((payload) => payload?.orgUnitId);
+      if (firstPayload?.orgUnitId && options?.sameTab === true && senderTabId) {
+        probeTab = {
+          mode: "frame",
+          tabId: senderTabId,
+          onProgress: typeof options.onProbeProgress === "function" ? options.onProbeProgress : null
+        };
+      } else if (firstPayload?.orgUnitId) {
+        workerTabs = await createWorkerTabs(`https://kennesaw.view.usg.edu/d2l/home/${firstPayload.orgUnitId}`, 1, senderTabId);
+        probeTab = workerTabs[0] || null;
+      }
+    }
+    return { workerTabs, probeTab };
+  }
 
-  let workerTabs = [];
-  let probeTab = null;
+  function appendCourseApiRows(payload, courseTitles, withPageProbes, rows, pages, apiSummary) {
+    const orgUnitId = String(payload.orgUnitId);
+    const courseTitle = normalizeText(courseTitles[orgUnitId] || orgUnitId);
+    const course = { orgUnitId, title: courseTitle };
+    const pagePayload = {
+      pageType: "valenceApi",
+      page: { url: `https://kennesaw.view.usg.edu/d2l/home/${orgUnitId}`, title: courseTitle },
+      course,
+      apiStatus: payload.apiStatus || {},
+      apiCounts: payload.counts || {},
+      extractor: { extractedAt: new Date().toISOString(), mode: withPageProbes ? "apiWithPageProbes" : "apiOnly" }
+    };
+    pages.push(pagePayload);
 
-  if (withPageProbes) {
-    const firstPayload = (apiPayloads || []).find((payload) => payload?.orgUnitId);
-    if (firstPayload?.orgUnitId && options?.sameTab === true && senderTabId) {
-      probeTab = {
-        mode: "frame",
-        tabId: senderTabId,
-        onProgress: typeof options.onProbeProgress === "function" ? options.onProbeProgress : null
-      };
-    } else if (firstPayload?.orgUnitId) {
-      workerTabs = await createWorkerTabs(`https://kennesaw.view.usg.edu/d2l/home/${firstPayload.orgUnitId}`, 1, senderTabId);
-      probeTab = workerTabs[0] || null;
+    const before = rows.length;
+    for (const item of payload.items || []) {
+      const row = flattenItem(pagePayload, item);
+      row.downloadUrl = item.downloadUrl || "";
+      row.suggestedFileName = item.suggestedFileName || "";
+      rows.push(row);
+    }
+    const added = rows.length - before;
+    apiSummary.added += added;
+    return { orgUnitId, courseTitle, course, added };
+  }
+
+  function filterDeltaProbeItems(items, orgUnitId, deltaProbes, probeCache) {
+    if (!deltaProbes) return items;
+    return items.filter((item) => {
+      if (!["assignment", "quiz", "quizAttempt", "announcement"].includes(item?.source)) return true;
+      const ids = item.ids ? JSON.stringify(item.ids) : "";
+      const key = `${orgUnitId}:${item.source}:${ids}:${item.url || item.title || ""}`;
+      const signature = JSON.stringify(item);
+      item.__probeCacheKey = key;
+      item.__probeSignature = signature;
+      return probeCache[key] !== signature;
+    });
+  }
+
+  async function executeCoursePageProbes(probeTab, orgUnitId, course, payload, rows, pages, deltaProbes, probeCache, apiSummary, courseSummary, activityRepository, activityCorrelationId) {
+    const probeItems = filterDeltaProbeItems(payload.items || [], orgUnitId, deltaProbes, probeCache);
+    const assignmentProbeSummary = await collectAssignmentProbePages(probeTab, orgUnitId, course, probeItems, rows, pages);
+    const quizProbeSummary = await collectQuizProbePages(probeTab, orgUnitId, course, probeItems, rows, pages);
+    const announcementProbeSummary = await collectAnnouncementProbePages(probeTab, orgUnitId, course, probeItems, rows, pages);
+    const discussionProbeSummary = await collectDiscussionListProbePages(probeTab, orgUnitId, course, probeItems, rows, pages);
+
+    for (const [key, value] of Object.entries(discussionProbeSummary)) apiSummary.discussionProbePages[key] += value;
+    for (const [key, value] of Object.entries(assignmentProbeSummary)) apiSummary.assignmentProbePages[key] += value;
+    for (const [key, value] of Object.entries(quizProbeSummary)) apiSummary.quizProbePages[key] += value;
+    for (const [key, value] of Object.entries(announcementProbeSummary)) apiSummary.announcementProbePages[key] += value;
+    courseSummary.discussionProbePages = discussionProbeSummary;
+    courseSummary.assignmentProbePages = assignmentProbeSummary;
+    courseSummary.quizProbePages = quizProbeSummary;
+    courseSummary.announcementProbePages = announcementProbeSummary;
+
+    const failed = assignmentProbeSummary.failed || quizProbeSummary.failed || announcementProbeSummary.failed || discussionProbeSummary.failed;
+    await activityRepository.recordActivity({
+      operation: "probe.course", category: "sync", status: failed ? "partial" : "completed",
+      source: "rendered-page", courseId: orgUnitId, correlationId: activityCorrelationId,
+      details: { assignment: assignmentProbeSummary, quiz: quizProbeSummary, announcement: announcementProbeSummary, discussion: discussionProbeSummary }
+    }).catch(() => {});
+
+    if (deltaProbes && !failed) {
+      for (const item of probeItems) {
+        if (item.__probeCacheKey) probeCache[item.__probeCacheKey] = item.__probeSignature;
+      }
     }
   }
 
-  try {
-    for (const payload of apiPayloads || []) {
-      if (!payload?.orgUnitId) continue;
-      const orgUnitId = String(payload.orgUnitId);
-      const courseTitle = normalizeText(courseTitles[orgUnitId] || orgUnitId);
-      const course = { orgUnitId, title: courseTitle };
-      const pagePayload = {
-        pageType: "valenceApi",
-        page: { url: `https://kennesaw.view.usg.edu/d2l/home/${orgUnitId}`, title: courseTitle },
-        course,
-        apiStatus: payload.apiStatus || {},
-        apiCounts: payload.counts || {},
-        extractor: { extractedAt: new Date().toISOString(), mode: withPageProbes ? "apiWithPageProbes" : "apiOnly" }
-      };
-      pages.push(pagePayload);
-
-      const before = rows.length;
-      for (const item of payload.items || []) {
-        const row = flattenItem(pagePayload, item);
-        row.downloadUrl = item.downloadUrl || "";
-        row.suggestedFileName = item.suggestedFileName || "";
-        rows.push(row);
-      }
-      const added = rows.length - before;
-      apiSummary.added += added;
-
-      const courseSummary = {
-        orgUnitId,
-        title: courseTitle,
-        added,
-        counts: payload.counts || {},
-        apiStatus: payload.apiStatus || {}
-      };
-
-      if (withPageProbes && (probeTab?.id || probeTab?.mode === "frame")) {
-        const probeItems = deltaProbes
-          ? (payload.items || []).filter((item) => {
-            if (!["assignment", "quiz", "quizAttempt", "announcement"].includes(item?.source)) return true;
-            const ids = item.ids ? JSON.stringify(item.ids) : "";
-            const key = `${orgUnitId}:${item.source}:${ids}:${item.url || item.title || ""}`;
-            const signature = JSON.stringify(item);
-            item.__probeCacheKey = key;
-            item.__probeSignature = signature;
-            return probeCache[key] !== signature;
-          })
-          : (payload.items || []);
-        const assignmentProbeSummary = await collectAssignmentProbePages(probeTab, orgUnitId, course, probeItems, rows, pages);
-        const quizProbeSummary = await collectQuizProbePages(probeTab, orgUnitId, course, probeItems, rows, pages);
-        const announcementProbeSummary = await collectAnnouncementProbePages(probeTab, orgUnitId, course, probeItems, rows, pages);
-        const discussionProbeSummary = await collectDiscussionListProbePages(probeTab, orgUnitId, course, probeItems, rows, pages);
-        for (const [key, value] of Object.entries(discussionProbeSummary)) apiSummary.discussionProbePages[key] += value;
-        courseSummary.discussionProbePages = discussionProbeSummary;
-        for (const [key, value] of Object.entries(assignmentProbeSummary)) apiSummary.assignmentProbePages[key] += value;
-        for (const [key, value] of Object.entries(quizProbeSummary)) apiSummary.quizProbePages[key] += value;
-        for (const [key, value] of Object.entries(announcementProbeSummary)) apiSummary.announcementProbePages[key] += value;
-        courseSummary.assignmentProbePages = assignmentProbeSummary;
-        courseSummary.quizProbePages = quizProbeSummary;
-        courseSummary.announcementProbePages = announcementProbeSummary;
-        await activityRepository.recordActivity({ operation: "probe.course", category: "sync", status: (assignmentProbeSummary.failed || quizProbeSummary.failed || announcementProbeSummary.failed || discussionProbeSummary.failed) ? "partial" : "completed", source: "rendered-page", courseId: orgUnitId, correlationId: activityCorrelationId, details: { assignment: assignmentProbeSummary, quiz: quizProbeSummary, announcement: announcementProbeSummary, discussion: discussionProbeSummary } }).catch(() => {});
-        if (deltaProbes && !assignmentProbeSummary.failed && !quizProbeSummary.failed && !announcementProbeSummary.failed && !discussionProbeSummary.failed) {
-          for (const item of probeItems) {
-            if (item.__probeCacheKey) probeCache[item.__probeCacheKey] = item.__probeSignature;
-          }
-        }
-      }
-
-      apiSummary.courses.push(courseSummary);
-      // Persist successful delta work after each course so an interrupted deep
-      // sync can resume without repeating completed rendered-page probes.
-      if (deltaProbes) await background.writeAccountScoped(probeCacheKey, exportAccountId, probeCache);
-    }
-
-    await downloadResults(rows, pages, archiveRoot, {
-      repository: activityRepository,
-      accountId: exportAccountId,
-      mode: withPageProbes ? "apiWithPageProbes" : "apiOnly",
-      deltaProbes,
-      reuseArchivedFiles: options?.reuseArchivedFiles === true,
-      downloadFiles: options?.downloadFiles,
-      apiSummary,
-      categoryFreshness: categoryFreshness(rows, apiSummary),
-      extensionVersion: chrome.runtime.getManifest().version,
-      courseCount: apiSummary.courses.length
-    });
-    if (deltaProbes) await background.writeAccountScoped(probeCacheKey, exportAccountId, probeCache);
-
-    await activityRepository.recordActivity({ operation: "sync.api-collection", category: "sync", status: "completed", source: withPageProbes ? "api-plus-page-probes" : "api", correlationId: activityCorrelationId, details: { rows: rows.length, courses: apiSummary.courses.length, archiveRoot } }).catch(() => {});
-
-    return { archiveRoot, rows: rows.length, courses: apiSummary.courses, apiSummary };
-  } finally {
+  async function cleanupProbeTabs(probeTab, workerTabs, senderTabId) {
     if (probeTab?.mode === "frame") {
       await chrome.tabs.sendMessage(probeTab.tabId, { type: "D2L_PROBE_FRAME_CLOSE" }, { frameId: 0 }).catch(() => {});
     }
     for (const tab of workerTabs) {
       if (tab.id === senderTabId) continue;
-      try {
-        await chrome.tabs.remove(tab.id);
-      } catch {
-        // The user may have closed the tab already.
-      }
+      try { await chrome.tabs.remove(tab.id); } catch {}
     }
   }
-}
+
+  async function downloadApiOnlyExport(apiPayloads, courseTitles = {}, options = {}, senderTabId = null) {
+    const withPageProbes = options?.pageProbes === true;
+    const archiveRoot = `D2L Export/${withPageProbes ? "d2l-course-export" : "d2l-api-export"}-${new Date().toISOString().replace(/[:.]/g, "-")}`;
+    const rows = [];
+    const pages = [];
+    const apiSummary = apiExportSummary(options);
+    const deltaProbes = options?.deltaProbes === true;
+    const probeCacheKey = "d2lProbeSignatures";
+
+    const { repository: activityRepository, accountId: exportAccountId } = await background.resolveExportRepository({ payloads: apiPayloads, tabId: senderTabId, expectedAccountId: options?.expectedAccountId });
+    const probeCache = deltaProbes ? ((await background.readAccountScoped(probeCacheKey, exportAccountId)) || {}) : {};
+    const activityCorrelationId = `api-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    await activityRepository.recordActivity({ operation: "sync.api-collection", category: "sync", status: "started", source: withPageProbes ? "api-plus-page-probes" : "api", correlationId: activityCorrelationId, details: { courses: (apiPayloads || []).length, deltaProbes } }).catch(() => {});
+    pages.push(...apiCollectionFailurePages(options, courseTitles));
+
+    const { workerTabs, probeTab } = await setupProbeWorkerTab(apiPayloads, options, senderTabId, withPageProbes);
+
+    try {
+      for (const payload of apiPayloads || []) {
+        if (!payload?.orgUnitId) continue;
+        const { orgUnitId, courseTitle, course, added } = appendCourseApiRows(payload, courseTitles, withPageProbes, rows, pages, apiSummary);
+        const courseSummary = { orgUnitId, title: courseTitle, added, counts: payload.counts || {}, apiStatus: payload.apiStatus || {} };
+
+        if (withPageProbes && (probeTab?.id || probeTab?.mode === "frame")) {
+          await executeCoursePageProbes(probeTab, orgUnitId, course, payload, rows, pages, deltaProbes, probeCache, apiSummary, courseSummary, activityRepository, activityCorrelationId);
+        }
+        apiSummary.courses.push(courseSummary);
+        if (deltaProbes) await background.writeAccountScoped(probeCacheKey, exportAccountId, probeCache);
+      }
+
+      await downloadResults(rows, pages, archiveRoot, {
+        repository: activityRepository, accountId: exportAccountId, mode: withPageProbes ? "apiWithPageProbes" : "apiOnly",
+        deltaProbes, reuseArchivedFiles: options?.reuseArchivedFiles === true, downloadFiles: options?.downloadFiles,
+        apiSummary, categoryFreshness: categoryFreshness(rows, apiSummary),
+        extensionVersion: chrome.runtime.getManifest().version, courseCount: apiSummary.courses.length
+      });
+      if (deltaProbes) await background.writeAccountScoped(probeCacheKey, exportAccountId, probeCache);
+
+      await activityRepository.recordActivity({ operation: "sync.api-collection", category: "sync", status: "completed", source: withPageProbes ? "api-plus-page-probes" : "api", correlationId: activityCorrelationId, details: { rows: rows.length, courses: apiSummary.courses.length, archiveRoot } }).catch(() => {});
+
+      return { archiveRoot, rows: rows.length, courses: apiSummary.courses, apiSummary };
+    } finally {
+      await cleanupProbeTabs(probeTab, workerTabs, senderTabId);
+    }
+  }
 
 function apiExportSummary(options = {}) {
   return {
