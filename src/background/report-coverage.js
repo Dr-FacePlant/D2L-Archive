@@ -4,66 +4,66 @@
   const { normalizeText, parseColumns, uniqueRows } = shared;
   const {  } = background;
 
-function summarizeCoverage(pages, rows, changeReport = null) {
+function auditPageDiagnostics(page, courseId, collections, expectedSources, byCourseEntry) {
+  const { warnings, skipped, failed, uncertain } = collections;
+  const requestedUrl = page.crawlTask?.requestedUrl;
+  if (requestedUrl && page.page?.url && requestedUrl !== page.page.url) {
+    const warning = `Link redirected away from requested content: ${requestedUrl} -> ${page.page.url} (likely a stale or module-only content id)`;
+    warnings.push({ courseOrgUnitId: courseId, severity: "warning", message: warning, url: requestedUrl });
+    byCourseEntry.warnings.push(warning);
+    uncertain.push({ courseOrgUnitId: courseId, reason: "redirectedContentLink", message: warning, url: requestedUrl });
+  }
+
+  const expectedSource = expectedSources[page.pageType];
+  const pageItems = Array.isArray(page.items) ? page.items : [];
+  const expectedCount = expectedSource ? pageItems.filter((item) => item.source === expectedSource).length : pageItems.length;
+  if (expectedSource && expectedCount === 0 && page.diagnostics?.emptyState) {
+    const note = `${page.pageType} page appears intentionally empty: ${page.page?.url}`;
+    skipped.push({ courseOrgUnitId: courseId, reason: "emptyState", message: note, url: page.page?.url });
+  } else if (expectedSource && expectedCount === 0) {
+    const warning = `${page.pageType} page visited but no ${expectedSource} rows were extracted: ${page.page?.url}`;
+    warnings.push({ courseOrgUnitId: courseId, severity: "warning", message: warning, url: page.page?.url });
+    byCourseEntry.warnings.push(warning);
+    uncertain.push({ courseOrgUnitId: courseId, reason: "expectedRowsMissing", message: warning, url: page.page?.url });
+  }
+
+  if (page.error) {
+    const warning = `Failed to extract page: ${page.page?.url} (${page.error})`;
+    warnings.push({ courseOrgUnitId: courseId, severity: "error", message: warning, url: page.page?.url });
+    byCourseEntry.warnings.push(warning);
+    failed.push({ courseOrgUnitId: courseId, message: warning, url: page.page?.url });
+  }
+}
+
+function auditPageVisits(pages, expectedSources) {
   const byCourse = {};
   const warnings = [];
   const skipped = [];
   const failed = [];
   const uncertain = [];
-  const expectedSources = shared.PAGE_TYPE_EXPECTED_SOURCES;
+  const collections = { warnings, skipped, failed, uncertain };
 
   for (const page of pages) {
     const courseId = page.course?.orgUnitId || "unknown";
     const courseTitle = page.course?.title || page.course?.pageTitle || "Unknown";
     byCourse[courseId] ||= {
-      courseOrgUnitId: courseId,
-      courseTitle,
-      pagesVisited: 0,
-      pageTypes: {},
-      sources: {},
-      warnings: []
+      courseOrgUnitId: courseId, courseTitle, pagesVisited: 0, pageTypes: {}, sources: {}, warnings: []
     };
     byCourse[courseId].pagesVisited += 1;
     byCourse[courseId].pageTypes[page.pageType] = (byCourse[courseId].pageTypes[page.pageType] || 0) + 1;
-
-    const requestedUrl = page.crawlTask?.requestedUrl;
-    if (requestedUrl && page.page?.url && requestedUrl !== page.page.url) {
-      const warning = `Link redirected away from requested content: ${requestedUrl} -> ${page.page.url} (likely a stale or module-only content id)`;
-      warnings.push({ courseOrgUnitId: courseId, severity: "warning", message: warning, url: requestedUrl });
-      byCourse[courseId].warnings.push(warning);
-      uncertain.push({ courseOrgUnitId: courseId, reason: "redirectedContentLink", message: warning, url: requestedUrl });
-    }
-
-    const expectedSource = expectedSources[page.pageType];
-    const pageItems = Array.isArray(page.items) ? page.items : [];
-    const expectedCount = expectedSource ? pageItems.filter((item) => item.source === expectedSource).length : pageItems.length;
-    if (expectedSource && expectedCount === 0 && page.diagnostics?.emptyState) {
-      const note = `${page.pageType} page appears intentionally empty: ${page.page?.url}`;
-      skipped.push({ courseOrgUnitId: courseId, reason: "emptyState", message: note, url: page.page?.url });
-    } else if (expectedSource && expectedCount === 0) {
-      const warning = `${page.pageType} page visited but no ${expectedSource} rows were extracted: ${page.page?.url}`;
-      warnings.push({ courseOrgUnitId: courseId, severity: "warning", message: warning, url: page.page?.url });
-      byCourse[courseId].warnings.push(warning);
-      uncertain.push({ courseOrgUnitId: courseId, reason: "expectedRowsMissing", message: warning, url: page.page?.url });
-    }
-
-    if (page.error) {
-      const warning = `Failed to extract page: ${page.page?.url} (${page.error})`;
-      warnings.push({ courseOrgUnitId: courseId, severity: "error", message: warning, url: page.page?.url });
-      byCourse[courseId].warnings.push(warning);
-      failed.push({ courseOrgUnitId: courseId, message: warning, url: page.page?.url });
-    }
+    auditPageDiagnostics(page, courseId, collections, expectedSources, byCourse[courseId]);
   }
+  return { byCourse, warnings, skipped, failed, uncertain };
+}
+
+function summarizeCoverage(pages, rows, changeReport = null) {
+  const expectedSources = shared.PAGE_TYPE_EXPECTED_SOURCES;
+  const { byCourse, warnings, skipped, failed, uncertain } = auditPageVisits(pages, expectedSources);
 
   for (const row of rows) {
     const courseId = row.courseOrgUnitId || "unknown";
     byCourse[courseId] ||= {
-      courseOrgUnitId: courseId,
-      courseTitle: row.courseTitle || "Unknown",
-      pagesVisited: 0,
-      pageTypes: {},
-      sources: {},
-      warnings: []
+      courseOrgUnitId: courseId, courseTitle: row.courseTitle || "Unknown", pagesVisited: 0, pageTypes: {}, sources: {}, warnings: []
     };
     byCourse[courseId].sources[row.source] = (byCourse[courseId].sources[row.source] || 0) + 1;
   }
