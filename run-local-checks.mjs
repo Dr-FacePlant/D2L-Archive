@@ -29,6 +29,8 @@ const checks = [
   ["background overlay syntax", ["--check", path.join(root, "src/background/overlay.js")]],
   ["background constants syntax", ["--check", path.join(root, "src/background/constants.js")]],
   ["archive database syntax", ["--check", path.join(root, "src/background/db/open.js")]],
+  ["archive repository jobs syntax", ["--check", path.join(root, "src/background/db/repository-jobs.js")]],
+  ["archive repository ingest syntax", ["--check", path.join(root, "src/background/db/repository-ingest.js")]],
   ["archive repositories syntax", ["--check", path.join(root, "src/background/db/repositories.js")]],
   ["application API background syntax", ["--check", path.join(root, "src/background/app-api.js")]],
   ["priority sync queue syntax", ["--check", path.join(root, "src/background/sync-queue.js")]],

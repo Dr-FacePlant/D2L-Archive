@@ -7,6 +7,8 @@ importScripts(
   "src/shared/evidence.js",
   "src/background/constants.js",
   "src/background/db/open.js",
+  "src/background/db/repository-jobs.js",
+  "src/background/db/repository-ingest.js",
   "src/background/db/repositories.js",
   "src/background/account-registry.js",
   "src/background/account-verification.js",
