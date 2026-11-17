@@ -97,112 +97,130 @@
     return Array.isArray(response.payload) ? response.payload : [];
   }
 
-  async function executeSameTabSync(message, sender, runId) {
-    const tabId = sender.tab.id;
+  async function prepareSameTabSyncContext(message, tabId, runId) {
     const courseTitles = message?.courseTitles && typeof message.courseTitles === "object" ? { ...message.courseTitles } : {};
     let courseIds = requestedCourseIds(message);
     const failures = [];
     const apiPayloads = [];
-    let checkpoint = null;
-    // The destination account is whatever D2L says this tab belongs to at the start;
-    // payloads must agree with it, and the stored dashboard profile plays no part.
-    let runRepository = null;
-    const recordRunActivity = (event) => (runRepository ? runRepository.recordActivity(event) : Promise.resolve(null));
-    try {
-      const expectedAccountId = await background.verifyTabAccount(tabId);
-      if (!expectedAccountId) throw new background.AccountVerificationError("account-unverified");
-      runRepository = await background.repositoryForAccount(expectedAccountId);
-      if (!courseIds.length) {
-        const offerings = await collectCurrentCourses(tabId);
-        courseIds = offerings.map((offering) => String(offering.orgUnitId || "")).filter((id) => /^\d+$/.test(id));
-        for (const offering of offerings) courseTitles[offering.orgUnitId] = offering.title;
-      }
-      if (!courseIds.length) throw new Error("No current D2L courses were found.");
 
-      checkpoint = await readCheckpoint(tabId);
-      const sameCourseSet = checkpoint?.courseIds?.length === courseIds.length
-        && checkpoint.courseIds.every((id, index) => String(id) === String(courseIds[index]));
-      if (!sameCourseSet) checkpoint = null;
-      if (checkpoint) {
-        await recordRunActivity({ operation: "sync.resume", category: "recovery", status: "started", source: "same-tab", correlationId: runId, details: { completed: checkpoint.completedIds?.length || 0, total: courseIds.length } }).catch(() => {});
-        apiPayloads.push(...(checkpoint.apiPayloads || []));
-        failures.push(...(checkpoint.failures || []));
-        Object.assign(courseTitles, checkpoint.courseTitles || {});
-      }
+    const expectedAccountId = await background.verifyTabAccount(tabId);
+    if (!expectedAccountId) throw new background.AccountVerificationError("account-unverified");
+    const runRepository = await background.repositoryForAccount(expectedAccountId);
 
-      const completedIds = new Set((checkpoint?.completedIds || []).map(String));
-      await writeState(tabId, { runId, running: true, complete: false, error: "", phase: "api", completed: completedIds.size, total: courseIds.length, current: completedIds.size ? "Resuming D2L course API collection" : "Reading D2L course APIs" });
-      for (let index = 0; index < courseIds.length; index += 1) {
-        if (cancelled.has(runId)) throw cancellationError();
-        const orgUnitId = courseIds[index];
-        if (completedIds.has(String(orgUnitId))) continue;
-        await writeState(tabId, { phase: "api", completed: completedIds.size, total: courseIds.length, current: `Reading course ${index + 1} of ${courseIds.length}` });
-        try {
-          const response = await background.sendToTopFrameWithRetry(tabId, { type: "D2L_COLLECT_COURSE_API", orgUnitId });
-          apiPayloads.push(response.payload);
-          completedIds.add(String(orgUnitId));
-          if (!courseTitles[orgUnitId]) {
-            courseTitles[orgUnitId] = normalizeText((response.payload?.items || []).find((item) => item?.source === "courseOffering")?.title || orgUnitId);
-          }
-        } catch (error) {
-          failures.push({ orgUnitId, error: error?.message || "API collection failed." });
-          completedIds.add(String(orgUnitId));
+    if (!courseIds.length) {
+      const offerings = await collectCurrentCourses(tabId);
+      courseIds = offerings.map((offering) => String(offering.orgUnitId || "")).filter((id) => /^\d+$/.test(id));
+      for (const offering of offerings) courseTitles[offering.orgUnitId] = offering.title;
+    }
+    if (!courseIds.length) throw new Error("No current D2L courses were found.");
+
+    let checkpoint = await readCheckpoint(tabId);
+    const sameCourseSet = checkpoint?.courseIds?.length === courseIds.length
+      && checkpoint.courseIds.every((id, index) => String(id) === String(courseIds[index]));
+    if (!sameCourseSet) checkpoint = null;
+    if (checkpoint) {
+      await runRepository.recordActivity({ operation: "sync.resume", category: "recovery", status: "started", source: "same-tab", correlationId: runId, details: { completed: checkpoint.completedIds?.length || 0, total: courseIds.length } }).catch(() => {});
+      apiPayloads.push(...(checkpoint.apiPayloads || []));
+      failures.push(...(checkpoint.failures || []));
+      Object.assign(courseTitles, checkpoint.courseTitles || {});
+    }
+
+    const completedIds = new Set((checkpoint?.completedIds || []).map(String));
+    return { expectedAccountId, runRepository, courseIds, courseTitles, apiPayloads, failures, completedIds };
+  }
+
+  async function collectSameTabCourseApis(tabId, context, runId) {
+    const { courseIds, courseTitles, completedIds, apiPayloads, failures } = context;
+    await writeState(tabId, { runId, running: true, complete: false, error: "", phase: "api", completed: completedIds.size, total: courseIds.length, current: completedIds.size ? "Resuming D2L course API collection" : "Reading D2L course APIs" });
+    for (let index = 0; index < courseIds.length; index += 1) {
+      if (cancelled.has(runId)) throw cancellationError();
+      const orgUnitId = courseIds[index];
+      if (completedIds.has(String(orgUnitId))) continue;
+      await writeState(tabId, { phase: "api", completed: completedIds.size, total: courseIds.length, current: `Reading course ${index + 1} of ${courseIds.length}` });
+      try {
+        const response = await background.sendToTopFrameWithRetry(tabId, { type: "D2L_COLLECT_COURSE_API", orgUnitId });
+        apiPayloads.push(response.payload);
+        completedIds.add(String(orgUnitId));
+        if (!courseTitles[orgUnitId]) {
+          courseTitles[orgUnitId] = normalizeText((response.payload?.items || []).find((item) => item?.source === "courseOffering")?.title || orgUnitId);
         }
-        await writeCheckpoint(tabId, { courseIds, completedIds: [...completedIds], apiPayloads, failures, courseTitles });
+      } catch (error) {
+        failures.push({ orgUnitId, error: error?.message || "API collection failed." });
+        completedIds.add(String(orgUnitId));
       }
-      if (!apiPayloads.length) throw new Error(failures[0]?.error || "D2L API collection returned no courses.");
+      await writeCheckpoint(tabId, { courseIds, completedIds: [...completedIds], apiPayloads, failures, courseTitles });
+    }
+    if (!apiPayloads.length) throw new Error(failures[0]?.error || "D2L API collection returned no courses.");
+  }
 
-      const total = taskCount(apiPayloads);
-      let completed = 0;
-      await writeState(tabId, { phase: "probes", completed, total, current: total ? "Preparing rendered-page probes" : "Organizing API data" });
-      const onProbeProgress = async ({ state, task }) => {
-        if (cancelled.has(runId)) throw cancellationError();
-        if (state === "complete" || state === "failed") completed += 1;
-        await writeState(tabId, {
-          phase: "probes",
-          completed,
-          total,
-          current: normalizeText(task?.title || task?.url || "Reading a D2L page")
-        });
-      };
-
-      const summary = await background.downloadApiOnlyExport(apiPayloads, courseTitles, {
-        pageProbes: true,
-        sameTab: true,
-        reuseArchivedFiles: true,
-        collectionFailures: failures,
-        requestedOrgUnitIds: courseIds,
-        expectedAccountId,
-        onProbeProgress
-      }, tabId);
-      await clearCheckpoint(tabId);
-      return writeState(tabId, {
-        runId,
-        running: false,
-        complete: true,
-        error: "",
-        phase: "complete",
-        completed: total,
+  async function executeSameTabProbesAndExport(tabId, context, runId) {
+    const { expectedAccountId, courseIds, courseTitles, apiPayloads, failures } = context;
+    const total = taskCount(apiPayloads);
+    let completed = 0;
+    await writeState(tabId, { phase: "probes", completed, total, current: total ? "Preparing rendered-page probes" : "Organizing API data" });
+    const onProbeProgress = async ({ state, task }) => {
+      if (cancelled.has(runId)) throw cancellationError();
+      if (state === "complete" || state === "failed") completed += 1;
+      await writeState(tabId, {
+        phase: "probes",
+        completed,
         total,
-        current: "Sync complete",
-        completedAt: new Date().toISOString(),
-        summary
+        current: normalizeText(task?.title || task?.url || "Reading a D2L page")
       });
+    };
+
+    const summary = await background.downloadApiOnlyExport(apiPayloads, courseTitles, {
+      pageProbes: true,
+      sameTab: true,
+      reuseArchivedFiles: true,
+      collectionFailures: failures,
+      requestedOrgUnitIds: courseIds,
+      expectedAccountId,
+      onProbeProgress
+    }, tabId);
+    await clearCheckpoint(tabId);
+    return writeState(tabId, {
+      runId,
+      running: false,
+      complete: true,
+      error: "",
+      phase: "complete",
+      completed: total,
+      total,
+      current: "Sync complete",
+      completedAt: new Date().toISOString(),
+      summary
+    });
+  }
+
+  async function handleSameTabSyncError(tabId, runId, error, runRepository) {
+    if (error?.code !== "ACCOUNT_VERIFICATION_FAILED" && runRepository) {
+      await runRepository.recordActivity({ operation: "sync.failure", category: "diagnostic", status: cancelled.has(runId) ? "skipped" : "failed", source: "same-tab", correlationId: runId, error: error?.message || "Same-tab sync failed." }).catch(() => {});
+    }
+    await chrome.tabs.sendMessage(tabId, { type: "D2L_PROBE_FRAME_CLOSE" }, { frameId: 0 }).catch(() => {});
+    const wasCancelled = cancelled.has(runId);
+    return writeState(tabId, {
+      runId,
+      running: false,
+      complete: false,
+      cancelled: wasCancelled,
+      error: wasCancelled ? "" : (error?.message || "Same-tab sync failed."),
+      phase: wasCancelled ? "canceled" : "failed",
+      current: wasCancelled ? "Sync canceled" : "Sync failed",
+      completedAt: new Date().toISOString()
+    });
+  }
+
+  async function executeSameTabSync(message, sender, runId) {
+    const tabId = sender.tab.id;
+    let runRepository = null;
+    try {
+      const context = await prepareSameTabSyncContext(message, tabId, runId);
+      runRepository = context.runRepository;
+      await collectSameTabCourseApis(tabId, context, runId);
+      return await executeSameTabProbesAndExport(tabId, context, runId);
     } catch (error) {
-      // A rejected account check writes nothing: no archive is known to own this failure.
-      if (error?.code !== "ACCOUNT_VERIFICATION_FAILED") await recordRunActivity({ operation: "sync.failure", category: "diagnostic", status: cancelled.has(runId) ? "skipped" : "failed", source: "same-tab", correlationId: runId, error: error?.message || "Same-tab sync failed." }).catch(() => {});
-      await chrome.tabs.sendMessage(tabId, { type: "D2L_PROBE_FRAME_CLOSE" }, { frameId: 0 }).catch(() => {});
-      const wasCancelled = cancelled.has(runId);
-      return writeState(tabId, {
-        runId,
-        running: false,
-        complete: false,
-        cancelled: wasCancelled,
-        error: wasCancelled ? "" : (error?.message || "Same-tab sync failed."),
-        phase: wasCancelled ? "canceled" : "failed",
-        current: wasCancelled ? "Sync canceled" : "Sync failed",
-        completedAt: new Date().toISOString()
-      });
+      return await handleSameTabSyncError(tabId, runId, error, runRepository);
     } finally {
       cancelled.delete(runId);
       active.delete(tabId);
