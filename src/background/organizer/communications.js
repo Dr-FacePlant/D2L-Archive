@@ -20,6 +20,63 @@
     return `discussionThread:${courseId}:${topicId}`;
   }
 
+  function createAnnouncementEntity(record, newsItemId, createdAt) {
+    return {
+      entityId: announcementEntityId(record.courseId, newsItemId),
+      entityType: "announcement",
+      courseId: record.courseId,
+      canonicalTitle: record.title || `Announcement ${newsItemId}`,
+      aliases: [],
+      status: record.status || "visible",
+      body: "",
+      author: "",
+      dates: { publishedAt: null, availableFrom: null, availableUntil: null, modifiedAt: null },
+      attachmentCount: 0,
+      isPinned: false,
+      urls: { d2l: `${D2L_ORIGIN}/d2l/le/news/${record.courseId}/${newsItemId}/view?ou=${record.courseId}` },
+      primaryEvidenceId: record.evidenceId,
+      organizerVersion: ORGANIZER_VERSION,
+      createdAt,
+      updatedAt: createdAt
+    };
+  }
+
+  function mergeAnnouncementRecord(entity, record, newsItemId, createdAt, relationships) {
+    const fromApi = record.provenance?.pageType === "valenceApi";
+    if ((fromApi && record.description) || (!entity.bodyFromApi && (record.description || "").length > entity.body.length)) {
+      entity.body = record.description || "";
+      entity.primaryEvidenceId = record.evidenceId;
+      entity.bodyFromApi = fromApi;
+    }
+    if (record.status) entity.status = record.status;
+    const columns = record.fields?.columns || {};
+    entity.author ||= normalizeText(columns.author || columns.createdBy || columns.postedBy);
+    entity.dates.publishedAt ||= normalizedDate(columns.publishedDate || columns.postedAtText || columns.startDate);
+    entity.dates.availableFrom ||= record.dates?.availableFrom || null;
+    entity.dates.availableUntil ||= record.dates?.availableUntil || null;
+    entity.dates.modifiedAt ||= normalizedDate(columns.lastModified);
+    entity.isPinned ||= columns.isPinned === true;
+    relationships.push(relation(entity, record.evidenceId, "sameAs", "matchingNewsItemId", newsItemId, createdAt));
+  }
+
+  function linkAnnouncementAttachmentsAndAliases(records, entities, byNewsId, relationships) {
+    for (const record of records.filter((item) => item.source === "announcementAttachment")) {
+      const newsItemId = normalizeText(record.platformIds?.newsItemId);
+      const entity = byNewsId.get(`${record.courseId}:${newsItemId}`);
+      if (!entity) continue;
+      relationships.push(relation(entity, record.evidenceId, "hasAttachment", "matchingNewsItemId", newsItemId, entity.createdAt));
+      entity.attachmentCount += 1;
+    }
+
+    const recordsById = new Map(records.map((r) => [r.evidenceId, r]));
+    for (const entity of entities) {
+      entity.aliases = [...new Set(relationships
+        .filter((item) => item.fromId === entity.entityId)
+        .map((item) => recordsById.get(item.toId)?.title)
+        .filter((title) => title && title !== entity.canonicalTitle))];
+    }
+  }
+
   function buildAnnouncementKnowledge(evidenceRecords, options = {}) {
     const createdAt = options.createdAt || new Date().toISOString();
     const records = evidenceRecords || [];
@@ -33,60 +90,14 @@
       const key = `${record.courseId}:${newsItemId}`;
       let entity = byNewsId.get(key);
       if (!entity) {
-        entity = {
-          entityId: announcementEntityId(record.courseId, newsItemId),
-          entityType: "announcement",
-          courseId: record.courseId,
-          canonicalTitle: record.title || `Announcement ${newsItemId}`,
-          aliases: [],
-          status: record.status || "visible",
-          body: "",
-          author: "",
-          dates: { publishedAt: null, availableFrom: null, availableUntil: null, modifiedAt: null },
-          attachmentCount: 0,
-          isPinned: false,
-          urls: { d2l: `${D2L_ORIGIN}/d2l/le/news/${record.courseId}/${newsItemId}/view?ou=${record.courseId}` },
-          primaryEvidenceId: record.evidenceId,
-          organizerVersion: ORGANIZER_VERSION,
-          createdAt,
-          updatedAt: createdAt
-        };
+        entity = createAnnouncementEntity(record, newsItemId, createdAt);
         entities.push(entity);
         byNewsId.set(key, entity);
       }
-      // The API's body is the announcement itself; a detail-page snapshot also
-      // holds the page's menus, so it only fills in when the API had no text.
-      const fromApi = record.provenance?.pageType === "valenceApi";
-      if ((fromApi && record.description) || (!entity.bodyFromApi && (record.description || "").length > entity.body.length)) {
-        entity.body = record.description || "";
-        entity.primaryEvidenceId = record.evidenceId;
-        entity.bodyFromApi = fromApi;
-      }
-      if (record.status) entity.status = record.status;
-      const columns = record.fields?.columns || {};
-      entity.author ||= normalizeText(columns.author || columns.createdBy || columns.postedBy);
-      entity.dates.publishedAt ||= normalizedDate(columns.publishedDate || columns.postedAtText || columns.startDate);
-      entity.dates.availableFrom ||= record.dates?.availableFrom || null;
-      entity.dates.availableUntil ||= record.dates?.availableUntil || null;
-      entity.dates.modifiedAt ||= normalizedDate(columns.lastModified);
-      entity.isPinned ||= columns.isPinned === true;
-      relationships.push(relation(entity, record.evidenceId, "sameAs", "matchingNewsItemId", newsItemId, createdAt));
+      mergeAnnouncementRecord(entity, record, newsItemId, createdAt, relationships);
     }
 
-    for (const record of records.filter((item) => item.source === "announcementAttachment")) {
-      const newsItemId = normalizeText(record.platformIds?.newsItemId);
-      const entity = byNewsId.get(`${record.courseId}:${newsItemId}`);
-      if (!entity) continue;
-      relationships.push(relation(entity, record.evidenceId, "hasAttachment", "matchingNewsItemId", newsItemId, createdAt));
-      entity.attachmentCount += 1;
-    }
-
-    for (const entity of entities) {
-      entity.aliases = [...new Set(relationships
-        .filter((item) => item.fromId === entity.entityId)
-        .map((item) => records.find((record) => record.evidenceId === item.toId)?.title)
-        .filter((title) => title && title !== entity.canonicalTitle))];
-    }
+    linkAnnouncementAttachmentsAndAliases(records, entities, byNewsId, relationships);
     return { entities, relationships };
   }
 
