@@ -3,6 +3,45 @@
   const { normalizeText } = globalThis.D2LExtractorShared;
   const { absoluteUrl, apiGet, apiList, richText, firstRichText, gradeDisplay, D2L_API_MODERN_VERSION } = content;
 
+  function buildDropboxFeedbackItem(orgUnitId, folder, entity, feedback) {
+    const folderId = folder.Id;
+    return {
+      source: "assignmentFeedback",
+      title: `${normalizeText(folder.Name)} feedback`,
+      description: richText(feedback.Feedback || feedback.Comments || feedback.Comment || feedback),
+      url: `${window.location.origin}/d2l/lms/dropbox/user/folder_user_view_feedback.d2l?db=${folderId}&ou=${orgUnitId}`,
+      status: "feedbackAvailable",
+      columns: {
+        score: feedback.Score ?? feedback.ScoreNumerator ?? "",
+        outOf: feedback.OutOf ?? feedback.ScoreDenominator ?? "",
+        lastModified: feedback.LastModified || feedback.FeedbackLastModified || ""
+      },
+      ids: { courseOrgUnitId: orgUnitId, dropboxFolderId: String(folderId), submissionId: String(entity.SubmissionId || entity.Id || "") }
+    };
+  }
+
+  function buildDropboxSubmittedFileItem(orgUnitId, folder, entity, file, submissions) {
+    const folderId = folder.Id;
+    const fileId = file.FileId || file.Id || file.SubmissionFileId;
+    const submissionId = file._submission?.Id || entity.SubmissionId || entity.Id || "";
+    const fileName = normalizeText(file.FileName || file.Name || file.DisplayName || `submission-file-${fileId || submissions.indexOf(file) + 1}`);
+    const downloadUrl = file.DownloadUrl
+      ? absoluteUrl(file.DownloadUrl)
+      : fileId && submissionId
+        ? `${window.location.origin}/d2l/api/le/${D2L_API_MODERN_VERSION}/${orgUnitId}/dropbox/folders/${folderId}/submissions/${submissionId}/files/${fileId}`
+        : "";
+    return {
+      source: "submittedFile",
+      title: fileName,
+      description: normalizeText(`${normalizeText(folder.Name)} submitted file ${fileName}`),
+      url: downloadUrl || `${window.location.origin}/d2l/lms/dropbox/user/folders_history.d2l?db=${folderId}&ou=${orgUnitId}`,
+      downloadUrl,
+      suggestedFileName: fileName,
+      columns: { size: file.Size ?? "", submittedAt: file._submission?.SubmissionDate || "" },
+      ids: { courseOrgUnitId: orgUnitId, dropboxFolderId: String(folderId), submissionId: String(submissionId), fileId: String(fileId || "") }
+    };
+  }
+
   function buildDropboxSubmissionEntities(orgUnitId, folder, entity, items) {
     const folderId = folder.Id;
     const entityName = normalizeText(entity.Entity?.DisplayName || entity.EntityName || entity.UserName || "My submission");
@@ -32,7 +71,7 @@
           fileCount: apiList(submission.Files).length,
           comment: richText(submission.Comment)
         })) : [],
-        feedbackPublished: !!feedback,
+        feedbackPublished: !feedback,
         feedbackText: richText(feedback?.Feedback || feedback?.Comments || feedback?.Comment),
         score: feedback?.Score ?? feedback?.ScoreNumerator ?? ""
       },
@@ -40,40 +79,10 @@
     });
 
     if (feedback) {
-      items.push({
-        source: "assignmentFeedback",
-        title: `${normalizeText(folder.Name)} feedback`,
-        description: richText(feedback.Feedback || feedback.Comments || feedback.Comment || feedback),
-        url: `${window.location.origin}/d2l/lms/dropbox/user/folder_user_view_feedback.d2l?db=${folderId}&ou=${orgUnitId}`,
-        status: "feedbackAvailable",
-        columns: {
-          score: feedback.Score ?? feedback.ScoreNumerator ?? "",
-          outOf: feedback.OutOf ?? feedback.ScoreDenominator ?? "",
-          lastModified: feedback.LastModified || feedback.FeedbackLastModified || ""
-        },
-        ids: { courseOrgUnitId: orgUnitId, dropboxFolderId: String(folderId), submissionId: String(entity.SubmissionId || entity.Id || "") }
-      });
+      items.push(buildDropboxFeedbackItem(orgUnitId, folder, entity, feedback));
     }
-
     for (const file of submissions) {
-      const fileId = file.FileId || file.Id || file.SubmissionFileId;
-      const submissionId = file._submission?.Id || entity.SubmissionId || entity.Id || "";
-      const fileName = normalizeText(file.FileName || file.Name || file.DisplayName || `submission-file-${fileId || submissions.indexOf(file) + 1}`);
-      const downloadUrl = file.DownloadUrl
-        ? absoluteUrl(file.DownloadUrl)
-        : fileId && submissionId
-          ? `${window.location.origin}/d2l/api/le/${D2L_API_MODERN_VERSION}/${orgUnitId}/dropbox/folders/${folderId}/submissions/${submissionId}/files/${fileId}`
-          : "";
-      items.push({
-        source: "submittedFile",
-        title: fileName,
-        description: normalizeText(`${normalizeText(folder.Name)} submitted file ${fileName}`),
-        url: downloadUrl || `${window.location.origin}/d2l/lms/dropbox/user/folders_history.d2l?db=${folderId}&ou=${orgUnitId}`,
-        downloadUrl,
-        suggestedFileName: fileName,
-        columns: { size: file.Size ?? "", submittedAt: file._submission?.SubmissionDate || "" },
-        ids: { courseOrgUnitId: orgUnitId, dropboxFolderId: String(folderId), submissionId: String(submissionId), fileId: String(fileId || "") }
-      });
+      items.push(buildDropboxSubmittedFileItem(orgUnitId, folder, entity, file, submissions));
     }
   }
 
