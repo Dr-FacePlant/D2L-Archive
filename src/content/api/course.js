@@ -133,18 +133,19 @@
     return { apiItems, quizListResult };
   }
 
+  const CATEGORY_GROUPS = Object.freeze({
+    priority: ["obligations", "announcements", "calendar", "discussions", "grades", "materials"],
+    obligations: ["obligations"],
+    announcements: ["announcements"],
+    calendar: ["calendar"],
+    discussions: ["discussions"],
+    grades: ["grades"],
+    materials: ["materials"],
+    secondary: ["secondary"]
+  });
+
   async function fetchCoreApis(orgUnitId, category, myUserId) {
-    const categoryGroups = {
-      priority: ["obligations", "announcements", "calendar", "discussions", "grades", "materials"],
-      obligations: ["obligations"],
-      announcements: ["announcements"],
-      calendar: ["calendar"],
-      discussions: ["discussions"],
-      grades: ["grades"],
-      materials: ["materials"],
-      secondary: ["secondary"]
-    };
-    const included = (name) => !category || (categoryGroups[category] || []).includes(name);
+    const included = (name) => !category || (CATEGORY_GROUPS[category] || []).includes(name);
     const base = `/d2l/api/le/${D2L_API_VERSION}/${orgUnitId}`;
     const deferredApi = { ok: false, status: "deferred", data: null };
     const deferred = { status: "deferred", items: [] };
