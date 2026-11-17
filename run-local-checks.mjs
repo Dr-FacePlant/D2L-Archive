@@ -35,6 +35,8 @@ const checks = [
   ["archive repositories syntax", ["--check", path.join(root, "src/background/db/repositories.js")]],
   ["application API background syntax", ["--check", path.join(root, "src/background/app-api.js")]],
   ["priority sync queue syntax", ["--check", path.join(root, "src/background/sync-queue.js")]],
+  ["assessments evaluations syntax", ["--check", path.join(root, "src/content/api/assessments-evaluations.js")]],
+  ["content api assessments syntax", ["--check", path.join(root, "src/content/api/assessments.js")]],
   ["course API builders syntax", ["--check", path.join(root, "src/content/api/course-builders.js")]],
   ["course API collector syntax", ["--check", path.join(root, "src/content/api/course.js")]],
   ["dashboard app syntax", ["--check", path.join(root, "src/dashboard/app.js")]],

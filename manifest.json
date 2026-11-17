@@ -56,6 +56,7 @@
         "src/content/parsers/content.js",
         "src/content/api/client.js",
         "src/content/api/assessments.js",
+        "src/content/api/assessments-evaluations.js",
         "src/content/api/communications.js",
         "src/content/api/tools.js",
         "src/content/api/course-builders.js",
