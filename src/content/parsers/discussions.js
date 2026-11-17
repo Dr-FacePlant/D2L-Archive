@@ -1,15 +1,7 @@
 (() => {
   const content = globalThis.D2LExtractorContent ||= {};
   const { normalizeText } = globalThis.D2LExtractorShared;
-  const {
-    queryAll,
-    queryOne,
-    absoluteUrl,
-    looksLikeFileUrl,
-    isDiscussionAttachmentUrl,
-    getOrgUnitId,
-    discussionAttachmentRowFromLink
-  } = content;
+  const { queryAll, queryOne, absoluteUrl, looksLikeFileUrl, isDiscussionAttachmentUrl, getOrgUnitId, discussionAttachmentRowFromLink } = content;
 
 // D2L date text such as "Sep 27, 2026 8:00 AM", read in the browser's time zone
 // (the same zone D2L renders it in).

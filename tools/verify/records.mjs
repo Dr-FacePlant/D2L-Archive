@@ -15,6 +15,21 @@ export const rowSignature = _shared.rowSignature;
 export const toJsonl = _shared.toJsonl;
 export const parseColumns = _shared.parseColumns;
 
+export function loadArchiveManifest(input, usage) {
+  if (!input) {
+    console.error(usage);
+    process.exit(1);
+  }
+  const archiveRoot = path.resolve(input);
+  const manifestPath = path.join(archiveRoot, "manifest.json");
+  if (!fs.existsSync(manifestPath)) {
+    console.error(`No manifest.json found in ${archiveRoot}`);
+    process.exit(1);
+  }
+  const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+  return { archiveRoot, manifestPath, manifest };
+}
+
 export function newestExport(exportDir) {
   if (!fs.existsSync(exportDir)) return "";
   return fs.readdirSync(exportDir, { withFileTypes: true })

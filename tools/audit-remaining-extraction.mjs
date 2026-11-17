@@ -1,24 +1,10 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { newestExport } from "./verify/records.mjs";
+import { newestExport, loadArchiveManifest } from "./verify/records.mjs";
 
 const downloadsRoot = path.join(os.homedir(), "Downloads", "D2L Export");
-const input = process.argv[2] || newestExport(downloadsRoot);
-
-if (!input) {
-  console.error("Usage: node tools/audit-remaining-extraction.mjs [archive-folder]");
-  process.exit(1);
-}
-
-const archiveRoot = path.resolve(input);
-const manifestPath = path.join(archiveRoot, "manifest.json");
-if (!fs.existsSync(manifestPath)) {
-  console.error(`No manifest.json found in ${archiveRoot}`);
-  process.exit(1);
-}
-
-const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+const { archiveRoot, manifestPath, manifest } = loadArchiveManifest(process.argv[2] || newestExport(downloadsRoot), "Usage: node tools/audit-remaining-extraction.mjs [archive-folder]");
 const rows = Array.isArray(manifest.rows) ? manifest.rows : [];
 const pages = Array.isArray(manifest.pages) ? manifest.pages : [];
 const audit = manifest.audit || {};
