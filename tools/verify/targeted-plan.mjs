@@ -24,56 +24,69 @@ export function areaForSection(label) {
   return "unmapped";
 }
 
-export function proofGuideForSection(label) {
-  const text = String(label || "").toLowerCase();
-  if (text.includes("rubric") || text.includes("assignment feedback")) {
-    return {
+const PROOF_GUIDES = [
+  {
+    matches: (text) => text.includes("rubric") || text.includes("assignment feedback"),
+    guide: {
       apiRoute: "/d2l/api/le/(version)/(orgUnitId)/dropbox/folders/(folderId)/submissions/mysubmissions/ plus /rubrics/ and /assessment when object ids are visible",
       uiProof: "folder_user_view_feedback.d2l and folders_history.d2l read-only assignment feedback pages",
       proofRows: "assignmentSubmission, submittedFile, assignmentFeedback, rubricFeedback, rubricCriterionFeedback"
-    };
-  }
-  if (text.includes("quiz")) {
-    return {
+    }
+  },
+  {
+    matches: (text) => text.includes("quiz"),
+    guide: {
       apiRoute: "/d2l/api/le/(version)/(orgUnitId)/quizzes/ and /quizzes/(quizId)/attempts/",
       uiProof: "quiz_summary.d2l, quiz_submissions.d2l, and quiz_submissions_attempt.d2l result/review pages",
       proofRows: "quizAttempt, quizSubmission, quizAttemptRow, quizSummaryRow, quizQuestionResult, apiProbe"
-    };
-  }
-  if (text.includes("grade")) {
-    return {
+    }
+  },
+  {
+    matches: (text) => text.includes("grade"),
+    guide: {
       apiRoute: "/d2l/api/le/(version)/(orgUnitId)/grades/ and /grades/values/myGradeValues/",
       uiProof: "grades/my_grades/main.d2l and read-only visible grade detail/rubric links",
       proofRows: "gradeItem, gradeFeedback, rubricFeedback, rubricCriterionFeedback"
-    };
-  }
-  if (text.includes("announcement")) {
-    return {
+    }
+  },
+  {
+    matches: (text) => text.includes("announcement"),
+    guide: {
       apiRoute: "/d2l/api/le/(version)/(orgUnitId)/news/ and /news/(newsItemId)/attachments/(fileId)",
       uiProof: "/d2l/le/news/(orgUnitId)/(newsItemId)/view announcement detail pages",
       proofRows: "announcement, announcementAttachment, announcementLink, apiProbe"
-    };
-  }
-  if (text.includes("course tool")) {
-    return {
+    }
+  },
+  {
+    matches: (text) => text.includes("course tool"),
+    guide: {
       apiRoute: "Tool-specific read APIs when available, plus page status probes",
       uiProof: "classlist, checklist, group, selfassess, survey, attendance, and userprogress pages",
       proofRows: "courseToolPage, checklistItem, survey, selfAssessment, attendanceRecord, group, classlistEntry, progressRecord, apiProbe"
-    };
-  }
-  if (text.includes("content")) {
-    return {
+    }
+  },
+  {
+    matches: (text) => text.includes("content"),
+    guide: {
       apiRoute: "/d2l/api/le/(version)/(orgUnitId)/content/toc and course file APIs",
       uiProof: "Content topic/viewer pages and downloaded file/quicklink pages",
       proofRows: "contentModule, contentTopic, contentAttachment, localPageTextPath"
-    };
-  }
-  if (text.includes("change")) {
-    return {
+    }
+  },
+  {
+    matches: (text) => text.includes("change"),
+    guide: {
       apiRoute: "Same-tab extraction or recurring sync against previous manifest",
       uiProof: "Verified export summary comparison and change-report.md",
       proofRows: "added, removed, changed, newlyGraded, newlyDue, dueChanged, availabilityChanged, newlyDownloaded, newlyFeedback"
-    };
+    }
+  }
+];
+
+export function proofGuideForSection(label) {
+  const text = String(label || "").toLowerCase();
+  for (const entry of PROOF_GUIDES) {
+    if (entry.matches(text)) return entry.guide;
   }
   return { apiRoute: "unknown", uiProof: "unknown", proofRows: "unknown" };
 }
