@@ -4,13 +4,13 @@
   const mod = dash.appModules ||= {};
   const {
     $, EMBEDDED, READ_KEY, SETTINGS_KEY, closeDetailToBase, closeFilterMenu,
-    closeMenu, closePeek, closePreview, closeSearchPanel, handleActionClick,
-    handleContactSubmit, handleTextbookSubmit, main, moveFilterMenuOption,
-    moveGradeCarousel, moveSearchOption, navigateToDetail, openFilterMenu,
-    peekLeaving, previewFile, queueLiveSearch, render, reopenLiveSearch,
-    saveLook, searchInput, searchOptions, searchPanelNode, setChecklistDone,
-    setDetailMore, showAccountView, showLinkConfirm, state, storageSet,
-    turnEpub, updateGradeCarouselControls
+    closeMenu, closePeek, closePreview, closeSearchPanel, detailRoot,
+    handleActionClick, handleContactSubmit, handleTextbookSubmit, main,
+    moveFilterMenuOption, moveGradeCarousel, moveSearchOption, navigateToDetail,
+    openFilterMenu, previewFile, queueLiveSearch, render, renderSyncStatus,
+    reopenLiveSearch, saveLook, searchInput, searchOptions, searchPanelNode,
+    setChecklistDone, setDetailMore, showAccountView, showLinkConfirm, state,
+    storageSet, turnEpub, updateGradeCarouselControls
   } = mod;
 
   function markRead(ids, value = true) {
@@ -203,8 +203,13 @@
   document.addEventListener("change", async (event) => {
     const target = event.target;
     if (target.matches("input[type=checkbox][data-action=toggle-checklist]")) {
-      setChecklistDone(target.dataset.entityId, target.checked);
-      if (state.detail) state.baseStale = true;
+      await setChecklistDone(target.dataset.taskId, target.checked);
+      render(location.hash);
+      return;
+    }
+    if (target.matches("[data-action=set-reminder]")) {
+      await saveSettings({ reminderHours: Number(target.value) });
+      renderSyncStatus();
       return;
     }
     if (target.matches("input[type=checkbox][data-setting]")) {

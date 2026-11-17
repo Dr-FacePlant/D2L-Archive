@@ -148,6 +148,7 @@
       return true;
     }
     if (action === "grade-prev" || action === "grade-next") { moveGradeCarousel(action === "grade-next" ? 1 : -1); return true; }
+    if (action === "epub-prev" || action === "epub-next") { turnEpub(action === "epub-prev" ? -1 : 1); return true; }
     if (action === "detail-more") {
       const layout = actionNode.closest(".detail-layout");
       setDetailMore(layout, !layout?.classList.contains("is-open"));

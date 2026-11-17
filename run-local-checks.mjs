@@ -115,6 +115,7 @@ const checks = [
   ["dashboard app selfcheck syntax", ["--check", path.join(root, "src/dashboard/app-selfcheck.js")]],
   ["dashboard app syntax", ["--check", path.join(root, "src/dashboard/app.js")]],
   ["dashboard preview syntax", ["--check", path.join(root, "tools", "dev-dashboard-preview.mjs")]],
+  ["dashboard wiring regression", [path.join(root, "tests", "test-dashboard-wiring.mjs")]],
   ["shared foundation regression", [path.join(root, "tests", "test-shared-foundations.mjs")]],
   ["application API contract regression", [path.join(root, "tests", "test-app-api-contract.mjs")]],
   ["evidence normalization regression", [path.join(root, "tests", "test-evidence-normalization.mjs")]],
