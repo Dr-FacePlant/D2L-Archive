@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { createRecoveryTools } from "./verify/recovery.mjs";
+import {} from "./verify/recovery-helpers.mjs";
 import { createRecordTools, apiProbeBreakdown as apiProbeBreakdownHelper, apiProbeSummaryRows as apiProbeSummaryRowsHelper, apiProbeLegendLines, uniqueRows, isStudentFeedbackRow } from "./verify/records.mjs";
 
 const source = process.argv[2];
