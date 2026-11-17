@@ -8,7 +8,8 @@ import {
   compactAssignmentLabelValues,
   sourceForRecoveredFile as sourceForRecoveredFileHelper,
   parsePageSnapshot as parsePageSnapshotHelper,
-  parseRecoveredFile as parseRecoveredFileHelper
+  parseRecoveredFile as parseRecoveredFileHelper,
+  parseDiscussionFeedback
 } from "./recovery-helpers.mjs";
 
 function parseContentTopic(snapshot, text, parseJson) {
@@ -153,27 +154,7 @@ function parseGrades(snapshot, text) {
 function parseDiscussion(snapshot, text, parseJson) {
   const rows = [];
   if (/Discussion|Start a New Thread|View Graded Rubric/i.test(text)) {
-    const topicId = snapshot.itemUrl.match(/\/discussions\/topics\/(\d+)\/View/i)?.[1] || "";
-    const contentObjectId = snapshot.itemUrl.match(/\/viewContent\/(\d+)\/View/i)?.[1] || "";
-    const title = snapshot.title.replace(/\s+-\s+[^-]+ Section .*$/i, "").trim();
-    const feedbackScore = text.match(/\bFeedback\s+(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)\s+([\d.]+)\s*%/i) || text.match(/\bAssessment Grade\s+([\d.]+)\s*%/i);
-    if (feedbackScore) {
-      rows.push({
-        ...baseRecoveredRow(snapshot, "discussionFeedback", `${title || snapshot.title} - Feedback`, feedbackScore[0]),
-        status: "graded",
-        columns: JSON.stringify({ recoveredFrom: "discussionVisibleFeedbackText", topicId, contentObjectId, pointsEarned: feedbackScore[2] ? feedbackScore[1] : "", pointsPossible: feedbackScore[2] || "", percent: feedbackScore[3] || feedbackScore[1] || "" }),
-        ids: JSON.stringify({ ...parseJson(snapshot.ids), discussionTopicId: topicId, contentObjectId })
-      });
-    }
-    const rubricLevel = text.match(/Level Achieved:\s*([^]+?)(?=\s+Last Visited|\s+Previous Next|$)/i)?.[1]?.trim() || "";
-    if (rubricLevel) {
-      rows.push({
-        ...baseRecoveredRow(snapshot, "rubricFeedback", `${title || snapshot.title} - Rubric Feedback`, rubricLevel),
-        status: "graded",
-        columns: JSON.stringify({ recoveredFrom: "discussionVisibleFeedbackText", topicId, contentObjectId, levelAchieved: rubricLevel }),
-        ids: JSON.stringify({ ...parseJson(snapshot.ids), discussionTopicId: topicId, contentObjectId })
-      });
-    }
+    rows.push(...parseDiscussionFeedback(snapshot, text, parseJson));
   }
   if (snapshot.itemUrl && /\/discussions\/topics\/(\d+)\/View/i.test(snapshot.itemUrl)) {
     const topicId = snapshot.itemUrl.match(/\/discussions\/topics\/(\d+)\/View/i)[1];
