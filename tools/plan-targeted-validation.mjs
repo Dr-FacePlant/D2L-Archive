@@ -177,6 +177,27 @@ const report = {
   batchDetails: batchDetails(batches, prioritySections)
 };
 
+function renderBatchMarkdown(batch, index, details) {
+  const lines = [
+    `### Batch ${index + 1}`,
+    "",
+    "```",
+    ...batch,
+    "```"
+  ];
+  if (details?.length) {
+    lines.push("", "Batch details:");
+    for (const item of details) {
+      const gaps = item.proofGaps?.length ? `; gaps: ${item.proofGaps.join("; ")}` : "";
+      const proof = item.proofRows ? `; proof rows: ${item.proofRows}` : "";
+      const route = item.apiRoute ? `; API: ${item.apiRoute}` : "";
+      lines.push(`- ${item.area} | ${item.label}${gaps}${proof}${route}`);
+    }
+  }
+  lines.push("");
+  return lines;
+}
+
 function markdown(value) {
   const lines = [
     "# D2L Targeted Validation Plan",
@@ -194,27 +215,11 @@ function markdown(value) {
     ""
   ];
   if (!value.batches.length) {
-    lines.push("No priority URL batches are needed from this archive. Optional/proven URLs are listed below.");
-    lines.push("");
+    lines.push("No priority URL batches are needed from this archive. Optional/proven URLs are listed below.", "");
   }
   value.batches.forEach((batch, index) => {
-    lines.push(`### Batch ${index + 1}`);
-    lines.push("");
-    lines.push("```");
-    lines.push(...batch);
-    lines.push("```");
     const details = value.batchDetails?.[index]?.items || [];
-    if (details.length) {
-      lines.push("");
-      lines.push("Batch details:");
-      for (const item of details) {
-        const gaps = item.proofGaps?.length ? `; gaps: ${item.proofGaps.join("; ")}` : "";
-        const proof = item.proofRows ? `; proof rows: ${item.proofRows}` : "";
-        const route = item.apiRoute ? `; API: ${item.apiRoute}` : "";
-        lines.push(`- ${item.area} | ${item.label}${gaps}${proof}${route}`);
-      }
-    }
-    lines.push("");
+    lines.push(...renderBatchMarkdown(batch, index, details));
   });
   lines.push("## After Running Batches", "");
   lines.push("Run the targeted validation verifier against the new export folder and this plan JSON:");
