@@ -63,6 +63,7 @@
         "src/content/extraction.js",
         "src/content/discovery.js",
         "src/content/probe-frame.js",
+        "src/content/bridges-dev.js",
         "src/content/bridges.js",
         "content.js"
       ],

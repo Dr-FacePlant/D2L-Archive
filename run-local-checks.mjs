@@ -24,6 +24,7 @@ const checks = [
   ["content probe frame syntax", ["--check", path.join(root, "src/content/probe-frame.js")]],
   ["content school logo syntax", ["--check", path.join(root, "src/content/school-logo.js")]],
   ["content user profile syntax", ["--check", path.join(root, "src/content/user-profile.js")]],
+  ["content bridges dev syntax", ["--check", path.join(root, "src/content/bridges-dev.js")]],
   ["content bridges syntax", ["--check", path.join(root, "src/content/bridges.js")]],
   ["content overlay syntax", ["--check", path.join(root, "src/content/overlay.js")]],
   ["background overlay syntax", ["--check", path.join(root, "src/background/overlay.js")]],
