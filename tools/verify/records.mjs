@@ -4,12 +4,13 @@ import vm from "node:vm";
 
 const _shared = {};
 const _rowsPath = new URL("../../src/shared/rows.js", import.meta.url);
-vm.runInNewContext(fs.readFileSync(_rowsPath, "utf8"), {
-  globalThis: { D2LExtractorShared: _shared },
-  JSON,
-  Date,
-  String
-});
+const _evidencePath = new URL("../../src/shared/evidence.js", import.meta.url);
+const _vmContext = { globalThis: { D2LExtractorShared: _shared }, JSON, Date, String };
+vm.runInNewContext(fs.readFileSync(_rowsPath, "utf8"), _vmContext);
+vm.runInNewContext(fs.readFileSync(_evidencePath, "utf8"), _vmContext);
+export const apiProbeBreakdown = _shared.apiProbeBreakdown;
+export const apiProbeSummaryRows = _shared.apiProbeSummaryRows;
+export const apiProbeLegendLines = _shared.apiProbeLegendLines;
 export const stableRowId = _shared.stableRowId;
 export const rowSignature = _shared.rowSignature;
 export const toJsonl = _shared.toJsonl;

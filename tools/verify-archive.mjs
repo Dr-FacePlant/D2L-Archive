@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { createRecoveryTools } from "./verify/recovery.mjs";
-import { createRecordTools } from "./verify/records.mjs";
+import { createRecordTools, apiProbeBreakdown as apiProbeBreakdownHelper, apiProbeSummaryRows as apiProbeSummaryRowsHelper, apiProbeLegendLines } from "./verify/records.mjs";
 
 const source = process.argv[2];
 if (!source) {
@@ -59,47 +59,8 @@ function countPageVisits(pattern) {
   ].filter(Boolean).join(" "))).length;
 }
 
-function apiProbeBreakdown(pattern) {
-  const counts = {};
-  for (const row of rows) {
-    if (row.source !== "apiProbe") continue;
-    if (pattern && !pattern.test(row.type || "")) continue;
-    const key = row.status || "unknown";
-    counts[key] = (counts[key] || 0) + 1;
-  }
-  return Object.entries(counts)
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([key, count]) => `${key}:${count}`)
-    .join(", ") || "none";
-}
-
-function apiProbeSummaryRows() {
-  const groups = [
-    ["Assignment submissions", /assignment my submissions/i],
-    ["Quiz attempts", /quiz attempts/i],
-    ["Announcements", /announcements|news/i],
-    ["Discussions", /discussion/i]
-  ];
-  return groups.map(([label, pattern]) => {
-    const matching = rows.filter((row) => row.source === "apiProbe" && pattern.test(row.type || ""));
-    return {
-      label,
-      count: matching.length,
-      breakdown: apiProbeBreakdown(pattern)
-    };
-  }).filter((entry) => entry.count > 0);
-}
-
-function apiProbeLegendLines() {
-  return [
-    "Legend:",
-    "- available: D2L returned data and the extractor captured evidence rows.",
-    "- availableEmpty: D2L allowed the read-only probe but returned no evidence rows.",
-    "- blocked: D2L denied the read-only probe for this student/session.",
-    "- notEnabledOrHidden: D2L returned not found, usually hidden, disabled, or not enabled.",
-    "- unreachable/unavailable: the probe could not be reached or returned an unexpected error."
-  ];
-}
+const apiProbeBreakdown = (pattern) => apiProbeBreakdownHelper(rows, pattern);
+const apiProbeSummaryRows = () => apiProbeSummaryRowsHelper(rows);
 
 function rowsMatching(pattern) {
   return rows.filter((row) => pattern.test(`${row.title || ""} ${row.description || ""} ${row.type || ""} ${row.itemUrl || ""}`));

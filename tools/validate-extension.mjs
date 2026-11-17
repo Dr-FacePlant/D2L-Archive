@@ -27,7 +27,7 @@ const valenceApiMap = fs.readFileSync(path.join(root, "docs", "VALENCE-API-MAP.m
 const verifyArchive = fs.readFileSync(path.join(toolsRoot, "verify-archive.mjs"), "utf8");
 const verifyArchiveRuntime = [
   ...verifyArchive.matchAll(/from\s+"(\.\/verify\/[^"]+\.mjs)"/g)
-].map((match) => fs.readFileSync(path.join(toolsRoot, match[1]), "utf8")).join("\n") + `\n${verifyArchive}`;
+].map((match) => fs.readFileSync(path.join(toolsRoot, match[1]), "utf8")).join("\n") + `\n${sharedRuntime}\n${verifyArchive}`;
 const queryAiIndexFile = fs.readFileSync(path.join(toolsRoot, "query-ai-index.mjs"), "utf8");
 const queryAiIndex = [
   ...queryAiIndexFile.matchAll(/from\s+"(\.\/verify\/[^"]+\.mjs)"/g)
