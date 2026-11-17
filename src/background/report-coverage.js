@@ -181,144 +181,152 @@ function courseToolProbePageLines(apiSummary) {
 
 // uniqueRows provided by shared
 
-function summarizeStudentCoverage(rows, pages, issueLists, changeReport = null) {
+function buildStudentCoverageContext(rows, pages) {
   const sourceCounts = rowsBySource(rows);
   const hasSource = (source) => (sourceCounts[source] || 0) > 0;
   const countWhere = (source, predicate) => rows.filter((row) => row.source === source && predicate(row, parseColumns(row))).length;
-  const countPages = (pattern) => pages.filter((page) => pattern.test([
-    page.page?.url,
-    page.crawlTask?.requestedUrl
-  ].filter(Boolean).join(" "))).length;
+  const countPages = (pattern) => pages.filter((page) => pattern.test([page.page?.url, page.crawlTask?.requestedUrl].filter(Boolean).join(" "))).length;
   const pageTypes = new Set(pages.map((page) => page.pageType).filter(Boolean));
   const apiStatuses = [];
-  const hasAssignmentProbe = countWhere("apiProbe", (row) => /assignment my submissions/i.test(row.type)) > 0;
-  const hasQuizProbe = countWhere("apiProbe", (row) => /quiz attempts/i.test(row.type)) > 0;
-  const assignmentHistoryPages = countPages(/\/dropbox\/user\/folders_history\.d2l/i);
-  const assignmentFeedbackPages = countPages(/\/dropbox\/user\/folder_user_view_feedback\.d2l/i);
-  const quizAttemptPages = countPages(/\/quizzing\/user\/quiz_submissions_attempt\.d2l/i);
-  const quizSubmissionPages = countPages(/\/quizzing\/user\/quiz_submissions\.d2l/i);
-  const quizSummaryPages = countPages(/\/quizzing\/user\/quiz_summary\.d2l/i);
-
   for (const page of pages) {
-    if (page.pageType !== "valenceApi" || !page.apiStatus) continue;
-    apiStatuses.push({ courseOrgUnitId: page.course?.orgUnitId || "", apiStatus: page.apiStatus });
+    if (page.pageType === "valenceApi" && page.apiStatus) {
+      apiStatuses.push({ courseOrgUnitId: page.course?.orgUnitId || "", apiStatus: page.apiStatus });
+    }
   }
+  return {
+    rows, pages, sourceCounts, hasSource, countWhere, countPages, pageTypes, apiStatuses,
+    hasAssignmentProbe: countWhere("apiProbe", (row) => /assignment my submissions/i.test(row.type)) > 0,
+    hasQuizProbe: countWhere("apiProbe", (row) => /quiz attempts/i.test(row.type)) > 0,
+    assignmentHistoryPages: countPages(/\/dropbox\/user\/folders_history\.d2l/i),
+    assignmentFeedbackPages: countPages(/\/dropbox\/user\/folder_user_view_feedback\.d2l/i),
+    quizAttemptPages: countPages(/\/quizzing\/user\/quiz_submissions_attempt\.d2l/i),
+    quizSubmissionPages: countPages(/\/quizzing\/user\/quiz_submissions\.d2l/i),
+    quizSummaryPages: countPages(/\/quizzing\/user\/quiz_summary\.d2l/i)
+  };
+}
 
-  const checks = [
+function buildAssessmentCoverageChecks(ctx) {
+  const { rows, sourceCounts, hasSource, countWhere, hasAssignmentProbe, assignmentHistoryPages, assignmentFeedbackPages, hasQuizProbe, quizAttemptPages, quizSubmissionPages, quizSummaryPages } = ctx;
+  return [
     {
-      id: "active_courses",
-      label: "Active courses discovered",
+      id: "active_courses", label: "Active courses discovered",
       status: hasSource("dashboardCourseCard") || rows.some((row) => row.courseOrgUnitId && row.courseOrgUnitId !== "unknown") ? "covered" : "missing",
       evidence: `${new Set(rows.map((row) => row.courseOrgUnitId).filter((id) => id && id !== "unknown")).size} course ids in manifest`,
       nextAction: "Start the crawl from the D2L dashboard if this is missing."
     },
     {
-      id: "content_and_files",
-      label: "Course content, modules, links, and files",
+      id: "content_and_files", label: "Course content, modules, links, and files",
       status: hasSource("contentTopic") || hasSource("contentAttachment") ? "covered" : "missing",
       evidence: `${sourceCounts.contentTopic || 0} content topics; ${sourceCounts.contentAttachment || 0} content attachments; ${rows.filter((row) => row.localPath).length} downloaded files`,
       nextAction: "Use the Valence content/toc pass, DirectFileTopicDownload for first-party files, and contentAttachment rows from HTML topic bodies."
     },
     {
-      id: "assignments_due_dates",
-      label: "Assignments and due dates",
+      id: "assignments_due_dates", label: "Assignments and due dates",
       status: hasSource("assignment") ? "covered" : "missing",
       evidence: `${sourceCounts.assignment || 0} assignments; ${countWhere("assignment", (row) => rowHasAny(row, ["dueAtText"]))} with due date text`,
       nextAction: "Confirm blank due dates against the assignment page and calendar entity joins."
     },
     {
-      id: "assignment_submissions_feedback",
-      label: "Assignment submission status, submitted files, and feedback",
-      status: hasSource("assignmentSubmission") || hasSource("submittedFile") || hasSource("assignmentFeedback") || hasAssignmentProbe || assignmentHistoryPages || assignmentFeedbackPages ? "partial" : countWhere("assignment", (row) => /submitted|feedback/i.test(`${row.status} ${row.feedbackUrl} ${row.historyUrl} ${row.description}`)) ? "partial" : "missing",
-      evidence: `${sourceCounts.assignmentSubmission || 0} submission rows; ${sourceCounts.submittedFile || 0} submitted files; ${sourceCounts.assignmentFeedback || 0} feedback rows; ${assignmentHistoryPages} history pages; ${assignmentFeedbackPages} feedback pages; ${countWhere("apiProbe", (row) => /assignment my submissions/i.test(row.type))} submission API probe rows (${apiProbeBreakdown(rows, /assignment my submissions/i)})`,
-      nextAction: "Review mysubmissions apiProbe rows; crawl read-only history and feedback pages where API access is denied or empty."
+      id: "assignment_submissions_feedback", label: "Assignment submissions, submitted files, and instructor feedback",
+      status: hasSource("assignmentSubmission") || hasSource("assignmentSubmissionFile") || hasSource("assignmentFeedback") || hasAssignmentProbe || assignmentHistoryPages || assignmentFeedbackPages ? "partial" : "missing",
+      evidence: `${sourceCounts.assignmentSubmission || 0} submission rows; ${sourceCounts.assignmentSubmissionFile || 0} submitted files; ${sourceCounts.assignmentFeedback || 0} feedback rows; ${assignmentHistoryPages} history pages; ${assignmentFeedbackPages} feedback pages; ${countWhere("apiProbe", (row) => /assignment my submissions/i.test(row.type))} submission API probe rows (${apiProbeBreakdown(rows, /assignment my submissions/i)})`,
+      nextAction: "Verify dropbox folder history/feedback URLs and permission states for unsubmitted or graded folders."
     },
     {
-      id: "quizzes_due_attempts",
-      label: "Quizzes/exams, availability, and attempts allowed",
+      id: "quizzes_due_dates", label: "Quizzes, exams, and availability windows",
       status: hasSource("quiz") ? "covered" : "missing",
-      evidence: `${sourceCounts.quiz || 0} quizzes; ${countWhere("quiz", (_row, columns) => columns.attempts !== undefined && columns.attempts !== "")} with attempts metadata`,
-      nextAction: "Use quiz API plus visible quiz list/summary pages for availability wording."
+      evidence: `${sourceCounts.quiz || 0} quizzes; ${countWhere("quiz", (row) => rowHasAny(row, ["dueAtText", "availableFromText", "availableUntilText"]))} with date text`,
+      nextAction: "Check quiz list/availability rows and calendar entity joins."
     },
     {
-      id: "quiz_results_feedback",
-      label: "Quiz/exam attempts, scores, question results, and released feedback",
+      id: "quiz_attempts_submissions", label: "Quiz attempts, submission confirmations, scores, and questions/answers",
       status: hasSource("quizAttempt") || hasSource("quizSubmission") || hasSource("quizAttemptRow") || hasSource("quizSummaryRow") || hasSource("quizQuestionResult") || hasQuizProbe || quizAttemptPages || quizSubmissionPages || quizSummaryPages ? "partial" : "missing",
       evidence: `${sourceCounts.quizAttempt || 0} API attempt rows; ${sourceCounts.quizSubmission || 0} submission rows; ${sourceCounts.quizAttemptRow || 0} UI attempt rows; ${sourceCounts.quizSummaryRow || 0} summary rows; ${sourceCounts.quizQuestionResult || 0} question result rows; ${quizAttemptPages} attempt pages; ${quizSubmissionPages} submission pages; ${quizSummaryPages} summary pages; ${countWhere("apiProbe", (row) => /quiz attempts/i.test(row.type))} quiz attempt API probe rows (${apiProbeBreakdown(rows, /quiz attempts/i)})`,
       nextAction: "Review quiz attempt apiProbe rows; crawl released quiz submissions/feedback links only; never start a new quiz attempt."
-    },
+    }
+  ];
+}
+
+function buildEvaluationAndEngagementChecks(ctx) {
+  const { rows, sourceCounts, hasSource, countWhere } = ctx;
+  return [
     {
-      id: "grades",
-      label: "Grades, points, weights, and displayed scores",
+      id: "grades", label: "Grades, points, weights, and displayed scores",
       status: hasSource("gradeItem") ? "covered" : "missing",
       evidence: `${sourceCounts.gradeItem || 0} grade items; ${sourceCounts.gradeFeedback || 0} grade feedback rows; ${countWhere("gradeItem", (_row, columns) => columns.displayedGrade || columns.pointsEarned || columns.points)} with score-like fields`,
       nextAction: "Join grade definitions with myGradeValues; keep UI grade table as verification."
     },
     {
-      id: "rubrics",
-      label: "Rubrics and rubric-level feedback",
+      id: "rubrics", label: "Rubrics and rubric-level feedback",
       status: hasSource("rubric") || hasSource("rubricFeedback") || hasSource("rubricCriterionFeedback") ? "partial" : rows.some((row) => /rubric/i.test(`${row.title} ${row.description} ${row.itemUrl}`)) ? "partial" : "missing",
       evidence: `${sourceCounts.rubric || 0} rubric rows; ${sourceCounts.rubricFeedback || 0} rubric feedback rows; ${sourceCounts.rubricCriterionFeedback || 0} rubric criterion feedback rows`,
       nextAction: "Verify rubric criteria and score details from visible assignment/grade feedback pages."
     },
     {
-      id: "announcements",
-      label: "Announcements/notices",
+      id: "announcements", label: "Announcements/notices",
       status: hasSource("announcement") ? "partial" : "missing",
       evidence: `${sourceCounts.announcement || 0} announcements; ${sourceCounts.announcementAttachment || 0} announcement attachments; ${sourceCounts.announcementLink || 0} announcement links; ${countWhere("apiProbe", (row) => /announcements/i.test(row.type))} blocked/unavailable announcement probes`,
       nextAction: "Verify news API/status codes and crawl visible news detail pages where API access is denied."
     },
     {
-      id: "discussions",
-      label: "Discussion forums, prompts, replies, and participation",
+      id: "discussions", label: "Discussion forums, prompts, replies, and participation",
       status: hasSource("discussionPost") ? "partial" : hasSource("discussionTopic") ? "partial" : "missing",
       evidence: `${sourceCounts.discussionForum || 0} forums; ${sourceCounts.discussionTopic || 0} topics; ${sourceCounts.discussionPost || 0} posts; ${sourceCounts.discussionAttachment || 0} attachments; ${countWhere("apiProbe", (row) => /discussion/i.test(row.type))} blocked/unavailable discussion probes`,
       nextAction: "Verify discussion API/status codes; keep read-only topic page fallback for must-post-first or hidden posts."
     },
     {
-      id: "calendar",
-      label: "Calendar events and due-date cross-checks",
+      id: "calendar", label: "Calendar events and due-date cross-checks",
       status: hasSource("calendarEvent") ? "covered" : "missing",
       evidence: `${sourceCounts.calendarEvent || 0} calendar events; ${sourceCounts.calendarAttachment || 0} calendar attachments`,
       nextAction: "Keep full-semester API range, join events by D2L associated entity id, and verify event-detail attachments."
-    },
+    }
+  ];
+}
+
+function buildToolsAndPolicyChecks(ctx, changeReport) {
+  const { rows, sourceCounts, hasSource, pageTypes } = ctx;
+  return [
     {
-      id: "checklists_surveys_self_assessments",
-      label: "Checklists, surveys, and self-assessments",
+      id: "checklists_surveys_self_assessments", label: "Checklists, surveys, and self-assessments",
       status: hasSource("courseToolPage") || hasSource("checklistItem") || hasSource("survey") || hasSource("selfAssessment") || pageTypes.has("checklist") || pageTypes.has("survey") || pageTypes.has("selfAssessment") ? "partial" : "missing",
       evidence: `${sourceCounts.courseToolPage || 0} course tool page summaries; ${sourceCounts.checklistItem || 0} checklist rows; ${sourceCounts.survey || 0} survey rows; ${sourceCounts.selfAssessment || 0} self-assessment rows`,
       nextAction: "Live-verify completion/status fields and D2L empty-state handling for each course."
     },
     {
-      id: "attendance_progress_groups",
-      label: "Attendance, progress, groups, and classlist",
+      id: "attendance_progress_groups", label: "Attendance, progress, groups, and classlist",
       status: hasSource("courseToolPage") || hasSource("attendanceRecord") || hasSource("progressRecord") || hasSource("group") || hasSource("classlistEntry") ? "partial" : "missing",
       evidence: `${sourceCounts.courseToolPage || 0} course tool page summaries; ${sourceCounts.attendanceRecord || 0} attendance rows; ${sourceCounts.progressRecord || 0} progress rows; ${sourceCounts.group || 0} group rows; ${sourceCounts.classlistEntry || 0} classlist rows`,
       nextAction: "Live-verify whether each course enables these tools and whether visible rows include useful completion/membership state."
     },
     {
-      id: "syllabus_policies",
-      label: "Syllabus, schedule, course policies, and instructor info",
+      id: "syllabus_policies", label: "Syllabus, schedule, course policies, and instructor info",
       status: hasSource("syllabusPolicy") ? "partial" : rows.some((row) => /syllabus|schedule|policy|office hours|instructor|professor/i.test(`${row.title} ${row.description}`)) ? "partial" : "missing",
       evidence: `${sourceCounts.syllabusPolicy || 0} first-class syllabus/policy rows`,
       nextAction: "Live-verify that syllabus/policy rows include downloadable files or page snapshots for every course."
     },
     {
-      id: "external_tools",
-      label: "External/publisher/LTI resources",
+      id: "external_tools", label: "External/publisher/LTI resources",
       status: rows.some((row) => /External Resource|Link|externalLink/i.test(`${row.type} ${row.source}`)) ? "partial" : "missing",
       evidence: `${rows.filter((row) => /External Resource|Link|externalLink/i.test(`${row.type} ${row.source}`)).length} external/link-like rows; ${sourceCounts.externalLink || 0} first-class external links`,
       nextAction: "Preserve launch URLs and metadata; do not crawl third-party accounts unless explicitly authorized."
     },
     {
-      id: "change_tracking",
-      label: "Change tracking between exports",
+      id: "change_tracking", label: "Change tracking between exports",
       status: changeReport?.available ? "covered" : changeReport ? "partial" : "missing",
       evidence: changeReport?.available
         ? `${changeReport.totals.added} added, ${changeReport.totals.changed} changed, ${changeReport.totals.removed} removed`
         : "Change report is generated, but the first run has no previous export baseline.",
       nextAction: "Run another export after D2L changes; review change-report.md for added, changed, removed, newly graded, newly due, and newly downloaded items."
     }
+  ];
+}
+
+function summarizeStudentCoverage(rows, pages, issueLists, changeReport = null) {
+  const ctx = buildStudentCoverageContext(rows, pages);
+  const checks = [
+    ...buildAssessmentCoverageChecks(ctx),
+    ...buildEvaluationAndEngagementChecks(ctx),
+    ...buildToolsAndPolicyChecks(ctx, changeReport)
   ];
 
   return {
@@ -330,7 +338,7 @@ function summarizeStudentCoverage(rows, pages, issueLists, changeReport = null) 
       blockedOrUncertain: (issueLists.failed?.length || 0) + (issueLists.uncertain?.length || 0)
     },
     checks,
-    apiStatuses
+    apiStatuses: ctx.apiStatuses
   };
 }
 
