@@ -29,9 +29,7 @@
     return `<div class="step ${e(item.state)}"><span class="step-mark">${STEP_MARK[item.state] || ""}</span><span class="sr-only">${e(STEP_WORD[item.state] || "")}: </span>${body}</div>`;
   }
 
-  function stepList(model) {
-    return model.steps?.length ? `<div class="steps">${model.steps.map((item) => stepRow(item, model)).join("")}</div>` : "";
-  }
+  const stepList = (model) => model.steps?.length ? `<div class="steps">${model.steps.map((item) => stepRow(item, model)).join("")}</div>` : "";
 
   // The student's own close-out for work the dashboard can't see is done
   // (handled another way) or that doesn't apply to them: one quiet line at
@@ -49,9 +47,7 @@
   }
 
   // A smaller D2L link under the to-do card's one button.
-  function moreLink(link) {
-    return `<a class="link-btn" href="${e(link.url)}" rel="noopener noreferrer" data-d2l-link>${e(link.label)} ${icon("external", 14)}</a>`;
-  }
+  const moreLink = (link) => `<a class="link-btn" href="${e(link.url)}" rel="noopener noreferrer" data-d2l-link>${e(link.label)} ${icon("external", 14)}</a>`;
 
   // The to-do card: the steps, one button, smaller links, the quiet line.
   // The button jumps to the linked discussion when there is one, else to
@@ -122,9 +118,7 @@
   // Every item's screen: the title card, the content card, and a side card.
   // Work gets the to-do card (steps, one button); on a narrow screen it sits
   // between the title and the content.
-  function detailPage(model, crumb) {
-    if (!model) return notFoundPage("That item isn't in your archive. It may have been removed from D2L.");
-    const course = model.course;
+  function detailSections(model) {
     const sections = [];
     if (model.kind === "assignment") {
       sections.push(`<h2>Instructions</h2>${model.instructions ? `<p class="prose">${e(model.instructions)}</p>` : `<p class="prose" style="color:var(--muted)">The instructor didn't add instructions in D2L.</p>`}`);
@@ -160,75 +154,46 @@
       if (model.rubric) sections.push(rubricTable(model.rubric));
       if (model.source) sections.push(`<h2>Graded work</h2><a class="btn" href="${e(model.source.route)}">${e(`${model.source.kind}: ${model.source.title}`)} ${icon("arrowRight", 15)}</a>`);
     }
+    return sections;
+  }
 
+  function detailPage(model, crumb) {
+    if (!model) return notFoundPage("That item isn't in your archive. It may have been removed from D2L.");
+    const sections = detailSections(model);
     const relatedBlock = (model.kind === "assignment" || model.kind === "quiz") && model.related?.length ? relatedCard(model.related) : "";
-
     const work = WORK_KINDS.has(model.kind);
     let sideCard;
     if (work) sideCard = todoCard(model);
     else {
       const side = [];
-      if (model.kind === "announcement") side.push(`<h2>From ${e(course?.label || "your course")}</h2><p class="note">${e(model.posted)}${model.pinned ? " · Pinned in D2L" : ""}</p>`);
+      if (model.kind === "announcement") side.push(`<h2>From ${e(model.course?.label || "your course")}</h2><p class="note">${e(model.posted)}${model.pinned ? " · Pinned in D2L" : ""}</p>`);
       if (model.kind === "grade") side.push(`<h2>In D2L</h2><p class="note">Grades are read from D2L. The dashboard never works out its own grade.</p>`);
       if (model.kind === "event") side.push(`<h2>In D2L</h2>`);
       side.push(...(model.links || []).map((link) => extLink(link)));
       sideCard = `<aside class="card side-card">${side.join("")}</aside>`;
     }
-
-    const facts = model.facts?.length ? `<div class="facts">${model.facts.map((fact) => `<div class="fact"><div class="k">${e(fact.k)}</div><div class="v">${e(fact.v)}</div></div>`).join("")}</div>` : "";
-    // Assignment and quiz pop-ups keep a steady top row (see .detail-top in the
-    // CSS). Their text sits in a clamp that Show more opens, so a long
-    // description can't push the Related items card down the page.
+    const facts = model.facts?.length ? `<div class="facts">${model.facts.map((f) => `<div class="fact"><div class="k">${e(f.k)}</div><div class="v">${e(f.v)}</div></div>`).join("")}</div>` : "";
     const fixedTop = (model.kind === "assignment" || model.kind === "quiz") && Boolean(facts || sections.length);
     const details = fixedTop && sections.length
       ? `<div class="detail-clamp" id="detail-clamp">${sections.join("")}<button class="detail-more" type="button" data-action="detail-more" aria-expanded="false" aria-controls="detail-clamp" hidden>Show more</button></div>`
       : sections.join("");
     const content = `${facts}${details}`;
-    // A checklist's list is its to-do, so only the other work moves its side
-    // card up. That card follows the title in the page too, so keyboards and
-    // screen readers reach what to do before the details.
     const todoFirst = work && model.kind !== "checklist";
     const main = content ? `<section class="card detail">${content}</section>` : "";
-    const top = `<header class="card detail-head">
-          ${detailMeta(model)}
-          <h1 id="detail-content-title">${e(model.title)}</h1>
-          ${model.posted ? `<p class="detail-posted">${e(model.posted)}</p>` : ""}
-        </header>
-        ${todoFirst ? `${sideCard}${main}` : `${main}${sideCard}`}`;
-    const layout = `<div class="detail-frame"><div class="detail-layout${todoFirst ? " has-todo" : ""}${content ? "" : " no-content"}${fixedTop ? " is-fixed" : ""}">
-        ${fixedTop ? `<div class="detail-top">${top}</div>` : top}
-        ${relatedBlock}
-      </div></div>`;
+    const top = `<header class="card detail-head">${detailMeta(model)}<h1 id="detail-content-title">${e(model.title)}</h1>${model.posted ? `<p class="detail-posted">${e(model.posted)}</p>` : ""}</header>${todoFirst ? `${sideCard}${main}` : `${main}${sideCard}`}`;
+    const layout = `<div class="detail-frame"><div class="detail-layout${todoFirst ? " has-todo" : ""}${content ? "" : " no-content"}${fixedTop ? " is-fixed" : ""}">${fixedTop ? `<div class="detail-top">${top}</div>` : top}${relatedBlock}</div></div>`;
     const body = `<div class="page detail-page" data-screen="${e(model.kind)}">${layout}</div>`;
     if (crumb?.body) return body;
     if (crumb?.layer) return detailShell(crumb, body, model.title);
-    return `<div class="page" data-screen="${e(model.kind)}">
-      <nav class="crumbs">${crumb.parent ? `<a href="${e(crumb.parent.href)}">${e(crumb.parent.label)}</a><span>/</span>` : ""}<a href="${e(crumb.href)}">${e(crumb.label)}</a><span>/</span><span class="here">${e(model.title)}</span></nav>
-      ${layout}
-    </div>`;
+    return `<div class="page" data-screen="${e(model.kind)}"><nav class="crumbs">${crumb.parent ? `<a href="${e(crumb.parent.href)}">${e(crumb.parent.label)}</a><span>/</span>` : ""}<a href="${e(crumb.href)}">${e(crumb.label)}</a><span>/</span><span class="here">${e(model.title)}</span></nav>${layout}</div>`;
   }
-
   function detailShell(context = {}, body = "", title = "") {
     const origin = context.originLabel ? `Back to ${context.originLabel}` : "Back";
     const loaded = Boolean(body);
-    return `<div class="detail-layer" data-action="close-detail" data-backdrop="true">
-      <section class="detail-panel" role="dialog" aria-modal="true" ${loaded ? `aria-labelledby="detail-content-title"` : `aria-label="Loading details"`} tabindex="-1">
-        <header class="detail-layer-head">
-          <button class="detail-back" type="button" data-action="detail-back">${icon("chevronLeft", 18)}<span>${e(origin)}</span></button>
-          <button class="icon-btn" type="button" data-action="close-detail" aria-label="Close details" title="Close details">${icon("close", 18)}</button>
-        </header>
-        <div class="detail-layer-scroll" data-detail-body aria-busy="${loaded ? "false" : "true"}">${body}</div>
-      </section>
-    </div>`;
+    return `<div class="detail-layer" data-action="close-detail" data-backdrop="true"><section class="detail-panel" role="dialog" aria-modal="true" ${loaded ? `aria-labelledby="detail-content-title"` : `aria-label="Loading details"`} tabindex="-1"><header class="detail-layer-head"><button class="detail-back" type="button" data-action="detail-back">${icon("chevronLeft", 18)}<span>${e(origin)}</span></button><button class="icon-btn" type="button" data-action="close-detail" aria-label="Close details" title="Close details">${icon("close", 18)}</button></header><div class="detail-layer-scroll" data-detail-body aria-busy="${loaded ? "false" : "true"}">${body}</div></section></div>`;
   }
-
-  function detailBody(model) {
-    return detailPage(model, { body: true });
-  }
-
-  function detailLayer(model, context = {}) {
-    return detailShell(context, detailBody(model), model?.title || "Details");
-  }
+  const detailBody = (model) => detailPage(model, { body: true });
+  const detailLayer = (model, context = {}) => detailShell(context, detailBody(model), model?.title || "Details");
 
   // --------------------------------------------------------- file preview
 
@@ -306,7 +271,6 @@
       </div>
     </div>`;
   }
-
 
   // ------------------------------------------ side panel for Related items
 
