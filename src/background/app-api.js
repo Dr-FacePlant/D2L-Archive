@@ -4,49 +4,14 @@
   const {
     APP_API_PROTOCOL_VERSION,
     APP_API_ERROR_CODES,
+    APP_API_READ_METHODS,
     appApiError,
     appApiResponse,
     appApiErrorResponse,
     validateAppApiRequest
   } = shared;
 
-  const IMPLEMENTED_READ_METHODS = Object.freeze([
-    "system.getCapabilities",
-    "system.getDatabaseStatus",
-    "system.getAccountContext",
-    "courses.list",
-    "courses.get",
-    "courses.getOverview",
-    "evidence.list",
-    "evidence.get",
-    "entities.list",
-    "entities.get",
-    "entities.getBundle",
-    "relationships.list",
-    "assignments.list",
-    "quizzes.list",
-    "grades.list",
-    "announcements.list",
-    "discussions.list",
-    "resources.list",
-    "calendar.list",
-    "policies.list",
-    "progress.list",
-    "tools.list",
-    "people.list",
-    "externalResources.list",
-    "gaps.list",
-    "dashboard.getOverview",
-    "dashboard.getUpcoming",
-    "dashboard.getRecentChanges",
-    "dashboard.getUpdates",
-    "search.query",
-    "sync.getState",
-    "sync.getQueue",
-    "sync.getRun",
-    "activity.list",
-    "activity.getSummary"
-  ]);
+  const IMPLEMENTED_READ_METHODS = APP_API_READ_METHODS;
   const IMPLEMENTED_INTERNAL_METHODS = Object.freeze(["archive.ingestRows"]);
 
   // There is no default archive: every request resolves the signed-in

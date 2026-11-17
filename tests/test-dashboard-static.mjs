@@ -65,7 +65,7 @@ check(!/\bscheduleSlide\b/.test(dashboardJs), "boot must not call the removed sp
 const writeMethods = ["archive.ingestRows", "archive.ingestExtraction", "organizer.runCourse", "organizer.runChanged", "organizer.rebuildAll", "relationships.confirm", "relationships.reject"];
 for (const method of writeMethods) check(!dashboardJs.includes(`"${method}"`), `dashboard must stay read-only but calls ${method}`);
 const calls = [...appSource().matchAll(/api\("([^"]+)"/g)].map((m) => m[1]);
-const readMethods = read("src/background/app-api.js").match(/IMPLEMENTED_READ_METHODS = Object\.freeze\(\[([\s\S]*?)\]\)/)[1];
+const readMethods = read("src/shared/app-contract.js").match(/APP_API_READ_METHODS = Object\.freeze\(\[([\s\S]*?)\]\)/)[1];
 for (const method of calls) check(readMethods.includes(`"${method}"`), `dashboard calls ${method}, which is not a read method`);
 check(!/fetch\([^)]*kennesaw/i.test(dashboardJs), "dashboard must not call D2L directly");
 check(!/D2L_ACTION_(PREPARE|COMMIT)/.test(dashboardJs), "dashboard action UI must stay read-only, with no D2L change boundary");
