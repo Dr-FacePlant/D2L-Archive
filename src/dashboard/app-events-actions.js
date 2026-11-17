@@ -160,69 +160,104 @@
     return false;
   }
 
-  async function handleActionClick(actionNode, action, event) {
-    if (await handleTextbookActions(actionNode, action)) return;
-    if (await handleDetailAndPeekActions(actionNode, action, event)) return;
-    if (action === "account-help" || action === "account-back") showAccountView(action === "account-help", true);
-    else if (action === "edit-instructor") mod.beginContactEdit(actionNode.closest("[data-contact-row]"));
-    else if (action === "cancel-instructor-edit") mod.cancelContactEdit(actionNode.closest("[data-contact-row]"));
-    else if (action === "view-custom-syllabus") handleCustomSyllabusClick(actionNode);
-    else if (action === "copy-instructor") await handleCopyInstructorClick(actionNode);
-    else if (action === "nav") {
+  async function handleAccountAndDataActions(actionNode, action) {
+    if (action === "account-help" || action === "account-back") { showAccountView(action === "account-help", true); return true; }
+    if (action === "edit-instructor") { mod.beginContactEdit(actionNode.closest("[data-contact-row]")); return true; }
+    if (action === "cancel-instructor-edit") { mod.cancelContactEdit(actionNode.closest("[data-contact-row]")); return true; }
+    if (action === "view-custom-syllabus") { handleCustomSyllabusClick(actionNode); return true; }
+    if (action === "copy-instructor") { await handleCopyInstructorClick(actionNode); return true; }
+    if (action === "nav") {
       const href = actionNode.dataset.href;
       if (dash.isLayerRoute(href)) navigateToDetail(href, actionNode);
       else location.hash = href;
-    } else if (action === "export-activity") await exportActivity(actionNode.dataset.format || "json").catch((err) => toast(`Activity export failed: ${err.message}`));
-    else if (action === "export-contact-edits") await mod.exportContactEdits();
-    else if (action === "import-contact-edits") await mod.importContactEdits();
-    else if (action === "filter-menu-toggle") {
+      return true;
+    }
+    if (action === "export-activity") { await exportActivity(actionNode.dataset.format || "json").catch((err) => toast(`Activity export failed: ${err.message}`)); return true; }
+    if (action === "export-contact-edits") { await mod.exportContactEdits(); return true; }
+    if (action === "import-contact-edits") { await mod.importContactEdits(); return true; }
+    if (action === "filter-menu-toggle") {
       const open = state.filterMenu === actionNode.getAttribute("aria-controls");
       closeMenu();
       if (open) mod.closeFilterMenu();
       else mod.openFilterMenu(actionNode);
-    } else if (action === "filter-menu-option") {
-      mod.closeFilterMenu();
-      location.hash = actionNode.dataset.href;
-    } else if (action === "show-more") handleShowMoreRows(actionNode);
-    else if (action === "sync") { closeMenu(); startSync().catch((err) => toast(`Couldn't start sync: ${err.message}`)); }
-    else if (action === "adopt-legacy" || action === "adopt-legacy-cancel") { state.adopt = { confirming: action === "adopt-legacy", pending: false, error: "" }; redrawAdoptNotice(); }
-    else if (action === "adopt-legacy-confirm") adoptLegacyArchive();
-    else if (action === "mark-done" || action === "skip-work" || action === "unmark-work") await handleWorkMark(actionNode, action);
-    else if (action === "dismiss-recreated") {
+      return true;
+    }
+    if (action === "filter-menu-option") { mod.closeFilterMenu(); location.hash = actionNode.dataset.href; return true; }
+    if (action === "show-more") { handleShowMoreRows(actionNode); return true; }
+    if (action === "sync") { closeMenu(); startSync().catch((err) => toast(`Couldn't start sync: ${err.message}`)); return true; }
+    if (action === "adopt-legacy" || action === "adopt-legacy-cancel") { state.adopt = { confirming: action === "adopt-legacy", pending: false, error: "" }; redrawAdoptNotice(); return true; }
+    if (action === "adopt-legacy-confirm") { adoptLegacyArchive(); return true; }
+    return false;
+  }
+
+  async function handleWorkAndCalendarActions(actionNode, action) {
+    if (action === "mark-done" || action === "skip-work" || action === "unmark-work") { await handleWorkMark(actionNode, action); return true; }
+    if (action === "dismiss-recreated") {
       state.recreatedSeen = state.archiveRecreatedAt;
       dash.accountBinding.saveScoped(chrome.storage.local, mod.RECREATED_SEEN_KEY, state.account.id, state.recreatedSeen);
       main()?.querySelector("[data-archive-recreated]")?.remove();
-    } else if (action === "select-day") {
+      return true;
+    }
+    if (action === "select-day") {
       render.keepScroll = true;
       const params = new URLSearchParams(location.hash.split("?")[1] || "");
       params.set("month", actionNode.dataset.month || actionNode.dataset.day.slice(0, 7));
       params.set("day", actionNode.dataset.day);
-      location.hash = ;
-    else if (action === "read-update" || action === "toggle-read" || action === "mark-all-read") handleReadUpdates(actionNode, action);
-    else if (action === "open-file") openArchivedFile(actionNode.dataset.path);
-    else if (action === "preview-file") previewFile(actionNode);
-    else if (action === "confirm-link") openConfirmedLink();
-    else if (action === "close-link-confirm") {
+      location.hash = `#/calendar?${params}`;
+      return true;
+    }
+    if (action === "read-update" || action === "toggle-read" || action === "mark-all-read") {
+      handleReadUpdates(actionNode, action);
+      return true;
+    }
+    return false;
+  }
+
+  async function handleViewAndSettingsActions(actionNode, action, event) {
+    if (action === "open-file") { openArchivedFile(actionNode.dataset.path); return true; }
+    if (action === "preview-file") { previewFile(actionNode); return true; }
+    if (action === "confirm-link") { openConfirmedLink(); return true; }
+    if (action === "close-link-confirm") {
       if (!actionNode.dataset.backdrop || event.target === actionNode) closeLinkConfirm();
-    } else if (action === "reload-page") location.reload();
-    else if (action === "close-preview") {
+      return true;
+    }
+    if (action === "reload-page") { location.reload(); return true; }
+    if (action === "close-preview") {
       if (!actionNode.dataset.backdrop || event.target === actionNode) closePreview();
-    } else if (action === "modules") {
+      return true;
+    }
+    if (action === "modules") {
       for (const node of main().querySelectorAll("details.module:not(.pinned)")) node.open = actionNode.dataset.open === "true";
       syncModulesButton();
-    } else if (action === "toggle-course") handleCourseToggle(actionNode);
-    else if (action === "toggle-download-files") {
+      return true;
+    }
+    if (action === "toggle-course") { handleCourseToggle(actionNode); return true; }
+    if (action === "toggle-download-files") {
       await saveSettings({ downloadCourseFiles: state.settings.downloadCourseFiles !== true });
       render.keepScroll = true;
       render();
-    } else if (action === "set-look") {
+      return true;
+    }
+    if (action === "set-look") {
       await saveLook({ [actionNode.dataset.key]: actionNode.dataset.value });
       render();
-    } else if (action === "clear-previews") {
+      return true;
+    }
+    if (action === "clear-previews") {
       await dash.fileCache?.clear(fileScope()).catch(() => {});
       toast("Saved previews cleared.");
       render();
+      return true;
     }
+    return false;
+  }
+
+  async function handleActionClick(actionNode, action, event) {
+    if (await handleTextbookActions(actionNode, action)) return;
+    if (await handleDetailAndPeekActions(actionNode, action, event)) return;
+    if (await handleAccountAndDataActions(actionNode, action)) return;
+    if (await handleWorkAndCalendarActions(actionNode, action)) return;
+    await handleViewAndSettingsActions(actionNode, action, event);
   }
 
   function handleReadUpdates(actionNode, action) {
