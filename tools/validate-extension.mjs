@@ -19,7 +19,6 @@ const sharedRuntime = backgroundImports
   .join("\n");
 const backgroundRuntime = `${sharedRuntime}\n${background}`;
 const popupHtml = fs.readFileSync(path.join(root, "popup.html"), "utf8");
-const popupJs = fs.readFileSync(path.join(root, "popup.js"), "utf8");
 const popupRuntime = [...popupHtml.matchAll(/<script\s+src="([^"]+\.js)"/g)]
   .map((match) => fs.readFileSync(path.join(root, match[1]), "utf8"))
   .join("\n");

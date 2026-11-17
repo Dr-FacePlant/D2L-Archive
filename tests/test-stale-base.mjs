@@ -2,7 +2,6 @@ import { appSource } from "./app-source.mjs";
 // Changing a checklist tick or read state while a detail layer is open must
 // mark the page underneath stale, so closing the layer shows the new list
 // instead of the old one (reported Oct 11, 2026).
-import fs from "node:fs";
 import path from "node:path";
 
 const root = path.dirname(new URL(import.meta.url).pathname);

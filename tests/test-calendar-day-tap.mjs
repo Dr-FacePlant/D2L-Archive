@@ -4,7 +4,6 @@ import { appSource } from "./app-source.mjs";
 // change the month (reported Oct 11, 2026).
 process.env.TZ = "America/New_York";
 
-import fs from "node:fs";
 import path from "node:path";
 import { loadDashboard } from "./test-dashboard-loader.mjs";
 
