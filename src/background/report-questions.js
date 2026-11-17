@@ -51,7 +51,7 @@
   return lines.join("\n");
 }
 
-function queryGuideMarkdown() {
+function queryGuideOverviewLines() {
   return [
     "# D2L Archive Query Guide",
     "",
@@ -80,7 +80,12 @@ function queryGuideMarkdown() {
     "- `ai-index.jsonl`: compact searchable rows for that course.",
     "- `pages/`: Markdown text snapshots of crawled D2L pages.",
     "- `files/`: downloaded content candidates.",
-    "",
+    ""
+  ];
+}
+
+function queryGuideReferenceLines() {
+  return [
     "## Useful Manifest Columns",
     "",
     "- `source`: item type, such as `assignment`, `quiz`, `gradeItem`, `contentTopic`, `discussionTopic`, `announcement`, or `calendarEvent`.",
@@ -114,7 +119,11 @@ function queryGuideMarkdown() {
     "## Safety",
     "",
     "This export is read-only. It is intended to preserve visible D2L information locally, not submit coursework or modify D2L state."
-  ].join("\n");
+  ];
+}
+
+function queryGuideMarkdown() {
+  return [...queryGuideOverviewLines(), ...queryGuideReferenceLines()].join("\n");
 }
 
   
