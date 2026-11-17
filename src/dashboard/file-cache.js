@@ -53,46 +53,57 @@
     };
   }
 
-  function createFileCache(store = indexedDbStore()) {
-    const accountOf = (scope) => String(scope?.accountId || "").trim();
-    const keyFor = (accountId, url) => `${accountId}|${url}`;
-    const owns = (scope, record) => (record.accountId ? record.accountId === accountOf(scope) : scope.adoptLegacy === true);
+  function accountOf(scope) {
+    return String(scope?.accountId || "").trim();
+  }
 
+  function keyFor(accountId, url) {
+    return `${accountId}|${url}`;
+  }
+
+  function owns(scope, record) {
+    return record.accountId ? record.accountId === accountOf(scope) : scope.adoptLegacy === true;
+  }
+
+  async function adoptLegacyFile(store, scope, url, key, accountId) {
+    if (scope.adoptLegacy !== true) return null;
+    const legacy = await store.get(url);
+    if (!legacy?.blob || legacy.accountId) return null;
+    const record = { ...legacy, url: key, sourceUrl: url, accountId };
+    await store.put(record);
+    await store.remove([url]);
+    return record;
+  }
+
+  async function trimStore(store) {
+    const records = await store.getAll();
+    records.sort((a, b) => b.usedAt - a.usedAt);
+    let total = 0;
+    const drop = [];
+    for (const record of records) {
+      total += record.size || 0;
+      if (total > LIMIT_BYTES) drop.push(record.url);
+    }
+    if (drop.length) await store.remove(drop);
+  }
+
+  function createFileCache(store = indexedDbStore()) {
     async function getFile(scope, url) {
       const accountId = accountOf(scope);
       if (!accountId || !url) return null;
       const key = keyFor(accountId, url);
       let record = await store.get(key);
-      if (!record && scope.adoptLegacy === true) {
-        const legacy = await store.get(url);
-        if (legacy?.blob && !legacy.accountId) {
-          record = { ...legacy, url: key, sourceUrl: url, accountId };
-          await store.put(record);
-          await store.remove([url]);
-        }
-      }
+      if (!record) record = await adoptLegacyFile(store, scope, url, key, accountId);
       if (!record?.blob) return null;
       store.put({ ...record, usedAt: Date.now() }).catch(() => {});
       return record.blob;
-    }
-
-    async function trim() {
-      const records = await store.getAll();
-      records.sort((a, b) => b.usedAt - a.usedAt);
-      let total = 0;
-      const drop = [];
-      for (const record of records) {
-        total += record.size || 0;
-        if (total > LIMIT_BYTES) drop.push(record.url);
-      }
-      if (drop.length) await store.remove(drop);
     }
 
     async function keepFile(scope, url, blob) {
       const accountId = accountOf(scope);
       if (!accountId || !url || !blob || blob.size > MAX_FILE_BYTES) return;
       await store.put({ url: keyFor(accountId, url), sourceUrl: url, accountId, blob, type: blob.type, size: blob.size, usedAt: Date.now() });
-      await trim();
+      await trimStore(store);
     }
 
     // Settings > Storage: how many of this account's files are kept, and a way to drop them.
