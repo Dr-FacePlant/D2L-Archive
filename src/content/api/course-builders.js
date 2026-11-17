@@ -227,77 +227,91 @@
     }
   }
 
-  function buildCourseApiPayload(orgUnitId, allItems, core, quizListResult) {
+  function buildQuizAndDropboxStatuses(quizzes, dropbox) {
+    const dropboxMySubmissions = Array.isArray(dropbox.data)
+      ? Object.fromEntries(dropbox.data.map((folder) => [String(folder.Id), folder._mySubmissionsStatus || "notAttempted"]))
+      : {};
+    const quizAttempts = quizzes.data?.Objects
+      ? Object.fromEntries(quizzes.data.Objects.map((quiz) => [String(quiz.QuizId), quiz._attemptsStatus || "notAttempted"]))
+      : {};
+    const quizAttemptDetails = quizzes.data?.Objects
+      ? Object.fromEntries(quizzes.data.Objects.map((quiz) => [String(quiz.QuizId), quiz._attemptDetailStatuses || {}]))
+      : {};
+    const quizQuestions = quizzes.data?.Objects
+      ? Object.fromEntries(quizzes.data.Objects.map((quiz) => [String(quiz.QuizId), quiz._questionsStatus || "notAttempted"]))
+      : {};
+    return { dropboxMySubmissions, quizAttempts, quizAttemptDetails, quizQuestions };
+  }
+
+  function buildApiStatusMap(core, quizListResult) {
     const {
       toc, quizzes, dropbox, events, gradeDefs, gradeVals,
       gradeMetadataResult, newsResult, discussionResult, checklistResult,
       surveyResult, groupResult, classlistResult, contentProgressResult,
       overviewResult, offeringResult, completionResult, dropboxCategories
     } = core;
+    const subStatuses = buildQuizAndDropboxStatuses(quizzes, dropbox);
+    return {
+      toc: toc.status,
+      quizzes: quizzes.status,
+      quizList: quizListResult?.status ?? "",
+      dropbox: dropbox.status,
+      calendar: events.status,
+      gradeDefinitions: gradeDefs.status,
+      gradeValues: gradeVals.status,
+      gradeSetup: gradeMetadataResult.setupStatus,
+      gradeCategories: gradeMetadataResult.categoriesStatus,
+      finalGrade: gradeMetadataResult.finalGradeStatus,
+      news: newsResult.status,
+      discussionForums: discussionResult.status,
+      checklists: checklistResult.status,
+      surveys: surveyResult.status,
+      groups: groupResult.status,
+      classlist: classlistResult.status,
+      contentUserProgress: contentProgressResult.status,
+      courseOverview: overviewResult.status,
+      courseOverviewAttachment: overviewResult.attachmentStatus,
+      courseOffering: offeringResult.status,
+      contentCompletion: completionResult.status,
+      contentCompletionModules: completionResult.moduleStatus,
+      dropboxCategories: dropboxCategories.status,
+      discussionTopics: discussionResult.topicStatuses,
+      discussionPosts: discussionResult.postStatuses,
+      checklistItems: checklistResult.itemStatuses,
+      checklistCategories: checklistResult.categoryStatuses,
+      surveyAttempts: surveyResult.attemptStatuses,
+      surveyQuestions: surveyResult.questionStatuses,
+      groupsByCategory: groupResult.groupStatuses,
+      ...subStatuses
+    };
+  }
+
+  function buildApiCountsMap(allItems) {
     const count = (source) => allItems.filter((i) => i.source === source).length;
     return {
+      topics: count("contentTopic"), contentModules: count("contentModule"), contentCompletion: count("contentCompletion"),
+      assignmentAttachments: count("assignmentAttachment"), courseOverview: count("courseOverview"),
+      courseOverviewAttachments: count("courseOverviewAttachment"), quizzes: count("quiz"),
+      quizQuestions: count("quizQuestion"), assignments: count("assignment"),
+      assignmentSubmissions: count("assignmentSubmission"), assignmentFeedback: count("assignmentFeedback"),
+      submittedFiles: count("submittedFile"), quizAttempts: count("quizAttempt"), quizListRows: count("quizListRow"),
+      checklistItems: count("checklistItem"), surveys: count("survey"), surveyAttempts: count("surveyAttempt"),
+      surveyQuestions: count("surveyQuestion"), groups: count("group"), classlistEntries: count("classlistEntry"),
+      progressRecords: count("progressRecord"), announcements: count("announcement"),
+      announcementAttachments: count("announcementAttachment"), discussionForums: count("discussionForum"),
+      discussionTopics: count("discussionTopic"), discussionPosts: count("discussionPost"),
+      syllabusPolicies: count("syllabusPolicy"), rubrics: count("rubric"),
+      rubricAssessments: count("rubricFeedback"), calendarEvents: count("calendarEvent"),
+      gradeItems: count("gradeItem"), gradeSetup: count("gradeSetup"), gradeCategories: count("gradeCategory"),
+      finalGrade: count("finalGrade"), gradeFeedback: count("gradeFeedback"), apiProbes: count("apiProbe")
+    };
+  }
+
+  function buildCourseApiPayload(orgUnitId, allItems, core, quizListResult) {
+    return {
       orgUnitId,
-      apiStatus: {
-        toc: toc.status,
-        quizzes: quizzes.status,
-        quizList: quizListResult?.status ?? "",
-        dropbox: dropbox.status,
-        dropboxMySubmissions: Array.isArray(dropbox.data)
-          ? Object.fromEntries(dropbox.data.map((folder) => [String(folder.Id), folder._mySubmissionsStatus || "notAttempted"]))
-          : {},
-        calendar: events.status,
-        gradeDefinitions: gradeDefs.status,
-        gradeValues: gradeVals.status,
-        gradeSetup: gradeMetadataResult.setupStatus,
-        gradeCategories: gradeMetadataResult.categoriesStatus,
-        finalGrade: gradeMetadataResult.finalGradeStatus,
-        news: newsResult.status,
-        discussionForums: discussionResult.status,
-        checklists: checklistResult.status,
-        surveys: surveyResult.status,
-        groups: groupResult.status,
-        classlist: classlistResult.status,
-        contentUserProgress: contentProgressResult.status,
-        courseOverview: overviewResult.status,
-        courseOverviewAttachment: overviewResult.attachmentStatus,
-        courseOffering: offeringResult.status,
-        contentCompletion: completionResult.status,
-        contentCompletionModules: completionResult.moduleStatus,
-        dropboxCategories: dropboxCategories.status,
-        discussionTopics: discussionResult.topicStatuses,
-        discussionPosts: discussionResult.postStatuses,
-        checklistItems: checklistResult.itemStatuses,
-        checklistCategories: checklistResult.categoryStatuses,
-        surveyAttempts: surveyResult.attemptStatuses,
-        surveyQuestions: surveyResult.questionStatuses,
-        groupsByCategory: groupResult.groupStatuses,
-        quizAttempts: quizzes.data?.Objects
-          ? Object.fromEntries(quizzes.data.Objects.map((quiz) => [String(quiz.QuizId), quiz._attemptsStatus || "notAttempted"]))
-          : {},
-        quizAttemptDetails: quizzes.data?.Objects
-          ? Object.fromEntries(quizzes.data.Objects.map((quiz) => [String(quiz.QuizId), quiz._attemptDetailStatuses || {}]))
-          : {},
-        quizQuestions: quizzes.data?.Objects
-          ? Object.fromEntries(quizzes.data.Objects.map((quiz) => [String(quiz.QuizId), quiz._questionsStatus || "notAttempted"]))
-          : {}
-      },
-      counts: {
-        topics: count("contentTopic"), contentModules: count("contentModule"), contentCompletion: count("contentCompletion"),
-        assignmentAttachments: count("assignmentAttachment"), courseOverview: count("courseOverview"),
-        courseOverviewAttachments: count("courseOverviewAttachment"), quizzes: count("quiz"),
-        quizQuestions: count("quizQuestion"), assignments: count("assignment"),
-        assignmentSubmissions: count("assignmentSubmission"), assignmentFeedback: count("assignmentFeedback"),
-        submittedFiles: count("submittedFile"), quizAttempts: count("quizAttempt"), quizListRows: count("quizListRow"),
-        checklistItems: count("checklistItem"), surveys: count("survey"), surveyAttempts: count("surveyAttempt"),
-        surveyQuestions: count("surveyQuestion"), groups: count("group"), classlistEntries: count("classlistEntry"),
-        progressRecords: count("progressRecord"), announcements: count("announcement"),
-        announcementAttachments: count("announcementAttachment"), discussionForums: count("discussionForum"),
-        discussionTopics: count("discussionTopic"), discussionPosts: count("discussionPost"),
-        syllabusPolicies: count("syllabusPolicy"), rubrics: count("rubric"),
-        rubricAssessments: count("rubricFeedback"), calendarEvents: count("calendarEvent"),
-        gradeItems: count("gradeItem"), gradeSetup: count("gradeSetup"), gradeCategories: count("gradeCategory"),
-        finalGrade: count("finalGrade"), gradeFeedback: count("gradeFeedback"), apiProbes: count("apiProbe")
-      },
+      apiStatus: buildApiStatusMap(core, quizListResult),
+      counts: buildApiCountsMap(allItems),
       items: allItems
     };
   }
