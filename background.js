@@ -31,7 +31,9 @@ importScripts(
   "src/background/overlay.js",
   "src/background/probes.js",
   "src/background/downloads.js",
+  "src/background/export-snapshots.js",
   "src/background/export.js",
+  "src/background/export-probes.js",
   "src/background/same-tab-sync.js"
 );
 

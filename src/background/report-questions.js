@@ -1,6 +1,8 @@
 (function initBackgroundReportQuestionsModule(global) {
   const shared = global.D2LExtractorShared;
   const background = global.D2LExtractorBackground ||= {};
+  const { normalizeText, parseColumns, isStudentFeedbackRow, uniqueRows } = shared;
+  const { rowsBySource, rowHasAny } = background;
 
   function studentQuestionsMarkdown(rows, audit) {
   const sourceCounts = rowsBySource(rows);
