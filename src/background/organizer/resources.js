@@ -110,6 +110,35 @@
     return { entities, relationships };
   }
 
+  function createCalendarEventEntity(record, eventId, targetEntityId, columns, createdAt) {
+    return {
+      entityId: calendarEventEntityId(record.courseId, eventId),
+      entityType: "calendarEvent",
+      courseId: record.courseId,
+      canonicalTitle: record.title || `Calendar event ${eventId}`,
+      status: record.status || "scheduled",
+      description: record.description || "",
+      dates: {
+        startAt: normalizedDate(columns.startDateTime) || record.dates?.dueAt || null,
+        endAt: normalizedDate(columns.endDateTime) || null,
+        dueAt: record.dates?.dueAt || normalizedDate(columns.endDateTime || columns.startDateTime)
+      },
+      targetEntityId: targetEntityId || null,
+      sourceEntityType: normalizeText(columns.entityType),
+      eventLabel: normalizeText(columns.eventLabel),
+      courseCode: normalizeText(columns.orgUnitCode),
+      urls: {
+        d2l: normalizeText(columns.viewUrl) || record.urls?.item || "",
+        item: record.urls?.item || ""
+      },
+      attachmentCount: 0,
+      primaryEvidenceId: record.evidenceId,
+      organizerVersion: ORGANIZER_VERSION,
+      createdAt,
+      updatedAt: createdAt
+    };
+  }
+
   function buildCalendarKnowledge(evidenceRecords, options = {}) {
     const createdAt = options.createdAt || new Date().toISOString();
     const entities = [];
@@ -120,33 +149,7 @@
       if (!eventId) continue;
       const columns = record.fields?.columns || {};
       const targetEntityId = calendarTargetEntityId(record);
-      const entity = {
-        entityId: calendarEventEntityId(record.courseId, eventId),
-        entityType: "calendarEvent",
-        courseId: record.courseId,
-        canonicalTitle: record.title || `Calendar event ${eventId}`,
-        status: record.status || "scheduled",
-        description: record.description || "",
-        dates: {
-          startAt: normalizedDate(columns.startDateTime) || record.dates?.dueAt || null,
-          endAt: normalizedDate(columns.endDateTime) || null,
-          dueAt: record.dates?.dueAt || normalizedDate(columns.endDateTime || columns.startDateTime)
-        },
-        targetEntityId: targetEntityId || null,
-        sourceEntityType: normalizeText(columns.entityType),
-        // D2L lists events as "<title> - Due", "- Available", "- Availability Ends".
-        eventLabel: normalizeText(columns.eventLabel),
-        courseCode: normalizeText(columns.orgUnitCode),
-        urls: {
-          d2l: normalizeText(columns.viewUrl) || record.urls?.item || "",
-          item: record.urls?.item || ""
-        },
-        attachmentCount: 0,
-        primaryEvidenceId: record.evidenceId,
-        organizerVersion: ORGANIZER_VERSION,
-        createdAt,
-        updatedAt: createdAt
-      };
+      const entity = createCalendarEventEntity(record, eventId, targetEntityId, columns, createdAt);
       entities.push(entity);
       byEventId.set(`${record.courseId}:${eventId}`, entity);
       relationships.push(relation(entity, record.evidenceId, "sameAs", "matchingCalendarEventId", eventId, createdAt));
