@@ -38,6 +38,38 @@
     return true;
   }
 
+  function groupEventsByDay(events) {
+    const byDay = new Map();
+    for (const event of events) {
+      if (!byDay.has(event.day)) byDay.set(event.day, []);
+      byDay.get(event.day).push(event);
+    }
+    return byDay;
+  }
+
+  function buildCalendarMonthCells(year, month, today, selected, byDay) {
+    const first = new Date(year, month, 1);
+    const start = new Date(year, month, 1 - first.getDay());
+    const cells = [];
+    const weeks = Math.ceil((first.getDay() + new Date(year, month + 1, 0).getDate()) / 7);
+    for (let i = 0; i < weeks * 7; i += 1) {
+      const date = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i);
+      const key = dayKey(date);
+      const dayEvents = byDay.get(key) || [];
+      cells.push({
+        key,
+        day: date.getDate(),
+        inMonth: date.getMonth() === month,
+        today: key === today,
+        selected: key === selected,
+        events: dayEvents.slice(0, 3),
+        more: Math.max(0, dayEvents.length - 3),
+        total: dayEvents.length
+      });
+    }
+    return cells;
+  }
+
   function calendarModel(index, params = {}) {
     const showAll = params.all === "1";
     const hidden = new Set(String(params.hide || "").split(",").filter((id) => index.courseById.has(id)));
@@ -47,26 +79,12 @@
     const monthMatch = String(params.month || "").match(/^(\d{4})-(\d{2})$/);
     const year = monthMatch ? Number(monthMatch[1]) : Number(selected.slice(0, 4));
     const month = monthMatch ? Number(monthMatch[2]) - 1 : Number(selected.slice(5, 7)) - 1;
-    const first = new Date(year, month, 1);
-    const start = new Date(year, month, 1 - first.getDay());
-    const byDay = new Map();
-    for (const event of events) {
-      if (!byDay.has(event.day)) byDay.set(event.day, []);
-      byDay.get(event.day).push(event);
-    }
-    const cells = [];
-    const weeks = Math.ceil((first.getDay() + new Date(year, month + 1, 0).getDate()) / 7);
-    for (let i = 0; i < weeks * 7; i += 1) {
-      const date = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i);
-      const key = dayKey(date);
-      const dayEvents = byDay.get(key) || [];
-      cells.push({ key, day: date.getDate(), inMonth: date.getMonth() === month, today: key === today, selected: key === selected, events: dayEvents.slice(0, 3), more: Math.max(0, dayEvents.length - 3), total: dayEvents.length });
-    }
+    const byDay = groupEventsByDay(events);
+    const cells = buildCalendarMonthCells(year, month, today, selected, byDay);
     const pad = (n) => String(n).padStart(2, "0");
     const prev = new Date(year, month - 1, 1);
     const next = new Date(year, month + 1, 1);
     const selectedDate = toDate(`${selected}T12:00:00`);
-    // Every link keeps the filters; `patch` changes one setting.
     const href = (patch) => {
       const values = { month: `${year}-${pad(month + 1)}`, day: selected, all: showAll ? "1" : "", hide: [...hidden].join(","), ...patch };
       const query = new URLSearchParams(Object.entries(values).filter(([, value]) => value));
