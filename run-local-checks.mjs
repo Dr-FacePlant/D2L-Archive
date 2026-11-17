@@ -19,6 +19,8 @@ const checks = [
   ["shared rows syntax", ["--check", path.join(root, "src/shared/rows.js")]],
   ["shared application contract syntax", ["--check", path.join(root, "src/shared/app-contract.js")]],
   ["shared evidence syntax", ["--check", path.join(root, "src/shared/evidence.js")]],
+  ["assignment parser syntax", ["--check", path.join(root, "src/content/parsers/assignments.js")]],
+  ["assignment feedback parser syntax", ["--check", path.join(root, "src/content/parsers/assignment-feedback.js")]],
   ["content extraction syntax", ["--check", path.join(root, "src/content/extraction.js")]],
   ["content discovery syntax", ["--check", path.join(root, "src/content/discovery.js")]],
   ["content probe frame syntax", ["--check", path.join(root, "src/content/probe-frame.js")]],

@@ -37,58 +37,62 @@ function extractTableRows(source) {
   return rows.filter((row) => row.title && !/^No Category$/i.test(row.title));
 }
 
+function updateAssignmentRecordFromLink(link, byId) {
+  const href = absoluteUrl(link.getAttribute("href"));
+  const assignmentFolderId = href?.match(/[?&]db=(\d+)/)?.[1] || null;
+  if (!assignmentFolderId) return;
+
+  const row = link.closest("tr, li, div");
+  const rowText = normalizeText(row?.textContent || link.textContent);
+  const existing = byId.get(assignmentFolderId) || {
+    source: "assignment",
+    title: "",
+    description: "",
+    url: href,
+    status: "",
+    ids: { courseOrgUnitId: getOrgUnitId(), assignmentFolderId },
+    columns: {},
+    historyUrl: `${window.location.origin}/d2l/lms/dropbox/user/folders_history.d2l?db=${assignmentFolderId}&ou=${getOrgUnitId()}`,
+    feedbackUrl: `${window.location.origin}/d2l/lms/dropbox/user/folder_user_view_feedback.d2l?db=${assignmentFolderId}&ou=${getOrgUnitId()}`
+  };
+
+  const linkText = normalizeText(link.textContent || link.getAttribute("aria-label") || link.title);
+  const aria = normalizeText(link.getAttribute("aria-label"));
+  const candidateTitle = aria
+    .replace(/^Dropbox for /i, "")
+    .replace(/^Submit files to /i, "")
+    .replace(/^Submission history for /i, "")
+    .replace(/^View Feedback$/i, "");
+
+  if (!existing.title && candidateTitle && !/^(Not Submitted|Unread|View Feedback|\d+ Submission)/i.test(candidateTitle)) {
+    existing.title = candidateTitle;
+  }
+
+  existing.description = existing.description.length > rowText.length ? existing.description : rowText;
+  if (/Not Submitted/i.test(rowText)) existing.status = "notSubmitted";
+  if (/\d+\s+Submission/i.test(rowText)) existing.status = "submitted";
+  if (/Unread/i.test(rowText)) existing.feedbackStatus = "unreadFeedback";
+
+  const due = rowText.match(/Due on [A-Z][a-z]{2} \d{1,2}, \d{4} \d{1,2}:\d{2} [AP]M/)?.[0] || null;
+  const availability = rowText.match(/[A-Z][a-z]{2} \d{1,2} - [A-Z][a-z]{2} \d{1,2}/)?.[0] || null;
+  if (due) existing.dueAtText = due;
+  if (availability) existing.availabilityText = availability;
+
+  if (/history/i.test(href)) existing.historyUrl = href;
+  else if (/feedback/i.test(href)) existing.feedbackUrl = href;
+  else existing.url = href;
+
+  if (linkText) existing.columns.lastSeenLinkText = linkText;
+  byId.set(assignmentFolderId, existing);
+}
+
 function extractAssignments() {
   const tableRows = extractTableRows("assignment");
   const folderLinks = queryAll("a[href*='db='], a[href*='folder_submit_files.d2l'], a[href*='folders_history.d2l'], a[href*='folder_user_view_feedback.d2l']");
   const byId = new Map();
 
   for (const link of folderLinks) {
-    const href = absoluteUrl(link.getAttribute("href"));
-    const assignmentFolderId = href?.match(/[?&]db=(\d+)/)?.[1] || null;
-    if (!assignmentFolderId) continue;
-
-    const row = link.closest("tr, li, div");
-    const rowText = normalizeText(row?.textContent || link.textContent);
-    const existing = byId.get(assignmentFolderId) || {
-      source: "assignment",
-      title: "",
-      description: "",
-      url: href,
-      status: "",
-      ids: { courseOrgUnitId: getOrgUnitId(), assignmentFolderId },
-      columns: {},
-      historyUrl: `${window.location.origin}/d2l/lms/dropbox/user/folders_history.d2l?db=${assignmentFolderId}&ou=${getOrgUnitId()}`,
-      feedbackUrl: `${window.location.origin}/d2l/lms/dropbox/user/folder_user_view_feedback.d2l?db=${assignmentFolderId}&ou=${getOrgUnitId()}`
-    };
-
-    const linkText = normalizeText(link.textContent || link.getAttribute("aria-label") || link.title);
-    const aria = normalizeText(link.getAttribute("aria-label"));
-    const candidateTitle = aria
-      .replace(/^Dropbox for /i, "")
-      .replace(/^Submit files to /i, "")
-      .replace(/^Submission history for /i, "")
-      .replace(/^View Feedback$/i, "");
-
-    if (!existing.title && candidateTitle && !/^(Not Submitted|Unread|View Feedback|\d+ Submission)/i.test(candidateTitle)) {
-      existing.title = candidateTitle;
-    }
-
-    existing.description = existing.description.length > rowText.length ? existing.description : rowText;
-    if (/Not Submitted/i.test(rowText)) existing.status = "notSubmitted";
-    if (/\d+\s+Submission/i.test(rowText)) existing.status = "submitted";
-    if (/Unread/i.test(rowText)) existing.feedbackStatus = "unreadFeedback";
-
-    const due = rowText.match(/Due on [A-Z][a-z]{2} \d{1,2}, \d{4} \d{1,2}:\d{2} [AP]M/)?.[0] || null;
-    const availability = rowText.match(/[A-Z][a-z]{2} \d{1,2} - [A-Z][a-z]{2} \d{1,2}/)?.[0] || null;
-    if (due) existing.dueAtText = due;
-    if (availability) existing.availabilityText = availability;
-
-    if (/history/i.test(href)) existing.historyUrl = href;
-    else if (/feedback/i.test(href)) existing.feedbackUrl = href;
-    else existing.url = href;
-
-    if (linkText) existing.columns.lastSeenLinkText = linkText;
-    byId.set(assignmentFolderId, existing);
+    updateAssignmentRecordFromLink(link, byId);
   }
 
   const linkRows = Array.from(byId.values()).filter((item) => item.title || item.description);
@@ -101,7 +105,6 @@ function extractAssignments() {
   return combined.length ? combined : extractAssignmentsFallback();
 }
 
-// Newer D2L renders the folder list without a <table> and without db= links.
 function extractAssignmentsFallback() {
   const seen = new Set();
   return queryAll("a[href*='/dropbox/user/'], a[href*='/dropbox/']")
@@ -160,32 +163,18 @@ function discussionAttachmentRowFromLink(link, context = {}) {
   };
 }
 
+const SUBMISSION_FILE_SELECTOR = [
+  "a[href*='dropbox'][href*='file']", "a[href*='dropbox'][href*='download']", "a[href*='download']",
+  "a[href*='GetFile']", "a[href*='viewFile.d2lfile']", "a[href*='fileId=']", "a[href*='/files/']",
+  "a[href*='/lp/file']", "a[href*='/lp/files']", "a[href*='/content/enforced/']", "a[href$='.pdf']",
+  "a[href$='.doc']", "a[href$='.docx']", "a[href$='.ppt']", "a[href$='.pptx']", "a[href$='.xls']",
+  "a[href$='.xlsx']", "a[href$='.csv']", "a[href$='.zip']"
+].join(", ");
+
 function submittedFileRows(context = {}) {
   const rows = [];
   const seen = new Set();
-  const selector = [
-    "a[href*='dropbox'][href*='file']",
-    "a[href*='dropbox'][href*='download']",
-    "a[href*='download']",
-    "a[href*='GetFile']",
-    "a[href*='viewFile.d2lfile']",
-    "a[href*='fileId=']",
-    "a[href*='/files/']",
-    "a[href*='/lp/file']",
-    "a[href*='/lp/files']",
-    "a[href*='/content/enforced/']",
-    "a[href$='.pdf']",
-    "a[href$='.doc']",
-    "a[href$='.docx']",
-    "a[href$='.ppt']",
-    "a[href$='.pptx']",
-    "a[href$='.xls']",
-    "a[href$='.xlsx']",
-    "a[href$='.csv']",
-    "a[href$='.zip']"
-  ].join(", ");
-
-  for (const link of queryAll(selector)) {
+  for (const link of queryAll(SUBMISSION_FILE_SELECTOR)) {
     const href = absoluteUrl(link.getAttribute("href"));
     const text = normalizeText(link.textContent || link.getAttribute("aria-label") || link.title);
     if (!href || !text || !looksLikeFileUrl(href)) continue;
@@ -282,122 +271,8 @@ function isUsefulAssignmentSubmissionRow(row) {
     || /\b(?:submission id|submissions?|date submitted|submission date|last submitted|status|score|grade|feedback)\b/i.test(columnLabels);
 }
 
-function makeRubricCriterionItem({ recoveredFrom, rubricTitle, criterionName, rubricLevel, scoreText, feedbackText, index, description, url, assignmentFolderId, orgUnitId }) {
-  return {
-    source: "rubricCriterionFeedback",
-    title: criterionName || `${rubricTitle || "Rubric criterion"} ${index + 1}`,
-    description: (description || "").slice(0, 1600),
-    url,
-    status: scoreText || rubricLevel || feedbackText ? "criterionFeedbackVisible" : "criterionVisible",
-    columns: {
-      recoveredFrom,
-      rubricTitle,
-      criterionName,
-      rubricLevel,
-      scoreText,
-      feedbackText: (feedbackText || "").slice(0, 800)
-    },
-    ids: { courseOrgUnitId: orgUnitId, assignmentFolderId, dropboxFolderId: assignmentFolderId, criterionNumber: String(index + 1) }
-  };
-}
-
-function parseRubricCriterionChunks(text) {
-  return normalizeText(text)
-    .split(/(?=\b(?:Criterion|Criteria)\b\s*:?\s*)/i)
-    .map((chunk) => normalizeText(chunk))
-    .filter((chunk) => /\b(?:Criterion|Criteria)\b/i.test(chunk) && /\b(?:Level Achieved|Score|Feedback|Comments)\b/i.test(chunk));
-}
-
-function rubricCriterionRows({ text, rubricTitle, assignmentFolderId, url, orgUnitId }) {
-  const chunks = parseRubricCriterionChunks(text);
-  return chunks.map((chunk, index) => {
-    const criterionName = chunk.match(/\b(?:Criterion|Criteria)\b\s*:?\s*([^]+?)(?=\s+\b(?:Level Achieved|Score|Feedback|Comments|Criterion|Criteria)\b|$)/i)?.[1]?.trim() || "";
-    const rubricLevel = chunk.match(/\bLevel Achieved\b\s*:?\s*([^]+?)(?=\s+\b(?:Score|Feedback|Comments|Criterion|Criteria)\b|$)/i)?.[1]?.trim() || "";
-    const scoreText = chunk.match(/\bScore\b\s*:?\s*(?:\d+(?:\.\d+)?\s*\/\s*\d+(?:\.\d+)?|\d+(?:\.\d+)?\s*(?:point|points|pts)|\d+(?:\.\d+)?%)/i)?.[0] || "";
-    const feedbackText = chunk.match(/\b(?:Feedback|Comments)\b\s*:?\s*([^]+?)(?=\s+\b(?:Criterion|Criteria|Score|Level Achieved)\b|$)/i)?.[1]?.trim() || "";
-    return makeRubricCriterionItem({
-      recoveredFrom: "assignmentFeedbackPageRubricCriterion",
-      rubricTitle, criterionName, rubricLevel, scoreText, feedbackText, index,
-      description: chunk,
-      url: url || (typeof window !== "undefined" ? window.location?.href : ""),
-      assignmentFolderId,
-      orgUnitId: orgUnitId || (typeof getOrgUnitId === "function" ? getOrgUnitId() : "")
-    });
-  });
-}
-
-function extractAssignmentFeedback() {
-  const rows = [];
-  const text = pageText();
-  const assignmentFolderId = assignmentFolderIdFromUrl();
-  const parseRubricCriteria = (rubricText, rubricTitle) => rubricCriterionRows({
-    text: rubricText, rubricTitle, assignmentFolderId, url: window.location.href, orgUnitId: getOrgUnitId()
-  });
-  const rubricCriterionRowsFromTable = (node, rubricTitle) => {
-    return Array.from(node.querySelectorAll?.("tr") || [])
-      .slice(1)
-      .map((row, index) => {
-        const cells = Array.from(row.children || []);
-        const rowText = normalizeText(row.textContent || "");
-        if (!rowText || !/\b(?:Score|Feedback|Comments|Level|Achieved|\d+(?:\.\d+)?\s*\/\s*\d+)/i.test(rowText)) return null;
-        if (/^(Criteria|Criterion|Level|Score|Feedback|Comments)\b/i.test(rowText) && cells.length < 2) return null;
-        const criterionName = normalizeText(cells[0]?.textContent || rowText.match(/^([^]+?)(?=\s+\b(?:Level|Score|Feedback|Comments)\b|\s+\d+(?:\.\d+)?\s*\/\s*\d+)/i)?.[1] || "").slice(0, 240);
-        const rubricLevel = normalizeText(cells.find((cell) => /\b(?:Level|Achieved|Exemplary|Excellent|Proficient|Good|Needs|Unsatisfactory)\b/i.test(cell.textContent || ""))?.textContent || "");
-        const scoreText = rowText.match(/\b(?:Score\b\s*:?\s*)?(?:\d+(?:\.\d+)?\s*\/\s*\d+(?:\.\d+)?|\d+(?:\.\d+)?\s*(?:point|points|pts)|\d+(?:\.\d+)?%)/i)?.[0] || "";
-        const feedbackText = rowText.match(/\b(?:Feedback|Comments)\b\s*:?\s*([^]+?)(?=\s+\b(?:Criterion|Criteria|Score|Level Achieved)\b|$)/i)?.[1]?.trim() || "";
-        return makeRubricCriterionItem({
-          recoveredFrom: "assignmentFeedbackPageRubricTableRow",
-          rubricTitle, criterionName, rubricLevel, scoreText, feedbackText, index,
-          description: rowText, url: window.location.href, assignmentFolderId, orgUnitId: getOrgUnitId()
-        });
-      })
-      .filter(Boolean);
-  };
-  const rubricBlocks = queryAll("[class*='rubric'], [id*='rubric'], a[href*='rubric']")
-    .flatMap((node) => {
-      const rubricText = normalizeText(node.textContent || "");
-      const rubricLevel = rubricText.match(/Level Achieved:\s*([^]+?)(?=\s+(?:Overall Feedback|Feedback|Comments|Score|Grade|Rubric|Level Achieved)\b|$)/i)?.[1]?.trim() || "";
-      const rubricTitle = normalizeText(node.querySelector?.("h1, h2, h3, a")?.textContent || rubricText).slice(0, 180);
-      const rubricRow = {
-        source: "rubricFeedback",
-        title: rubricTitle,
-        description: rubricText,
-        url: absoluteUrl(node.getAttribute?.("href")),
-        columns: {
-          recoveredFrom: "assignmentFeedbackPageRubricBlock",
-          rubricLevel
-        },
-        ids: { courseOrgUnitId: getOrgUnitId(), assignmentFolderId, dropboxFolderId: assignmentFolderId }
-      };
-      return [rubricRow, ...rubricCriterionRows(rubricText, rubricTitle), ...rubricCriterionRowsFromTable(node, rubricTitle)];
-    })
-    .filter((item) => item.title);
-
-  const fileLinks = submittedFileRows({ assignmentFolderId, recoveredFrom: "assignmentFeedbackPage" });
-  const labelValues = compactLabelValueRows(text, ["Overall Feedback", "Feedback", "Comments", "Score", "Grade", "Rubric", "Level Achieved"]);
-  const scoreText = text.match(/\b(?:Score|Grade|Overall Grade|Feedback)\b\s*:?\s*(?:\d+(?:\.\d+)?\s*\/\s*\d+(?:\.\d+)?|\d+(?:\.\d+)?%|Complete|Incomplete)/i)?.[0] || "";
-  const feedbackSummary = /feedback|score|grade|rubric|comment/i.test(text)
-    ? [{
-        source: "assignmentFeedback",
-        title: headingText(1) || "Assignment feedback",
-        description: text.slice(0, 2000),
-        url: window.location.href,
-        status: /no feedback|feedback is not available|not graded/i.test(text) ? "noFeedbackVisible" : "feedbackPageVisible",
-        columns: {
-          recoveredFrom: "assignmentFeedbackPage",
-          scoreText,
-          submittedFileCount: fileLinks.length,
-          ...labelValues
-        },
-        ids: { courseOrgUnitId: getOrgUnitId(), assignmentFolderId, dropboxFolderId: assignmentFolderId }
-      }]
-    : [];
-
-  return [...rows, ...rubricBlocks, ...feedbackSummary, ...fileLinks];
-}
-
-
-  Object.assign(content, { compactLabelValueRows, makeRubricCriterionItem, rubricCriterionRows,
+  Object.assign(content, {
+    compactLabelValueRows,
     extractTableRows,
     extractAssignments,
     extractAssignmentsFallback,
@@ -405,10 +280,8 @@ function extractAssignmentFeedback() {
     isDiscussionAttachmentUrl,
     discussionAttachmentRowFromLink,
     submittedFileRows,
-    compactLabelValueRows,
     generatedAssignmentProbeLinks,
     isUsefulAssignmentSubmissionRow,
-    extractAssignmentSubmissions,
-    extractAssignmentFeedback
+    extractAssignmentSubmissions
   });
 })();

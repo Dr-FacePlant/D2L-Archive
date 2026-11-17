@@ -48,6 +48,7 @@
         "src/content/user-profile.js",
         "src/content/file-links.js",
         "src/content/parsers/assignments.js",
+        "src/content/parsers/assignment-feedback.js",
         "src/content/parsers/announcements.js",
         "src/content/parsers/discussions.js",
         "src/content/parsers/quizzes-grades.js",
