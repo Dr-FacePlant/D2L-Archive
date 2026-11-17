@@ -8,6 +8,7 @@ const _evidencePath = new URL("../../src/shared/evidence.js", import.meta.url);
 const _vmContext = { globalThis: { D2LExtractorShared: _shared }, JSON, Date, String };
 vm.runInNewContext(fs.readFileSync(_rowsPath, "utf8"), _vmContext);
 vm.runInNewContext(fs.readFileSync(_evidencePath, "utf8"), _vmContext);
+
 export const apiProbeBreakdown = _shared.apiProbeBreakdown;
 export const apiProbeSummaryRows = _shared.apiProbeSummaryRows;
 export const apiProbeLegendLines = _shared.apiProbeLegendLines;
@@ -15,6 +16,15 @@ export const stableRowId = _shared.stableRowId;
 export const rowSignature = _shared.rowSignature;
 export const toJsonl = _shared.toJsonl;
 export const parseColumns = _shared.parseColumns;
+export const createExportSummary = _shared.createExportSummary;
+export const feedbackSignal = _shared.feedbackSignal;
+export const summarizeChanges = _shared.summarizeChanges;
+export const emptyChangeReport = _shared.emptyChangeReport;
+export const diffRow = _shared.diffRow;
+export const aiIndexRecord = _shared.aiIndexRecord;
+export const recordTextSnippet = _shared.recordTextSnippet;
+export const INDEXED_COLUMN_KEYS = _shared.INDEXED_COLUMN_KEYS;
+export const FEEDBACK_SOURCES = _shared.FEEDBACK_SOURCES;
 
 export function loadArchiveManifest(input, usage) {
   if (!input) {
@@ -50,246 +60,85 @@ export function parseJson(value) {
   }
 }
 
-export function createExportSummary(sourceManifest, parse = parseJson) {
-  const sourceRows = Array.isArray(sourceManifest?.rows) ? sourceManifest.rows : [];
-  return {
-    exportedAt: sourceManifest?.exportedAt || sourceManifest?.audit?.generatedAt || "",
-    rows: sourceRows.map((row) => ({
-      id: stableRowId(row, parse),
-      signature: rowSignature(row),
-      courseOrgUnitId: row.courseOrgUnitId || "",
-      courseTitle: row.courseTitle || "",
-      source: row.source || "",
-      title: row.title || "",
-      status: row.status || "",
-      dueAtText: row.dueAtText || "",
-      availabilityText: row.availabilityText || "",
-      itemUrl: row.itemUrl || "",
-      localPath: row.localPath || "",
-      columns: row.columns || ""
-    })).filter((row) => row.id)
-  };
-}
-
-export function feedbackSignal(row, parse = parseJson) {
-  const columns = parse(row.columns);
-  if (["assignmentFeedback", "gradeFeedback", "quizAttempt", "quizSubmission", "quizAttemptRow", "quizSummaryRow", "discussionFeedback", "rubricFeedback", "rubricCriterionFeedback"].includes(row.source)) {
-    return row.source;
+export function manifestFromSource(source, deps = {}) {
+  const resolve = deps.resolve || path.resolve;
+  const existsSync = deps.existsSync || fs.existsSync;
+  const readFileSync = deps.readFileSync || fs.readFileSync;
+  const target = resolve(source);
+  const manifestPath = target.endsWith("manifest.json") ? target : path.join(target, "manifest.json");
+  if (!existsSync(manifestPath)) return null;
+  try {
+    const raw = JSON.parse(readFileSync(manifestPath, "utf8"));
+    return {
+      exportedAt: raw.exportedAt || raw.audit?.generatedAt || "",
+      rows: Array.isArray(raw.rows) ? raw.rows : []
+    };
+  } catch {
+    return null;
   }
-  const text = [
-    columns.feedbackText,
-    columns.rubricText,
-    columns.commentsAndAssessments
-  ].filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
-  return /feedback|comment|rubric|assessment/i.test(text) ? text : "";
 }
 
-function emptyChangeReport(previous, current) {
-  return {
-    available: false,
-    previousExportedAt: previous?.exportedAt || "",
-    currentExportedAt: current?.exportedAt || "",
-    reason: "No previous export rows were available for offline comparison.",
-    totals: { added: 0, removed: 0, changed: 0, newlyGraded: 0, newlyDue: 0, dueChanged: 0, availabilityChanged: 0, newlyDownloaded: 0, newlyFeedback: 0 },
-    added: [],
-    removed: [],
-    changed: [],
-    newlyGraded: [],
-    newlyDue: [],
-    dueChanged: [],
-    availabilityChanged: [],
-    newlyDownloaded: [],
-    newlyFeedback: []
-  };
+function appendChangeList(lines, title, items, rowFormatter) {
+  if (!items.length) return;
+  lines.push("", `### ${title} (${items.length})`);
+  items.slice(0, 50).forEach((entry) => lines.push(rowFormatter(entry)));
 }
 
-function diffRow(before, row, state, normalize, parse) {
-  state.changed.push({ before, after: row });
-  const beforeColumns = parse(before.columns);
-  const afterColumns = parse(row.columns);
-  const beforeGrade = `${beforeColumns.displayedGrade || beforeColumns.pointsEarned || beforeColumns.points || ""}`.trim();
-  const afterGrade = `${afterColumns.displayedGrade || afterColumns.pointsEarned || afterColumns.points || ""}`.trim();
-  if (!beforeGrade && afterGrade) state.newlyGraded.push(row);
-  if (!before.dueAtText && row.dueAtText) state.newlyDue.push(row);
-  if (before.dueAtText && row.dueAtText && normalize(before.dueAtText) !== normalize(row.dueAtText)) state.dueChanged.push({ before, after: row });
-  if (normalize(before.availabilityText || "") !== normalize(row.availabilityText || "")) state.availabilityChanged.push({ before, after: row });
-  if (!before.localPath && row.localPath) state.newlyDownloaded.push(row);
-  if (!feedbackSignal(before, parse) && feedbackSignal(row, parse)) state.newlyFeedback.push(row);
+function rowTitle(row) {
+  return `${row.source || "row"}: ${row.title || row.id}`;
 }
 
-export function summarizeChanges(previous, current, normalize = (s) => String(s || "").trim(), parse = parseJson) {
-  if (!previous?.rows?.length) return emptyChangeReport(previous, current);
-
-  const previousById = new Map(previous.rows.map((row) => [row.id, row]));
-  const currentById = new Map(current.rows.map((row) => [row.id, row]));
-  const state = {
-    added: [], removed: [], changed: [], newlyGraded: [], newlyDue: [],
-    dueChanged: [], availabilityChanged: [], newlyDownloaded: [], newlyFeedback: []
-  };
-
-  for (const row of current.rows) {
-    const before = previousById.get(row.id);
-    if (!before) {
-      state.added.push(row);
-      if (feedbackSignal(row, parse)) state.newlyFeedback.push(row);
-      continue;
-    }
-    if (before.signature !== row.signature) {
-      diffRow(before, row, state, normalize, parse);
-    }
+export function changeReportMarkdown(report) {
+  if (!report.available) {
+    return [
+      "# Offline Change Detection Report",
+      "",
+      `- Status: ${report.reason}`,
+      `- Current export: ${report.currentExportedAt || "unknown"}`
+    ].join("\n");
   }
-
-  for (const row of previous.rows) {
-    if (!currentById.has(row.id)) state.removed.push(row);
-  }
-
-  const limit = (items) => items.slice(0, 200);
-  return {
-    available: true,
-    previousExportedAt: previous.exportedAt || "",
-    currentExportedAt: current.exportedAt || "",
-    totals: {
-      added: state.added.length,
-      removed: state.removed.length,
-      changed: state.changed.length,
-      newlyGraded: state.newlyGraded.length,
-      newlyDue: state.newlyDue.length,
-      dueChanged: state.dueChanged.length,
-      availabilityChanged: state.availabilityChanged.length,
-      newlyDownloaded: state.newlyDownloaded.length,
-      newlyFeedback: state.newlyFeedback.length
-    },
-    added: limit(state.added),
-    removed: limit(state.removed),
-    changed: limit(state.changed),
-    newlyGraded: limit(state.newlyGraded),
-    newlyDue: limit(state.newlyDue),
-    dueChanged: limit(state.dueChanged),
-    availabilityChanged: limit(state.availabilityChanged),
-    newlyDownloaded: limit(state.newlyDownloaded),
-    newlyFeedback: limit(state.newlyFeedback)
-  };
-}
-
-export function manifestFromSource(input, deps = {}) {
-  const fileSys = deps.fs || fs;
-  const pathMod = deps.path || path;
-  const recover = deps.recoverManifestFromArchive || (() => ({}));
-  const inputIsDirectory = fileSys.statSync(input).isDirectory();
-  const primary = inputIsDirectory ? pathMod.join(input, "manifest.json") : input;
-  if (fileSys.existsSync(primary)) return JSON.parse(fileSys.readFileSync(primary, "utf8"));
-  const recovered = inputIsDirectory ? pathMod.join(input, "recovered-manifest.json") : "";
-  if (recovered && fileSys.existsSync(recovered)) return JSON.parse(fileSys.readFileSync(recovered, "utf8"));
-  if (inputIsDirectory) return recover(input);
-  throw new Error(`No manifest found for ${input}`);
-}
-
-export function changeReportMarkdown(changeReport) {
-  const itemLine = (row) => `- ${row.courseTitle || row.courseOrgUnitId || "Unknown course"} | ${row.source || "item"} | ${row.title || "(untitled)"}`;
-  const changedLine = (entry) => {
-    const before = entry.before || {};
-    const after = entry.after || {};
-    return `- ${after.courseTitle || after.courseOrgUnitId || "Unknown course"} | ${after.source || "item"} | ${after.title || "(untitled)"} | due: ${before.dueAtText || "(blank)"} -> ${after.dueAtText || "(blank)"} | status: ${before.status || "(blank)"} -> ${after.status || "(blank)"}`;
-  };
 
   const lines = [
-    "# D2L Change Report", "",
-    `Current export: ${changeReport.currentExportedAt || ""}`,
-    `Previous export: ${changeReport.previousExportedAt || ""}`, ""
+    "# Offline Change Detection Report",
+    "",
+    `- Previous export: ${report.previousExportedAt || "none"}`,
+    `- Current export: ${report.currentExportedAt}`,
+    `- Added: ${report.totals.added}`,
+    `- Removed: ${report.totals.removed}`,
+    `- Changed: ${report.totals.changed}`,
+    `- Newly graded: ${report.totals.newlyGraded}`,
+    `- Newly due: ${report.totals.newlyDue}`,
+    `- Due date changed: ${report.totals.dueChanged}`,
+    `- Availability changed: ${report.totals.availabilityChanged}`,
+    `- Newly downloaded files: ${report.totals.newlyDownloaded}`,
+    `- Newly available feedback: ${report.totals.newlyFeedback}`
   ];
 
-  if (!changeReport.available) {
-    lines.push("No previous export summary was available for comparison.", "", `Reason: ${changeReport.reason || "unknown"}`);
-    return lines.join("\n");
-  }
+  appendChangeList(lines, "Added Evidence", report.added, (row) => `- ${rowTitle(row)}`);
+  appendChangeList(lines, "Removed Evidence", report.removed, (row) => `- ${rowTitle(row)}`);
+  appendChangeList(lines, "Newly Graded", report.newlyGraded, (row) => `- ${rowTitle(row)}`);
+  appendChangeList(lines, "Newly Due", report.newlyDue, (row) => `- ${rowTitle(row)} (due: ${row.dueAtText || "set"})`);
+  appendChangeList(lines, "Due Date Changes", report.dueChanged, ({ before, after }) => `- ${rowTitle(after)}: "${before.dueAtText || ""}" -> "${after.dueAtText || ""}"`);
+  appendChangeList(lines, "Availability Changes", report.availabilityChanged, ({ before, after }) => `- ${rowTitle(after)}: "${before.availabilityText || ""}" -> "${after.availabilityText || ""}"`);
+  appendChangeList(lines, "Newly Downloaded Files", report.newlyDownloaded, (row) => `- ${rowTitle(row)} -> ${row.localPath}`);
+  appendChangeList(lines, "Newly Available Feedback / Results", report.newlyFeedback, (row) => `- ${rowTitle(row)}`);
+  appendChangeList(lines, "Other Changed Rows", report.changed, ({ before, after }) => `- ${rowTitle(after)} (signature changed)`);
 
-  lines.push(
-    "## Totals", "",
-    `- Added: ${changeReport.totals.added}`,
-    `- Removed: ${changeReport.totals.removed}`,
-    `- Changed: ${changeReport.totals.changed}`,
-    `- Newly graded: ${changeReport.totals.newlyGraded}`,
-    `- Newly due: ${changeReport.totals.newlyDue}`,
-    `- Due date changed: ${changeReport.totals.dueChanged || 0}`,
-    `- Availability changed: ${changeReport.totals.availabilityChanged || 0}`,
-    `- Newly downloaded: ${changeReport.totals.newlyDownloaded}`,
-    `- New feedback/results: ${changeReport.totals.newlyFeedback || 0}`, ""
-  );
-
-  const sections = [
-    ["New Feedback / Results", changeReport.newlyFeedback || [], itemLine],
-    ["Newly Graded", changeReport.newlyGraded, itemLine],
-    ["Newly Due", changeReport.newlyDue, itemLine],
-    ["Due Date Changed", changeReport.dueChanged || [], changedLine],
-    ["Availability Changed", changeReport.availabilityChanged || [], changedLine],
-    ["Added", changeReport.added, itemLine],
-    ["Removed", changeReport.removed, itemLine],
-    ["Changed", changeReport.changed, changedLine],
-    ["Newly Downloaded", changeReport.newlyDownloaded, itemLine]
-  ];
-
-  for (const [title, items, formatter] of sections) {
-    lines.push(`## ${title}`, "");
-    if (!items.length) lines.push("- None");
-    else items.forEach((item) => lines.push(formatter(item)));
-    lines.push("");
-  }
   return lines.join("\n");
-}
-
-const INDEXED_COLUMN_KEYS = [
-  "module", "topicType", "displayedGrade", "points", "commentsAndAssessments",
-  "feedbackText", "rubricText", "criterionName", "rubricLevel", "scoreText",
-  "status", "assignmentTitle", "quizTitle", "discussionTopicId", "author",
-  "postSubject", "calendarEventTitle", "contentTitle", "linkKind",
-  "recoveredFrom", "toolSource", "emptyStateText", "blockedText"
-];
-
-function recordTextSnippet(row, columns) {
-  const parts = [
-    row.title, row.description, row.status, row.gate, row.type, row.dueAtText, row.availabilityText,
-    ...INDEXED_COLUMN_KEYS.map((k) => columns[k]),
-    row.localPageTextSnippet
-  ];
-  return parts.filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
-}
-
-export function aiIndexRecord(row, parse = parseJson) {
-  const columns = parse(row.columns);
-  const ids = parse(row.ids);
-  return {
-    id: stableRowId(row, parse),
-    courseOrgUnitId: row.courseOrgUnitId || "",
-    courseTitle: row.courseTitle || "",
-    source: row.source || "",
-    title: row.title || "",
-    status: row.status || "",
-    type: row.type || "",
-    linkKind: columns.linkKind || "",
-    text: recordTextSnippet(row, columns),
-    dueAtText: row.dueAtText || "",
-    availabilityText: row.availabilityText || "",
-    itemUrl: row.itemUrl || "",
-    localPath: row.localPath || "",
-    localPageTextPath: row.localPageTextPath || "",
-    localPageTextSnippet: row.localPageTextSnippet || "",
-    ids,
-    columns
-  };
 }
 
 export function createRecordTools(deps = {}) {
   const parse = deps.parseJson || parseJson;
   const normalize = deps.normalizeText || ((s) => String(s || "").trim());
   return {
-    stableRowId: (row) => stableRowId(row, parse),
+    stableRowId: (row) => stableRowId(row),
     rowSignature,
-    createExportSummary: (manifest) => createExportSummary(manifest, parse),
-    feedbackSignal: (row) => feedbackSignal(row, parse),
-    summarizeChanges: (prev, curr) => summarizeChanges(prev, curr, normalize, parse),
+    createExportSummary: (manifest) => createExportSummary(manifest),
+    feedbackSignal: (row) => feedbackSignal(row),
+    summarizeChanges: (prev, curr) => summarizeChanges(prev, curr, normalize),
     manifestFromSource: (source) => manifestFromSource(source, deps),
     changeReportMarkdown,
-    aiIndexRecord: (row) => aiIndexRecord(row, parse),
+    aiIndexRecord: (row) => aiIndexRecord(row),
     toJsonl
   };
 }
