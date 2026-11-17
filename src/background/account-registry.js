@@ -43,14 +43,12 @@
     }
   }
 
-  function emptyState() {
-    return { version: 1, accounts: {}, legacy: null };
+  function canAdopt(legacy, accountId) {
+    if (legacy?.state !== "quarantined" || !accountId) return false;
+    return legacy.reason !== "multiple-accounts" || (legacy.candidates || []).map(normalizeText).includes(accountId);
   }
-
-  function validState(value) {
-    return value && typeof value === "object" && value.version === 1
-      && value.accounts && typeof value.accounts === "object" && !Array.isArray(value.accounts);
-  }
+  const emptyState = () => ({ version: 1, accounts: {}, legacy: null });
+  const validState = (v) => v && typeof v === "object" && v.version === 1 && v.accounts && typeof v.accounts === "object" && !Array.isArray(v.accounts);
 
   // Maps each D2L account to its own archive database. The original shared
   // database is bound in place to the account that built it (never copied).
@@ -249,12 +247,7 @@
       return state.legacy?.state === "bound" ? normalizeText(state.legacy.accountId) : "";
     }
 
-    // A quarantined legacy archive may be adopted by the signed-in account: any
-    // account when there was no provenance, only a recorded owner when it mixes accounts.
-    function canAdopt(legacy, accountId) {
-      if (legacy?.state !== "quarantined" || !accountId) return false;
-      return legacy.reason !== "multiple-accounts" || (legacy.candidates || []).map(normalizeText).includes(accountId);
-    }
+
 
     async function legacyAdoptionStatus(accountId) {
       await ensureReady();
@@ -317,8 +310,6 @@
       if (!id) throw new AccountError("ACCOUNT_UNKNOWN", "No account for account-scoped state.");
       await storage.set({ [`${baseKey}:${id}`]: value });
     }
-
-    // Dashboard entry point: the account the prompt was shown for must still be the active one.
     async function adoptLegacyForActive(expectedAccountId) {
       const active = await activeAccountId();
       if (!active) throw new AccountError("ACCOUNT_UNKNOWN", "The signed-in D2L account is not known, so nothing was adopted.");
@@ -332,34 +323,25 @@
   let registry = null;
 
   function defaultRegistry() {
-    registry ||= createAccountRegistry({
+    return (registry ||= createAccountRegistry({
       storage: global.chrome.storage.local,
-      listDatabases: async () => (await global.indexedDB.databases()).map((database) => database.name),
-      openRepository: async (dbName) => background.createArchiveRepository(
-        background.createIndexedDbArchiveAdapter({ indexedDB: global.indexedDB, databaseName: dbName }),
-        { databaseName: dbName }
-      )
-    });
-    return registry;
+      listDatabases: async () => (await global.indexedDB.databases()).map((d) => d.name),
+      openRepository: async (dbName) => background.createArchiveRepository(background.createIndexedDbArchiveAdapter({ indexedDB: global.indexedDB, databaseName: dbName }), { databaseName: dbName })
+    }));
   }
 
-  function configureAccountRegistry(next) {
-    registry = next;
-  }
-
-  const repositoryForAccount = (accountId) => defaultRegistry().repositoryFor(accountId);
-  const activeArchiveRepository = () => defaultRegistry().activeRepository();
-  const activeArchiveAccountId = () => defaultRegistry().activeAccountId();
-  const describeAccounts = () => defaultRegistry().describe();
-  const legacyOwnerAccountId = () => defaultRegistry().legacyOwnerAccountId();
-  const legacyAdoptionStatus = (accountId) => defaultRegistry().legacyAdoptionStatus(accountId);
-  const adoptLegacyArchive = (expectedAccountId) => defaultRegistry().adoptLegacyForActive(expectedAccountId);
-  const readAccountScoped = (baseKey, accountId) => defaultRegistry().readAccountScoped(baseKey, accountId);
-  const writeAccountScoped = (baseKey, accountId, value) => defaultRegistry().writeAccountScoped(baseKey, accountId, value);
+  function configureAccountRegistry(next) { registry = next; }
 
   Object.assign(background, {
     AccountError, accountKeyFor, dbNameFor, parseDbName, createAccountRegistry, configureAccountRegistry,
-    repositoryForAccount, activeArchiveRepository, activeArchiveAccountId, describeAccounts,
-    legacyOwnerAccountId, legacyAdoptionStatus, adoptLegacyArchive, readAccountScoped, writeAccountScoped
+    repositoryForAccount: (id) => defaultRegistry().repositoryFor(id),
+    activeArchiveRepository: () => defaultRegistry().activeRepository(),
+    activeArchiveAccountId: () => defaultRegistry().activeAccountId(),
+    describeAccounts: () => defaultRegistry().describe(),
+    legacyOwnerAccountId: () => defaultRegistry().legacyOwnerAccountId(),
+    legacyAdoptionStatus: (id) => defaultRegistry().legacyAdoptionStatus(id),
+    adoptLegacyArchive: (id) => defaultRegistry().adoptLegacyForActive(id),
+    readAccountScoped: (k, id) => defaultRegistry().readAccountScoped(k, id),
+    writeAccountScoped: (k, id, v) => defaultRegistry().writeAccountScoped(k, id, v)
   });
 })(globalThis);
