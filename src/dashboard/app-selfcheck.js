@@ -28,15 +28,10 @@
     await render(hash);
   }
 
-  async function runSelfCheck() {
-    if (chrome.runtime.getManifest().update_url) return;
-    const errors = [];
-    window.addEventListener("error", (event) => errors.push(String(event.message || event.error)));
-    window.addEventListener("unhandledrejection", (event) => errors.push(String(event.reason?.message || event.reason)));
-    await (document.fonts?.ready || Promise.resolve());
+  function captureScreenLook() {
     const body = getComputedStyle(document.body);
     const primary = document.querySelector(".btn-primary") || document.querySelector("#sync-button");
-    const look = {
+    return {
       fontFamily: body.fontFamily,
       plexLoaded: document.fonts ? document.fonts.check('14px "IBM Plex Sans"') : null,
       ground: body.backgroundColor,
@@ -44,26 +39,37 @@
       navWidth: getComputedStyle(document.querySelector(".sidenav")).width,
       primaryButton: primary ? getComputedStyle(primary).backgroundColor : ""
     };
+  }
+
+  function collectScreenResult(route) {
+    const root = dash.isLayerRoute(route) ? detailRoot() : main();
+    return {
+      route,
+      screen: root.querySelector("[data-screen]")?.getAttribute("data-screen") || "",
+      title: root.querySelector("h1")?.textContent.trim() || "",
+      text: root.innerText.slice(0, route.startsWith("#/calendar") || route.startsWith("#/resources") || route.startsWith("#/grades") ? 20000 : 8000),
+      links: [...root.querySelectorAll("a[href]")].map((a) => [a.textContent.trim().replace(/\s+/g, " ").slice(0, 120), a.getAttribute("href"), a.hasAttribute("data-d2l-link") ? 1 : 0]),
+      facts: [...root.querySelectorAll(".fact")].map((fact) => [fact.querySelector(".k")?.textContent.trim() || "", fact.querySelector(".v")?.textContent.trim() || ""]),
+      rows: [...root.querySelectorAll("[data-entity]")].map((row) => [row.getAttribute("data-entity"), row.innerText.replace(/\s+/g, " ").trim().slice(0, 300)]),
+      groups: [...root.querySelectorAll(".group-row")].map((row) => row.innerText.replace(/\s+/g, " ").trim()),
+      promo: route === "#/" ? root.querySelector(".promo")?.innerText || "" : undefined
+    };
+  }
+
+  async function runSelfCheck() {
+    if (chrome.runtime.getManifest().update_url) return;
+    const errors = [];
+    window.addEventListener("error", (event) => errors.push(String(event.message || event.error)));
+    window.addEventListener("unhandledrejection", (event) => errors.push(String(event.reason?.message || event.reason)));
+    await (document.fonts?.ready || Promise.resolve());
+    const look = captureScreenLook();
     const routes = selfCheckRoutes(state.index);
     const results = [];
-    // Render each route directly: Chrome silently drops history.replaceState
-    // after ~100 rapid calls, which left most screens rendering a stale hash.
     state.selfChecking = true;
     for (const route of routes) {
       await render(route);
       if (route.startsWith("#/search")) await waitForSearch(route);
-      const root = dash.isLayerRoute(route) ? detailRoot() : main();
-      results.push({
-        route,
-        screen: root.querySelector("[data-screen]")?.getAttribute("data-screen") || "",
-        title: root.querySelector("h1")?.textContent.trim() || "",
-        text: root.innerText.slice(0, route.startsWith("#/calendar") || route.startsWith("#/resources") || route.startsWith("#/grades") ? 20000 : 8000),
-        links: [...root.querySelectorAll("a[href]")].map((a) => [a.textContent.trim().replace(/\s+/g, " ").slice(0, 120), a.getAttribute("href"), a.hasAttribute("data-d2l-link") ? 1 : 0]),
-        facts: [...root.querySelectorAll(".fact")].map((fact) => [fact.querySelector(".k")?.textContent.trim() || "", fact.querySelector(".v")?.textContent.trim() || ""]),
-        rows: [...root.querySelectorAll("[data-entity]")].map((row) => [row.getAttribute("data-entity"), row.innerText.replace(/\s+/g, " ").trim().slice(0, 300)]),
-        groups: [...root.querySelectorAll(".group-row")].map((row) => row.innerText.replace(/\s+/g, " ").trim()),
-        promo: route === "#/" ? root.querySelector(".promo")?.innerText || "" : undefined
-      });
+      results.push(collectScreenResult(route));
     }
     state.selfChecking = false;
     const report = {
