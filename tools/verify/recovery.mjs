@@ -312,25 +312,18 @@ export function recoverManifestFromArchive({ root, fs, path, archiveRoot, parseJ
     ...downloadedFiles.map((file) => parseRecoveredFileHelper(file, path, archiveRoot))
   ];
   return {
-    exportedAt: new Date().toISOString(),
-    phase: "recovered",
-    recovered: true,
+    exportedAt: new Date().toISOString(), phase: "recovered", recovered: true,
     recovery: {
       reason: "manifest.json was missing; reconstructed from page snapshots and downloaded files",
-      pageSnapshots: pageFiles.length,
-      downloadedFiles: downloadedFiles.length
+      pageSnapshots: pageFiles.length, downloadedFiles: downloadedFiles.length
     },
     rows,
     audit: {
       generatedAt: new Date().toISOString(),
       totals: {
-        pagesVisited: pageFiles.length,
-        rows: rows.length,
+        pagesVisited: pageFiles.length, rows: rows.length,
         courses: new Set(rows.map((row) => row.courseOrgUnitId).filter(Boolean)).size,
-        skipped: 0,
-        failed: "unknown",
-        uncertain: "unknown",
-        warnings: 1
+        skipped: 0, failed: "unknown", uncertain: "unknown", warnings: 1
       }
     }
   };
