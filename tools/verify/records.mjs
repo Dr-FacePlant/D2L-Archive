@@ -1,6 +1,16 @@
-export function createRecordTools({ fs, path, parseJson, normalizeText, recoverManifestFromArchive }) {
-function stableRowId(row) {
-  const ids = parseJson(row.ids);
+import fs from "node:fs";
+import path from "node:path";
+
+export function parseJson(value) {
+  try {
+    return JSON.parse(value || "{}");
+  } catch {
+    return {};
+  }
+}
+
+export function stableRowId(row, parse = parseJson) {
+  const ids = parse(row.ids);
   return [
     row.courseOrgUnitId,
     row.source,
@@ -15,12 +25,13 @@ function stableRowId(row) {
     ids.discussionTopicId,
     ids.postId,
     ids.fileId,
+    ids.rubricId,
     row.itemUrl || row.pageUrl,
     row.title
   ].filter((value) => value !== undefined && value !== null && String(value).trim() !== "").join("::");
 }
 
-function rowSignature(row) {
+export function rowSignature(row) {
   return JSON.stringify({
     courseOrgUnitId: row.courseOrgUnitId || "",
     source: row.source || "",
@@ -39,12 +50,12 @@ function rowSignature(row) {
   });
 }
 
-function createExportSummary(sourceManifest) {
-  const sourceRows = Array.isArray(sourceManifest.rows) ? sourceManifest.rows : [];
+export function createExportSummary(sourceManifest, parse = parseJson) {
+  const sourceRows = Array.isArray(sourceManifest?.rows) ? sourceManifest.rows : [];
   return {
-    exportedAt: sourceManifest.exportedAt || sourceManifest.audit?.generatedAt || "",
+    exportedAt: sourceManifest?.exportedAt || sourceManifest?.audit?.generatedAt || "",
     rows: sourceRows.map((row) => ({
-      id: stableRowId(row),
+      id: stableRowId(row, parse),
       signature: rowSignature(row),
       courseOrgUnitId: row.courseOrgUnitId || "",
       courseTitle: row.courseTitle || "",
@@ -60,8 +71,8 @@ function createExportSummary(sourceManifest) {
   };
 }
 
-function feedbackSignal(row) {
-  const columns = parseJson(row.columns);
+export function feedbackSignal(row, parse = parseJson) {
+  const columns = parse(row.columns);
   if (["assignmentFeedback", "gradeFeedback", "quizAttempt", "quizSubmission", "quizAttemptRow", "quizSummaryRow", "discussionFeedback", "rubricFeedback", "rubricCriterionFeedback"].includes(row.source)) {
     return row.source;
   }
@@ -73,62 +84,63 @@ function feedbackSignal(row) {
   return /feedback|comment|rubric|assessment/i.test(text) ? text : "";
 }
 
-function summarizeChanges(previous, current) {
-  if (!previous?.rows?.length) {
-    return {
-      available: false,
-      previousExportedAt: previous?.exportedAt || "",
-      currentExportedAt: current.exportedAt,
-      reason: "No previous export rows were available for offline comparison.",
-      totals: { added: 0, removed: 0, changed: 0, newlyGraded: 0, newlyDue: 0, dueChanged: 0, availabilityChanged: 0, newlyDownloaded: 0, newlyFeedback: 0 },
-      added: [],
-      removed: [],
-      changed: [],
-      newlyGraded: [],
-      newlyDue: [],
-      dueChanged: [],
-      availabilityChanged: [],
-      newlyDownloaded: [],
-      newlyFeedback: []
-    };
-  }
+function emptyChangeReport(previous, current) {
+  return {
+    available: false,
+    previousExportedAt: previous?.exportedAt || "",
+    currentExportedAt: current?.exportedAt || "",
+    reason: "No previous export rows were available for offline comparison.",
+    totals: { added: 0, removed: 0, changed: 0, newlyGraded: 0, newlyDue: 0, dueChanged: 0, availabilityChanged: 0, newlyDownloaded: 0, newlyFeedback: 0 },
+    added: [],
+    removed: [],
+    changed: [],
+    newlyGraded: [],
+    newlyDue: [],
+    dueChanged: [],
+    availabilityChanged: [],
+    newlyDownloaded: [],
+    newlyFeedback: []
+  };
+}
+
+function diffRow(before, row, state, normalize, parse) {
+  state.changed.push({ before, after: row });
+  const beforeColumns = parse(before.columns);
+  const afterColumns = parse(row.columns);
+  const beforeGrade = `${beforeColumns.displayedGrade || beforeColumns.pointsEarned || beforeColumns.points || ""}`.trim();
+  const afterGrade = `${afterColumns.displayedGrade || afterColumns.pointsEarned || afterColumns.points || ""}`.trim();
+  if (!beforeGrade && afterGrade) state.newlyGraded.push(row);
+  if (!before.dueAtText && row.dueAtText) state.newlyDue.push(row);
+  if (before.dueAtText && row.dueAtText && normalize(before.dueAtText) !== normalize(row.dueAtText)) state.dueChanged.push({ before, after: row });
+  if (normalize(before.availabilityText || "") !== normalize(row.availabilityText || "")) state.availabilityChanged.push({ before, after: row });
+  if (!before.localPath && row.localPath) state.newlyDownloaded.push(row);
+  if (!feedbackSignal(before, parse) && feedbackSignal(row, parse)) state.newlyFeedback.push(row);
+}
+
+export function summarizeChanges(previous, current, normalize = (s) => String(s || "").trim(), parse = parseJson) {
+  if (!previous?.rows?.length) return emptyChangeReport(previous, current);
 
   const previousById = new Map(previous.rows.map((row) => [row.id, row]));
   const currentById = new Map(current.rows.map((row) => [row.id, row]));
-  const added = [];
-  const removed = [];
-  const changed = [];
-  const newlyGraded = [];
-  const newlyDue = [];
-  const dueChanged = [];
-  const availabilityChanged = [];
-  const newlyDownloaded = [];
-  const newlyFeedback = [];
+  const state = {
+    added: [], removed: [], changed: [], newlyGraded: [], newlyDue: [],
+    dueChanged: [], availabilityChanged: [], newlyDownloaded: [], newlyFeedback: []
+  };
 
   for (const row of current.rows) {
     const before = previousById.get(row.id);
     if (!before) {
-      added.push(row);
-      if (feedbackSignal(row)) newlyFeedback.push(row);
+      state.added.push(row);
+      if (feedbackSignal(row, parse)) state.newlyFeedback.push(row);
       continue;
     }
     if (before.signature !== row.signature) {
-      changed.push({ before, after: row });
-      const beforeColumns = parseJson(before.columns);
-      const afterColumns = parseJson(row.columns);
-      const beforeGrade = `${beforeColumns.displayedGrade || beforeColumns.pointsEarned || beforeColumns.points || ""}`.trim();
-      const afterGrade = `${afterColumns.displayedGrade || afterColumns.pointsEarned || afterColumns.points || ""}`.trim();
-      if (!beforeGrade && afterGrade) newlyGraded.push(row);
-      if (!before.dueAtText && row.dueAtText) newlyDue.push(row);
-      if (before.dueAtText && row.dueAtText && normalizeText(before.dueAtText) !== normalizeText(row.dueAtText)) dueChanged.push({ before, after: row });
-      if (normalizeText(before.availabilityText || "") !== normalizeText(row.availabilityText || "")) availabilityChanged.push({ before, after: row });
-      if (!before.localPath && row.localPath) newlyDownloaded.push(row);
-      if (!feedbackSignal(before) && feedbackSignal(row)) newlyFeedback.push(row);
+      diffRow(before, row, state, normalize, parse);
     }
   }
 
   for (const row of previous.rows) {
-    if (!currentById.has(row.id)) removed.push(row);
+    if (!currentById.has(row.id)) state.removed.push(row);
   }
 
   const limit = (items) => items.slice(0, 200);
@@ -137,68 +149,74 @@ function summarizeChanges(previous, current) {
     previousExportedAt: previous.exportedAt || "",
     currentExportedAt: current.exportedAt || "",
     totals: {
-      added: added.length,
-      removed: removed.length,
-      changed: changed.length,
-      newlyGraded: newlyGraded.length,
-      newlyDue: newlyDue.length,
-      dueChanged: dueChanged.length,
-      availabilityChanged: availabilityChanged.length,
-      newlyDownloaded: newlyDownloaded.length,
-      newlyFeedback: newlyFeedback.length
+      added: state.added.length,
+      removed: state.removed.length,
+      changed: state.changed.length,
+      newlyGraded: state.newlyGraded.length,
+      newlyDue: state.newlyDue.length,
+      dueChanged: state.dueChanged.length,
+      availabilityChanged: state.availabilityChanged.length,
+      newlyDownloaded: state.newlyDownloaded.length,
+      newlyFeedback: state.newlyFeedback.length
     },
-    added: limit(added),
-    removed: limit(removed),
-    changed: limit(changed),
-    newlyGraded: limit(newlyGraded),
-    newlyDue: limit(newlyDue),
-    dueChanged: limit(dueChanged),
-    availabilityChanged: limit(availabilityChanged),
-    newlyDownloaded: limit(newlyDownloaded),
-    newlyFeedback: limit(newlyFeedback)
+    added: limit(state.added),
+    removed: limit(state.removed),
+    changed: limit(state.changed),
+    newlyGraded: limit(state.newlyGraded),
+    newlyDue: limit(state.newlyDue),
+    dueChanged: limit(state.dueChanged),
+    availabilityChanged: limit(state.availabilityChanged),
+    newlyDownloaded: limit(state.newlyDownloaded),
+    newlyFeedback: limit(state.newlyFeedback)
   };
 }
 
-function manifestFromSource(input) {
-  const inputIsDirectory = fs.statSync(input).isDirectory();
-  const primary = inputIsDirectory ? path.join(input, "manifest.json") : input;
-  if (fs.existsSync(primary)) return JSON.parse(fs.readFileSync(primary, "utf8"));
-  const recovered = inputIsDirectory ? path.join(input, "recovered-manifest.json") : "";
-  if (recovered && fs.existsSync(recovered)) return JSON.parse(fs.readFileSync(recovered, "utf8"));
-  if (inputIsDirectory) return recoverManifestFromArchive(input);
+export function manifestFromSource(input, deps = {}) {
+  const fileSys = deps.fs || fs;
+  const pathMod = deps.path || path;
+  const recover = deps.recoverManifestFromArchive || (() => ({}));
+  const inputIsDirectory = fileSys.statSync(input).isDirectory();
+  const primary = inputIsDirectory ? pathMod.join(input, "manifest.json") : input;
+  if (fileSys.existsSync(primary)) return JSON.parse(fileSys.readFileSync(primary, "utf8"));
+  const recovered = inputIsDirectory ? pathMod.join(input, "recovered-manifest.json") : "";
+  if (recovered && fileSys.existsSync(recovered)) return JSON.parse(fileSys.readFileSync(recovered, "utf8"));
+  if (inputIsDirectory) return recover(input);
   throw new Error(`No manifest found for ${input}`);
 }
 
-function changeReportMarkdown(changeReport) {
+export function changeReportMarkdown(changeReport) {
   const itemLine = (row) => `- ${row.courseTitle || row.courseOrgUnitId || "Unknown course"} | ${row.source || "item"} | ${row.title || "(untitled)"}`;
   const changedLine = (entry) => {
     const before = entry.before || {};
     const after = entry.after || {};
     return `- ${after.courseTitle || after.courseOrgUnitId || "Unknown course"} | ${after.source || "item"} | ${after.title || "(untitled)"} | due: ${before.dueAtText || "(blank)"} -> ${after.dueAtText || "(blank)"} | status: ${before.status || "(blank)"} -> ${after.status || "(blank)"}`;
   };
+
   const lines = [
-    "# D2L Offline Change Report",
-    "",
+    "# D2L Change Report", "",
     `Current export: ${changeReport.currentExportedAt || ""}`,
-    `Previous export: ${changeReport.previousExportedAt || ""}`,
-    ""
+    `Previous export: ${changeReport.previousExportedAt || ""}`, ""
   ];
+
   if (!changeReport.available) {
-    lines.push("No previous export rows were available for comparison.", "", `Reason: ${changeReport.reason || "unknown"}`);
+    lines.push("No previous export summary was available for comparison.", "", `Reason: ${changeReport.reason || "unknown"}`);
     return lines.join("\n");
   }
-  lines.push("## Totals", "");
-  lines.push(`- Added: ${changeReport.totals.added}`);
-  lines.push(`- Removed: ${changeReport.totals.removed}`);
-  lines.push(`- Changed: ${changeReport.totals.changed}`);
-  lines.push(`- Newly graded: ${changeReport.totals.newlyGraded}`);
-  lines.push(`- Newly due: ${changeReport.totals.newlyDue}`);
-  lines.push(`- Due date changed: ${changeReport.totals.dueChanged || 0}`);
-  lines.push(`- Availability changed: ${changeReport.totals.availabilityChanged || 0}`);
-  lines.push(`- Newly downloaded: ${changeReport.totals.newlyDownloaded}`);
-  lines.push(`- New feedback/results: ${changeReport.totals.newlyFeedback || 0}`);
-  lines.push("");
-  for (const [title, items, formatter] of [
+
+  lines.push(
+    "## Totals", "",
+    `- Added: ${changeReport.totals.added}`,
+    `- Removed: ${changeReport.totals.removed}`,
+    `- Changed: ${changeReport.totals.changed}`,
+    `- Newly graded: ${changeReport.totals.newlyGraded}`,
+    `- Newly due: ${changeReport.totals.newlyDue}`,
+    `- Due date changed: ${changeReport.totals.dueChanged || 0}`,
+    `- Availability changed: ${changeReport.totals.availabilityChanged || 0}`,
+    `- Newly downloaded: ${changeReport.totals.newlyDownloaded}`,
+    `- New feedback/results: ${changeReport.totals.newlyFeedback || 0}`, ""
+  );
+
+  const sections = [
     ["New Feedback / Results", changeReport.newlyFeedback || [], itemLine],
     ["Newly Graded", changeReport.newlyGraded, itemLine],
     ["Newly Due", changeReport.newlyDue, itemLine],
@@ -208,7 +226,9 @@ function changeReportMarkdown(changeReport) {
     ["Removed", changeReport.removed, itemLine],
     ["Changed", changeReport.changed, changedLine],
     ["Newly Downloaded", changeReport.newlyDownloaded, itemLine]
-  ]) {
+  ];
+
+  for (const [title, items, formatter] of sections) {
     lines.push(`## ${title}`, "");
     if (!items.length) lines.push("- None");
     else items.forEach((item) => lines.push(formatter(item)));
@@ -217,11 +237,28 @@ function changeReportMarkdown(changeReport) {
   return lines.join("\n");
 }
 
-function aiIndexRecord(row) {
-  const columns = parseJson(row.columns);
-  const ids = parseJson(row.ids);
+const INDEXED_COLUMN_KEYS = [
+  "module", "topicType", "displayedGrade", "points", "commentsAndAssessments",
+  "feedbackText", "rubricText", "criterionName", "rubricLevel", "scoreText",
+  "status", "assignmentTitle", "quizTitle", "discussionTopicId", "author",
+  "postSubject", "calendarEventTitle", "contentTitle", "linkKind",
+  "recoveredFrom", "toolSource", "emptyStateText", "blockedText"
+];
+
+function recordTextSnippet(row, columns) {
+  const parts = [
+    row.title, row.description, row.status, row.gate, row.type, row.dueAtText, row.availabilityText,
+    ...INDEXED_COLUMN_KEYS.map((k) => columns[k]),
+    row.localPageTextSnippet
+  ];
+  return parts.filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
+}
+
+export function aiIndexRecord(row, parse = parseJson) {
+  const columns = parse(row.columns);
+  const ids = parse(row.ids);
   return {
-    id: stableRowId(row),
+    id: stableRowId(row, parse),
     courseOrgUnitId: row.courseOrgUnitId || "",
     courseTitle: row.courseTitle || "",
     source: row.source || "",
@@ -229,39 +266,7 @@ function aiIndexRecord(row) {
     status: row.status || "",
     type: row.type || "",
     linkKind: columns.linkKind || "",
-    text: [
-      row.title,
-      row.description,
-      row.status,
-      row.gate,
-      row.type,
-      row.dueAtText,
-      row.availabilityText,
-      columns.module,
-      columns.topicType,
-      columns.displayedGrade,
-      columns.points,
-      columns.commentsAndAssessments,
-      columns.feedbackText,
-      columns.rubricText,
-      columns.criterionName,
-      columns.rubricLevel,
-      columns.scoreText,
-      columns.status,
-      columns.assignmentTitle,
-      columns.quizTitle,
-      columns.discussionTopicId,
-      columns.author,
-      columns.postSubject,
-      columns.calendarEventTitle,
-      columns.contentTitle,
-      columns.linkKind,
-      columns.recoveredFrom,
-      columns.toolSource,
-      columns.emptyStateText,
-      columns.blockedText,
-      row.localPageTextSnippet
-    ].filter(Boolean).join(" ").replace(/\s+/g, " ").trim(),
+    text: recordTextSnippet(row, columns),
     dueAtText: row.dueAtText || "",
     availabilityText: row.availabilityText || "",
     itemUrl: row.itemUrl || "",
@@ -273,19 +278,22 @@ function aiIndexRecord(row) {
   };
 }
 
-function toJsonl(records) {
+export function toJsonl(records) {
   return records.map((record) => JSON.stringify(record)).join("\n");
 }
 
+export function createRecordTools(deps = {}) {
+  const parse = deps.parseJson || parseJson;
+  const normalize = deps.normalizeText || ((s) => String(s || "").trim());
   return {
-    stableRowId,
+    stableRowId: (row) => stableRowId(row, parse),
     rowSignature,
-    createExportSummary,
-    feedbackSignal,
-    summarizeChanges,
-    manifestFromSource,
+    createExportSummary: (manifest) => createExportSummary(manifest, parse),
+    feedbackSignal: (row) => feedbackSignal(row, parse),
+    summarizeChanges: (prev, curr) => summarizeChanges(prev, curr, normalize, parse),
+    manifestFromSource: (source) => manifestFromSource(source, deps),
     changeReportMarkdown,
-    aiIndexRecord,
+    aiIndexRecord: (row) => aiIndexRecord(row, parse),
     toJsonl
   };
 }
