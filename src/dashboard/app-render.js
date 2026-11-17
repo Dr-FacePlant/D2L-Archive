@@ -6,59 +6,36 @@
   // ------------------------------------------------------------- render
 
   const NAV = [
-    ["dashboard", "#/", "home", "Dashboard"],
-    ["courses", "#/courses", "book", "Courses"],
-    ["calendar", "#/calendar", "calendar", "Calendar"],
-    ["updates", "#/updates", "bell", "Updates"],
-    ["work", "#/work", "work", "Assignments"],
-    ["grades", "#/grades", "grade", "Grades"],
-    ["resources", "#/resources", "folder", "Content"]
+    ["dashboard", "#/", "home", "Dashboard"], ["courses", "#/courses", "book", "Courses"], ["calendar", "#/calendar", "calendar", "Calendar"],
+    ["updates", "#/updates", "bell", "Updates"], ["work", "#/work", "work", "Assignments"], ["grades", "#/grades", "grade", "Grades"], ["resources", "#/resources", "folder", "Content"]
   ];
-  // Search lives in the top bar. Settings and account-related links live in
-  // the account menu on the profile button at the top right.
   const NAV_OF = { course: "courses", assignment: "work", quiz: "work", discussion: "work", task: "work", checklist: "work", announcement: "updates", grade: "grades", event: "calendar" };
 
   function renderNav(active) {
     state.activeNav = active;
-    $("#nav").innerHTML = NAV.map(([key, href, iconName, label]) => key === "sep"
-      ? `<div class="nav-sep"></div>`
-      : `<a class="nav-item" href="${href}" ${key === active ? 'aria-current="page"' : ""} title="${label}">${dash.icon(iconName, 20)}${label}</a>`).join("");
-    // The profile button lives in the top bar; it shows Settings as current.
-    const profileButton = $("#profile-button");
-    if (active === "settings") profileButton?.setAttribute("aria-current", "page");
-    else profileButton?.removeAttribute("aria-current");
+    $("#nav").innerHTML = NAV.map(([k, h, ic, l]) => k === "sep" ? '<div class="nav-sep"></div>' : `<a class="nav-item" href="${h}" ${k === active ? 'aria-current="page"' : ""} title="${l}">${dash.icon(ic, 20)}${l}</a>`).join("");
+    const btn = $("#profile-button");
+    if (active === "settings") btn?.setAttribute("aria-current", "page"); else btn?.removeAttribute("aria-current");
     renderUserProfile();
   }
 
   const CRUMBS = {
     assignment: { href: "#/work", label: "Assignments" },
-    // Quizzes, discussions and tasks live under Assignments in the menu.
     quiz: { href: "#/work?type=quiz", label: "Quizzes", parent: { href: "#/work", label: "Assignments" } },
     discussion: { href: "#/work?type=discussion", label: "Discussions", parent: { href: "#/work", label: "Assignments" } },
     task: { href: "#/work?type=task", label: "Checklist tasks", parent: { href: "#/work", label: "Assignments" } },
-    checklist: { href: "#/work", label: "Assignments" },
-    announcement: { href: "#/updates", label: "Updates" },
-    grade: { href: "#/grades", label: "Grades" },
-    event: { href: "#/calendar", label: "Calendar" }
+    checklist: { href: "#/work", label: "Assignments" }, announcement: { href: "#/updates", label: "Updates" },
+    grade: { href: "#/grades", label: "Grades" }, event: { href: "#/calendar", label: "Calendar" }
   };
 
-  function normalizedHash(hash) {
-    const value = String(hash || "#/").trim();
-    if (!value || value === "#") return "#/";
-    return value.startsWith("#") ? value : `#/${value.replace(/^\/?/, "")}`;
-  }
-
+  const normalizedHash = (h) => { const v = String(h || "#/").trim(); return !v || v === "#" ? "#/" : v.startsWith("#") ? v : `#/${v.replace(/^\/?/, "")}`; };
   function routeLabel(hash) {
     const route = dash.parseRoute(hash);
     const labels = { dashboard: "Dashboard", courses: "Courses", calendar: "Calendar", updates: "Updates", work: "Assignments", grades: "Grades", resources: "Content", search: "Search", settings: "Settings" };
-    if (route.name === "course") return state.index?.courseById?.get(route.id)?.label || "Course";
-    return labels[route.name] || "Previous page";
+    return route.name === "course" ? (state.index?.courseById?.get(route.id)?.label || "Course") : (labels[route.name] || "Previous page");
   }
 
-  function detailRoot() {
-    return document.getElementById("detail-root");
-  }
-
+  const detailRoot = () => document.getElementById("detail-root");
   function setBaseInert(value) {
     const app = document.querySelector(".app");
     if (app) app.inert = value;
@@ -76,13 +53,8 @@
     if (restoreFocus && current?.trigger?.isConnected) current.trigger.focus({ preventScroll: true });
   }
 
-  function detailLoadingBody() {
-    return dash.loadingPage("Loading details…");
-  }
-
-  function detailMessageBody(title, message) {
-    return `<div class="page detail-page"><section class="card empty"><h1 id="detail-content-title">${dash.escapeHtml(title)}</h1><p>${dash.escapeHtml(message)}</p></section></div>`;
-  }
+  const detailLoadingBody = () => dash.loadingPage("Loading details…");
+  const detailMessageBody = (t, m) => `<div class="page detail-page"><section class="card empty"><h1 id="detail-content-title">${dash.escapeHtml(t)}</h1><p>${dash.escapeHtml(m)}</p></section></div>`;
 
   function mountDetailShell(context, kind = "detail") {
     const root = detailRoot();
@@ -97,14 +69,11 @@
     state.detail = { ...context, open: true };
   }
 
-  function setDetailBusy(value) {
-    const body = detailRoot()?.querySelector("[data-detail-body]");
-    if (body) body.setAttribute("aria-busy", String(value));
-  }
+  const setDetailBusy = (val) => detailRoot()?.querySelector("[data-detail-body]")?.setAttribute("aria-busy", String(val));
 
   // Assignment and quiz details keep a steady top row (see .detail-top in the
   // CSS). Show more appears only when the text is taller than that row.
-  const clampWatch = typeof ResizeObserver === "function" ? new ResizeObserver((entries) => entries.forEach((entry) => markDetailClamp(entry.target))) : null;
+  const clampWatch = typeof ResizeObserver === "function" ? new ResizeObserver((entries) => entries.forEach((e) => markDetailClamp(e.target))) : null;
 
   function markDetailClamp(clamp) {
     const layout = clamp?.closest(".detail-layout");
@@ -117,10 +86,7 @@
 
   function fitDetailClamp(root) {
     const clamps = [...(root?.querySelectorAll(".detail-clamp") || [])];
-    for (const clamp of clamps) {
-      markDetailClamp(clamp);
-      clampWatch?.observe(clamp);
-    }
+    for (const clamp of clamps) { markDetailClamp(clamp); clampWatch?.observe(clamp); }
     if (clamps.length) requestAnimationFrame(() => clamps.forEach(markDetailClamp));
   }
 
@@ -131,32 +97,21 @@
     if (!more) return;
     more.setAttribute("aria-expanded", String(open));
     more.textContent = open ? "Show less" : "Show more";
-    if (open) more.hidden = false;
-    else markDetailClamp(layout.querySelector(".detail-clamp"));
+    if (open) more.hidden = false; else markDetailClamp(layout.querySelector(".detail-clamp"));
   }
 
   function updateDetailBody(html, { labelled = false, busy = false } = {}) {
-    const root = detailRoot();
-    const body = root?.querySelector("[data-detail-body]");
-    const panel = root?.querySelector(".detail-panel");
+    const root = detailRoot(), body = root?.querySelector("[data-detail-body]"), panel = root?.querySelector(".detail-panel");
     if (!body || !panel) return;
-    // Redrawing the same item (after Mark as done, say) keeps Show more open.
     const titleOf = () => body.querySelector("#detail-content-title")?.textContent;
-    const shown = titleOf();
-    const reopen = body.querySelector(".detail-layout.is-open") ? shown : null;
+    const shown = titleOf(), reopen = body.querySelector(".detail-layout.is-open") ? shown : null;
     body.innerHTML = html;
-    // A side panel opened over one item doesn't carry over to another.
     if (state.peek && titleOf() !== shown) closePeek({ restoreFocus: false });
     if (reopen && titleOf() === reopen) setDetailMore(body.querySelector(".detail-layout"), true);
     fitDetailClamp(body);
     body.setAttribute("aria-busy", String(busy));
-    if (labelled) {
-      panel.removeAttribute("aria-label");
-      panel.setAttribute("aria-labelledby", "detail-content-title");
-    } else {
-      panel.removeAttribute("aria-labelledby");
-      panel.setAttribute("aria-label", busy ? "Loading details" : "Item details");
-    }
+    if (labelled) { panel.removeAttribute("aria-label"); panel.setAttribute("aria-labelledby", "detail-content-title"); }
+    else { panel.removeAttribute("aria-labelledby"); panel.setAttribute("aria-label", busy ? "Loading details" : "Item details"); }
   }
 
   function contextForDetail(hash, route, trigger = null) {
@@ -168,51 +123,31 @@
   }
 
   function navigateToDetail(hash, trigger = null) {
-    const detailHash = normalizedHash(hash);
-    const route = dash.parseRoute(detailHash);
-    if (!dash.isLayerRoute(route)) {
-      location.hash = detailHash;
-      return;
-    }
+    const detailHash = normalizedHash(hash), route = dash.parseRoute(detailHash);
+    if (!dash.isLayerRoute(route)) { location.hash = detailHash; return; }
     const current = state.detail;
-    // Moving between Settings sections replaces the address instead of adding
-    // one, so Esc or Close always returns to the page underneath in one step.
     if (route.name === "settings" && current && dash.parseRoute(current.detailHash || location.hash).name === "settings") {
       state.detailContexts.set(detailHash, { ...current, detailHash });
-      if (location.hash === detailHash) render(detailHash);
-      else location.replace(detailHash);
+      if (location.hash === detailHash) render(detailHash); else location.replace(detailHash);
       return;
     }
     const baseHash = current?.baseHash || state.shownHash || normalizedHash(location.hash);
     const context = {
-      baseHash,
-      baseScrollTop: current?.baseScrollTop ?? main()?.scrollTop ?? 0,
-      originLabel: current?.originLabel || routeLabel(baseHash),
-      trigger: current?.trigger || trigger,
-      openedFromApp: true,
-      depth: current ? current.depth + (current.detailHash === detailHash ? 0 : 1) : 1,
-      detailHash
+      baseHash, baseScrollTop: current?.baseScrollTop ?? main()?.scrollTop ?? 0,
+      originLabel: current?.originLabel || routeLabel(baseHash), trigger: current?.trigger || trigger,
+      openedFromApp: true, depth: current ? current.depth + (current.detailHash === detailHash ? 0 : 1) : 1, detailHash
     };
     state.pageScrolls.set(baseHash, context.baseScrollTop);
     state.detailContexts.set(detailHash, context);
-    if (location.hash === detailHash) render(detailHash);
-    else location.hash = detailHash;
+    if (location.hash === detailHash) render(detailHash); else location.hash = detailHash;
   }
 
-  function backFromDetail() {
-    const context = state.detail;
-    if (!context) return;
-    if (context.openedFromApp && context.depth > 0) history.back();
-    else closeDetailToBase();
-  }
+  const backFromDetail = () => { const ctx = state.detail; if (!ctx) return; (ctx.openedFromApp && ctx.depth > 0) ? history.back() : closeDetailToBase(); };
 
   function closeDetailToBase() {
     const context = state.detail;
     if (!context) return;
-    if (context.openedFromApp && context.depth > 0) {
-      history.go(-context.depth);
-      return;
-    }
+    if (context.openedFromApp && context.depth > 0) { history.go(-context.depth); return; }
     history.replaceState({ d2lArchive: true, route: context.baseHash }, "", context.baseHash);
     rememberScreen();
     render(context.baseHash);
@@ -228,21 +163,16 @@
     }
     const token = ++state.detailRenderToken;
     renderNav(NAV_OF[route.name] || route.name);
-    if (route.name === "settings") {
-      mountDetailShell(context, "settings");
-      return renderSettings(route, token);
-    }
+    if (route.name === "settings") { mountDetailShell(context, "settings"); return renderSettings(route, token); }
     mountDetailShell(context);
     setDetailBusy(true);
     const loadingTimer = setTimeout(() => {
       if (token === state.detailRenderToken && location.hash === hash) updateDetailBody(detailLoadingBody(), { busy: true });
     }, 120);
-    // The self-check renders screens without moving location.hash.
     const superseded = () => token !== state.detailRenderToken || (!state.selfChecking && location.hash !== hash);
     let bundle;
-    try {
-      bundle = await bundleFor(route.id);
-    } catch (error) {
+    try { bundle = await bundleFor(route.id); }
+    catch (error) {
       clearTimeout(loadingTimer);
       if (superseded()) return;
       updateDetailBody(detailMessageBody("This item could not be loaded", error.message || "Try opening it again."), { labelled: true });
@@ -252,78 +182,48 @@
     clearTimeout(loadingTimer);
     if (superseded()) return;
     const detail = dash.detailFor(state.index, route, bundle);
-    if (detail) {
-      detail.checklistDone = state.checklistDone;
-      detail.hiddenWork = state.hiddenWork;
-      updateDetailBody(dash.detailBody(detail), { labelled: true });
-    } else {
-      updateDetailBody(detailMessageBody("This item is no longer in the archive", "This item may have been removed from D2L."), { labelled: true });
-    }
+    if (detail) { detail.checklistDone = state.checklistDone; detail.hiddenWork = state.hiddenWork; }
+    updateDetailBody(detail ? dash.detailBody(detail) : detailMessageBody("This item is no longer in the archive", "This item may have been removed from D2L."), { labelled: true });
     rememberScreen();
   }
 
-  // Screen changes fade the old view out and the new one in; the sidebar and
-  // top bar sit outside #main and stay still. Re-drawing the same screen (for
-  // example after marking an update read) swaps instantly.
   const FADE_MS = 250;
   const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
   const reduceMotion = () => global.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
+  const fadeOutMain = () => { main().classList.add("is-faded"); return wait(FADE_MS); };
 
-  function fadeOutMain() {
-    main().classList.add("is-faded");
-    return wait(FADE_MS);
-  }
-
-  // Picking a day, a tab or a course keeps you on the same page: only the
-  // parts that changed are swapped, so the title and anything else that stayed
-  // the same doesn't flash. Course home pages are separate pages per course.
   function samePage(hash, shownHash) {
     if (!shownHash) return false;
-    const next = dash.parseRoute(hash);
-    const shown = dash.parseRoute(shownHash);
+    const next = dash.parseRoute(hash), shown = dash.parseRoute(shownHash);
     return next.name === shown.name && !dash.isDetailRoute(next) && (next.name === "resources" || next.id === shown.id);
   }
 
-  function sameAttributes(a, b) {
-    if (a.attributes.length !== b.attributes.length) return false;
-    return [...a.attributes].every((attribute) => b.getAttribute(attribute.name) === attribute.value);
-  }
+  const sameAttributes = (a, b) => a.attributes.length === b.attributes.length && [...a.attributes].every((attr) => b.getAttribute(attr.name) === attr.value);
 
   function morph(current, next, depth) {
     if (current.isEqualNode(next)) return;
     if (depth > 0 && current.nodeType === 1 && current.tagName === next.tagName && sameAttributes(current, next) && current.childNodes.length === next.childNodes.length) {
-      const pairs = [...current.childNodes].map((child, i) => [child, next.childNodes[i]]);
-      for (const [child, replacement] of pairs) morph(child, replacement, depth - 1);
+      for (let i = 0; i < current.childNodes.length; i++) morph(current.childNodes[i], next.childNodes[i], depth - 1);
       return;
     }
     current.replaceWith(next);
   }
 
   function focusKey(node) {
-    if (!node || node === document.body || !main()?.contains(node)) return "";
-    if (node.dataset.day) return `[data-day="${CSS.escape(node.dataset.day)}"]`;
+    if (!node || node === document.body) return "";
     if (node.id) return `#${CSS.escape(node.id)}`;
-    if (node.getAttribute("href")) return `[href="${CSS.escape(node.getAttribute("href"))}"]`;
-    if (node.dataset.href) return `[data-href="${CSS.escape(node.dataset.href)}"]`;
+    if (node.dataset?.action) return `[data-action="${CSS.escape(node.dataset.action)}"]`;
     return "";
   }
 
   function patchMain(html) {
-    const node = main();
-    const key = focusKey(document.activeElement);
-    const next = document.createElement("div");
+    const node = main(), key = focusKey(document.activeElement), next = document.createElement("div");
     next.innerHTML = html;
-    if (node.childNodes.length !== next.childNodes.length) {
-      node.innerHTML = html;
-    } else {
-      const pairs = [...node.childNodes].map((child, i) => [child, next.childNodes[i]]);
-      for (const [child, replacement] of pairs) morph(child, replacement, 8);
-    }
+    if (node.childNodes.length !== next.childNodes.length) node.innerHTML = html;
+    else for (let i = 0; i < node.childNodes.length; i++) morph(node.childNodes[i], next.childNodes[i], 8);
     if (key && !node.contains(document.activeElement)) node.querySelector(key)?.focus({ preventScroll: true });
   }
 
-  // Always clears the fade, so a screen change cut short by a quicker click
-  // can't leave the view invisible.
   function showMain(html, hash) {
     const node = main();
     if (state.shownHash && (hash === state.shownHash || samePage(hash, state.shownHash)) && node.querySelector("[data-screen]")) patchMain(html);
@@ -332,43 +232,84 @@
     requestAnimationFrame(updateGradeCarouselControls);
     fitDetailClamp(node);
     state.shownHash = hash;
-    if (node.classList.contains("is-faded")) {
-      void node.offsetHeight;
-      node.classList.remove("is-faded");
-    }
+    if (node.classList.contains("is-faded")) { void node.offsetHeight; node.classList.remove("is-faded"); }
   }
 
   function updateGradeCarouselControls() {
     const viewport = main()?.querySelector(".grade-widget-window");
     if (!viewport) return;
-    const carousel = viewport.closest(".grade-carousel");
-    const max = Math.max(0, viewport.scrollWidth - viewport.clientWidth);
+    const carousel = viewport.closest(".grade-carousel"), max = Math.max(0, viewport.scrollWidth - viewport.clientWidth);
     carousel.querySelector("[data-action=grade-prev]").disabled = viewport.scrollLeft <= 2;
     carousel.querySelector("[data-action=grade-next]").disabled = viewport.scrollLeft >= max - 2;
   }
 
   function moveGradeCarousel(direction) {
-    const viewport = main()?.querySelector(".grade-widget-window");
-    const card = viewport?.querySelector(".grade-widget-main");
+    const viewport = main()?.querySelector(".grade-widget-window"), card = viewport?.querySelector(".grade-widget-main");
     if (!viewport || !card) return;
     const gap = Number.parseFloat(getComputedStyle(viewport.querySelector(".grade-widget")).columnGap) || 16;
     viewport.scrollBy({ left: direction * (card.getBoundingClientRect().width + gap), behavior: reduceMotion() ? "auto" : "smooth" });
     setTimeout(updateGradeCarouselControls, reduceMotion() ? 0 : 250);
   }
 
+  function searchScreenHtml(route, token, hash) {
+    const query = route.params.q || "";
+    if (query && state.search.query !== query) {
+      state.search = { query, result: null, pending: true };
+      api("search.query", { query, limit: 60 }).then((result) => {
+        if (state.search.query !== query) return;
+        state.search = { query, result, pending: false };
+        if (token === state.renderToken) render(hash);
+      }).catch((error) => {
+        state.search = { query, result: { query, entities: [], evidence: [] }, pending: false };
+        toast(`Search failed: ${error.message}`);
+      });
+    }
+    return dash.searchPage(dash.searchModel(state.index, state.search.result), query, state.search.pending);
+  }
+
+  async function standaloneDetailHtml(route, token, hash, fadedOut) {
+    if (!CRUMBS[route.name]) return dash.notFoundPage("That page doesn't exist.");
+    const pending = bundleFor(route.id);
+    if (fadedOut) await fadedOut;
+    const ready = await Promise.race([pending.then(() => true), wait(0).then(() => false)]);
+    if (!ready && token === state.renderToken) showMain(dash.loadingPage("Loading…"), hash);
+    const bundle = await pending;
+    if (token !== state.renderToken) return "";
+    const detail = dash.detailFor(state.index, route, bundle);
+    if (detail) { detail.checklistDone = state.checklistDone; detail.hiddenWork = state.hiddenWork; }
+    return dash.detailPage(detail, CRUMBS[route.name]);
+  }
+
+  function screenHtml(route, token, hash, fadedOut) {
+    const index = state.index;
+    switch (route.name) {
+      case "dashboard": return dash.dashboardPage(dash.dashboardModel(index, state.read, state.checklistDone, state.hiddenWork), recreatedNotice() + adoptNotice());
+      case "courses": return dash.coursesPage(dash.coursesModel(index, route.params, state.hiddenWork));
+      case "course": state.lastCourseId = route.id; return dash.courseHomePage(dash.courseHomeModel(index, route.id, state.hiddenWork));
+      case "calendar": return dash.calendarPage(dash.calendarModel(index, route.params));
+      case "updates": return dash.updatesPage(dash.updateRows(index, state.read).filter((r) => !route.params.course || r.courseId === route.params.course), route.params);
+      case "work": return dash.workListPage(dash.workListModel(index, route.params, state.checklistDone, state.hiddenWork));
+      case "grades": {
+        const model = dash.gradesModel(index, { ...route.params, course: route.params.course || state.lastCourseId });
+        if (model.courseId) state.lastCourseId = model.courseId;
+        return dash.gradesPage(model);
+      }
+      case "resources":
+        if (route.id || route.params.course) state.lastCourseId = route.id || route.params.course;
+        return dash.resourcesPage(dash.resourcesModel(index, { ...route.params, course: route.id || route.params.course }));
+      case "search": return searchScreenHtml(route, token, hash);
+      default: return standaloneDetailHtml(route, token, hash, fadedOut);
+    }
+  }
+
   async function render(hash = location.hash) {
     hash = normalizedHash(hash);
     const route = dash.parseRoute(hash);
-    // Old #/about bookmarks now land on the only About screen.
-    if (route.name === "about") {
-      location.replace("#/settings/about");
-      return;
-    }
+    if (route.name === "about") { location.replace("#/settings/about"); return; }
     if (dash.isLayerRoute(route)) return renderDetailRoute(hash, route);
     if (state.detail) {
       const context = state.detail;
       hideDetail({ restoreFocus: hash === context.baseHash });
-      // A change made in Settings (a hidden course) redraws the page underneath.
       if (hash === context.baseHash && state.shownHash === hash && main()?.querySelector("[data-screen]") && !state.baseStale) {
         renderNav(NAV_OF[route.name] || route.name);
         main().scrollTop = context.baseScrollTop;
@@ -386,82 +327,12 @@
     const stayed = samePage(hash, state.shownHash);
     const fade = hash !== state.shownHash && !stayed && !reduceMotion();
     const fadedOut = fade ? fadeOutMain() : null;
-    const index = state.index;
-    let html;
-    switch (route.name) {
-      case "dashboard":
-        html = dash.dashboardPage(dash.dashboardModel(index, state.read, state.checklistDone, state.hiddenWork), recreatedNotice() + adoptNotice());
-        break;
-      case "courses":
-        html = dash.coursesPage(dash.coursesModel(index, route.params, state.hiddenWork));
-        break;
-      case "course":
-        state.lastCourseId = route.id;
-        html = dash.courseHomePage(dash.courseHomeModel(index, route.id, state.hiddenWork));
-        break;
-      case "calendar":
-        html = dash.calendarPage(dash.calendarModel(index, route.params));
-        break;
-      case "updates": {
-        const rows = dash.updateRows(index, state.read).filter((row) => !route.params.course || row.courseId === route.params.course);
-        html = dash.updatesPage(rows, route.params);
-        break;
-      }
-      case "work":
-        html = dash.workListPage(dash.workListModel(index, route.params, state.checklistDone, state.hiddenWork));
-        break;
-      case "grades": {
-        // Opens on the course you came from when the link doesn't name one.
-        const model = dash.gradesModel(index, { ...route.params, course: route.params.course || state.lastCourseId });
-        if (model.courseId) state.lastCourseId = model.courseId;
-        html = dash.gradesPage(model);
-        break;
-      }
-      case "resources":
-        if (route.id || route.params.course) state.lastCourseId = route.id || route.params.course;
-        html = dash.resourcesPage(dash.resourcesModel(index, { ...route.params, course: route.id || route.params.course }));
-        break;
-      case "search": {
-        const query = route.params.q || "";
-        if (query && state.search.query !== query) {
-          state.search = { query, result: null, pending: true };
-          api("search.query", { query, limit: 60 }).then((result) => {
-            if (state.search.query !== query) return;
-            state.search = { query, result, pending: false };
-            if (token === state.renderToken) render(hash);
-          }).catch((error) => {
-            state.search = { query, result: { query, entities: [], evidence: [] }, pending: false };
-            toast(`Search failed: ${error.message}`);
-          });
-        }
-        html = dash.searchPage(dash.searchModel(index, state.search.result), query, state.search.pending);
-        break;
-      }
-      default: {
-        if (!CRUMBS[route.name]) {
-          html = dash.notFoundPage("That page doesn't exist.");
-          break;
-        }
-        const pending = bundleFor(route.id);
-        if (fadedOut) await fadedOut;
-        const ready = await Promise.race([pending.then(() => true), wait(0).then(() => false)]);
-        if (!ready && token === state.renderToken) showMain(dash.loadingPage("Loading…"), hash);
-        const bundle = await pending;
-        if (token !== state.renderToken) return;
-        const detail = dash.detailFor(index, route, bundle);
-        if (detail) {
-          detail.checklistDone = state.checklistDone;
-          detail.hiddenWork = state.hiddenWork;
-        }
-        html = dash.detailPage(detail, CRUMBS[route.name]);
-      }
-    }
+    const html = await screenHtml(route, token, hash, fadedOut);
     if (fadedOut) await fadedOut;
-    if (token !== state.renderToken) return;
+    if (token !== state.renderToken || !html) return;
     showMain(html, hash);
     if (route.name === "resources" && (route.params.item || route.params.module)) {
-      const target = document.getElementById(route.params.item || `module-${route.params.module}`);
-      target?.scrollIntoView({ block: "center" });
+      document.getElementById(route.params.item || `module-${route.params.module}`)?.scrollIntoView({ block: "center" });
     } else if (!render.keepScroll && !stayed) {
       main().scrollTop = state.pageScrolls.get(hash) || 0;
     }
