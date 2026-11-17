@@ -25,6 +25,7 @@ importScripts(
   "src/background/report-changes.js",
   "src/background/report-coverage.js",
   "src/background/report-markdown.js",
+  "src/background/report-questions.js",
   "src/background/state.js",
   "src/background/navigation.js",
   "src/background/overlay.js",

@@ -51,6 +51,7 @@ const checks = [
   ["background change report syntax", ["--check", path.join(root, "src/background/report-changes.js")]],
   ["background coverage report syntax", ["--check", path.join(root, "src/background/report-coverage.js")]],
   ["background Markdown report syntax", ["--check", path.join(root, "src/background/report-markdown.js")]],
+  ["background questions report syntax", ["--check", path.join(root, "src/background/report-questions.js")]],
   ["background downloads syntax", ["--check", path.join(root, "src/background/downloads.js")]],
   ["background export syntax", ["--check", path.join(root, "src/background/export.js")]],
   ["background same-tab sync syntax", ["--check", path.join(root, "src/background/same-tab-sync.js")]],
