@@ -1,21 +1,6 @@
 (function initArchiveIngestModule(global) {
   const background = global.D2LExtractorBackground ||= {};
-  const {
-    buildExactAssignmentKnowledge,
-    buildQuizKnowledge,
-    buildGradeKnowledge,
-    buildAnnouncementKnowledge,
-    buildDiscussionForumKnowledge,
-    buildDiscussionThreadKnowledge,
-    buildLearningResourceKnowledge,
-    buildCalendarKnowledge,
-    buildCoursePolicyKnowledge,
-    buildStudentProgressKnowledge,
-    buildCourseToolKnowledge,
-    buildPersonKnowledge,
-    buildExternalResourceKnowledge,
-    buildExtractionStateKnowledge
-  } = background;
+
 
   async function allEvidenceForCourse(repository, courseId) {
     const items = [];
@@ -31,20 +16,20 @@
 
   function getCourseKnowledgeOrganizers() {
     return [
-      ["assignmentBundle", buildExactAssignmentKnowledge],
-      ["quizBundle", buildQuizKnowledge],
-      ["gradeRecord", buildGradeKnowledge],
-      ["announcement", buildAnnouncementKnowledge],
-      ["discussionForum", buildDiscussionForumKnowledge],
-      ["discussionThread", buildDiscussionThreadKnowledge],
-      ["learningResource", buildLearningResourceKnowledge],
-      ["calendarEvent", buildCalendarKnowledge],
-      ["coursePolicy", buildCoursePolicyKnowledge],
-      ["studentProgress", buildStudentProgressKnowledge],
-      ["courseToolItem", buildCourseToolKnowledge],
-      ["person", buildPersonKnowledge],
-      ["externalResource", buildExternalResourceKnowledge],
-      ["extractionState", buildExtractionStateKnowledge]
+      ["assignmentBundle", background.buildExactAssignmentKnowledge],
+      ["quizBundle", background.buildQuizKnowledge],
+      ["gradeRecord", background.buildGradeKnowledge],
+      ["announcement", background.buildAnnouncementKnowledge],
+      ["discussionForum", background.buildDiscussionForumKnowledge],
+      ["discussionThread", background.buildDiscussionThreadKnowledge],
+      ["learningResource", background.buildLearningResourceKnowledge],
+      ["calendarEvent", background.buildCalendarKnowledge],
+      ["coursePolicy", background.buildCoursePolicyKnowledge],
+      ["studentProgress", background.buildStudentProgressKnowledge],
+      ["courseToolItem", background.buildCourseToolKnowledge],
+      ["person", background.buildPersonKnowledge],
+      ["externalResource", background.buildExternalResourceKnowledge],
+      ["extractionState", background.buildExtractionStateKnowledge]
     ];
   }
 

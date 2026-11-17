@@ -19,18 +19,8 @@ const archiveRoot = path.dirname(manifestPath);
 const manifestExists = fs.existsSync(manifestPath);
 
 const {
-  walkFiles,
-  normalizeText,
-  extractDueText,
-  extractAvailabilityText,
-  parsePageSnapshot,
-  baseRecoveredRow,
-  assignmentFolderIdFromSnapshot,
-  compactAssignmentLabelValues,
-  recoveredRowsFromPage,
-  sourceForRecoveredFile,
-  parseRecoveredFile,
-  recoverManifestFromArchive
+  recoverManifestFromArchive,
+  normalizeText
 } = createRecoveryTools({ fs, path, archiveRoot, parseJson });
 
 const manifest = manifestExists

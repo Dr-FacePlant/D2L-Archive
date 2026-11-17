@@ -15,6 +15,17 @@ export const rowSignature = _shared.rowSignature;
 export const toJsonl = _shared.toJsonl;
 export const parseColumns = _shared.parseColumns;
 
+export function newestExport(exportDir) {
+  if (!fs.existsSync(exportDir)) return "";
+  return fs.readdirSync(exportDir, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && /^d2l-export-/.test(entry.name))
+    .map((entry) => {
+      const fullPath = path.join(exportDir, entry.name);
+      return { fullPath, mtimeMs: fs.statSync(fullPath).mtimeMs };
+    })
+    .sort((a, b) => b.mtimeMs - a.mtimeMs)[0]?.fullPath || "";
+}
+
 export function parseJson(value) {
   try {
     return JSON.parse(value || "{}");

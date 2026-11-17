@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { aiIndexRecord } from "./verify/records.mjs";
 import { spawnSync } from "node:child_process";
 
 const args = process.argv.slice(2);
@@ -65,44 +66,6 @@ function sourcePathForArchive(archivePath) {
   const found = candidates.find(([, candidate]) => fs.existsSync(candidate));
   if (!found) throw new Error(`No archive index or manifest found in ${archivePath}`);
   return { kind: found[0], filePath: found[1] };
-}
-
-function aiIndexRecord(row) {
-  const columns = parseJson(row.columns);
-  const ids = parseJson(row.ids);
-  return {
-    courseOrgUnitId: row.courseOrgUnitId || "",
-    courseTitle: row.courseTitle || "",
-    source: row.source || "",
-    title: row.title || "",
-    status: row.status || "",
-    type: row.type || "",
-    text: [
-      row.title,
-      row.description,
-      row.status,
-      row.gate,
-      row.type,
-      row.dueAtText,
-      row.availabilityText,
-      columns.module,
-      columns.topicType,
-      columns.displayedGrade,
-      columns.points,
-      columns.commentsAndAssessments,
-      columns.feedbackText,
-      columns.author,
-      columns.postSubject,
-      columns.contentTitle
-    ].filter(Boolean).join(" ").replace(/\s+/g, " ").trim(),
-    dueAtText: row.dueAtText || "",
-    availabilityText: row.availabilityText || "",
-    itemUrl: row.itemUrl || "",
-    localPath: row.localPath || "",
-    localPageTextPath: row.localPageTextPath || "",
-    ids,
-    columns
-  };
 }
 
 function readArchiveRecords(archivePath) {
