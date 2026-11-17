@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { loadBackgroundHooks, createMemoryAccountEnvironment, createMemoryStorage } from "./test-production-loader.mjs";
+import { loadBackgroundHooks, createMemoryAccountEnvironment } from "./test-production-loader.mjs";
 
 const root = path.dirname(new URL(import.meta.url).pathname);
 const fixture = JSON.parse(fs.readFileSync(path.join(root, "fixtures/semantic-organizer-v1.json"), "utf8"));
