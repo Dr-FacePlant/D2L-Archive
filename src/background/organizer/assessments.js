@@ -189,6 +189,29 @@
     return { setupByCourse, rubricsByOwner, categories };
   }
 
+  function buildGradeValue(columns, record, setup) {
+    const weightedNumerator = numberOrNull(columns.weightedNumerator);
+    const weightedDenominator = numberOrNull(columns.weightedDenominator);
+    const weighted = /weight/i.test(setup.gradingSystem);
+    return {
+      displayed: normalizeText(columns.displayedGrade),
+      pointsEarned: numberOrNull(columns.pointsEarned ?? columns.points),
+      pointsPossible: numberOrNull(columns.pointsPossible),
+      weight: numberOrNull(columns.weight),
+      categoryId: normalizeText(columns.gradeCategory || record.platformIds?.gradeCategoryId),
+      weightAchieved: weighted && (weightedNumerator !== null || weightedDenominator !== null)
+        ? { numerator: weightedNumerator, denominator: weightedDenominator }
+        : null
+    };
+  }
+
+  function resolveGradeSourceId(ids, courseId) {
+    if (ids.associatedQuizId) return `quiz:${courseId}:${ids.associatedQuizId}`;
+    if (ids.associatedAssignmentFolderId) return `assignment:${courseId}:${ids.associatedAssignmentFolderId}`;
+    if (ids.associatedDiscussionTopicId) return `discussionThread:${courseId}:${ids.associatedDiscussionTopicId}`;
+    return null;
+  }
+
   function createGradeEntity(record, gradeObjectId, setupByCourse, categories, rubricsByOwner, createdAt) {
     const columns = record.fields?.columns || {};
     const isGraded = columns.isGraded === true || columns.isGraded === "true" || normalizeText(columns.displayedGrade);
@@ -196,7 +219,6 @@
     const isCategoryTotal = columns.isCategoryTotal === true || Number(columns.gradeObjectType) === 9 || (record.source === "gradeItem" && /^category$/i.test(record.type || ""));
     const categoryId = isCategoryTotal ? gradeObjectId : normalizeText(columns.gradeCategory && columns.gradeCategory !== 0 ? columns.gradeCategory : "");
     const category = categories.get(`${record.courseId}:${categoryId}`) || null;
-    const weightedNumerator = numberOrNull(columns.weightedNumerator);
     const weightedDenominator = numberOrNull(columns.weightedDenominator);
     const weighted = /weight/i.test(setup.gradingSystem);
     const ids = record.platformIds || {};
@@ -211,14 +233,7 @@
         canonicalTitle: record.title || (gradeObjectId === "final" ? "Final grade" : `Grade ${gradeObjectId}`),
         aliases: [],
         status: isGraded ? "graded" : "ungraded",
-        grade: {
-          displayed: normalizeText(columns.displayedGrade),
-          pointsEarned: numberOrNull(columns.pointsEarned ?? columns.points),
-          pointsPossible: numberOrNull(columns.pointsPossible),
-          weight: numberOrNull(columns.weight),
-          categoryId: normalizeText(columns.gradeCategory || record.platformIds?.gradeCategoryId),
-          weightAchieved: weighted && (weightedNumerator !== null || weightedDenominator !== null) ? { numerator: weightedNumerator, denominator: weightedDenominator } : null
-        },
+        grade: buildGradeValue(columns, record, setup),
         kind: record.source === "finalGrade" ? "final" : isCategoryTotal ? "category" : "item",
         rubric: rubricSummary(rubricRecord),
         category: categoryId ? { id: categoryId, name: category?.name || "", weight: category?.weight ?? null, lowestToDrop: category?.lowestToDrop || 0, highestToDrop: category?.highestToDrop || 0 } : null,
@@ -227,7 +242,7 @@
         isDropped: Boolean(weighted && isGraded && !isCategoryTotal && weightedDenominator === 0 && (category?.lowestToDrop || category?.highestToDrop)),
         isBonus: columns.isBonus === true,
         excludedFromFinal: columns.excludeFromFinal === true,
-        sourceEntityId: ids.associatedQuizId ? `quiz:${record.courseId}:${ids.associatedQuizId}` : ids.associatedAssignmentFolderId ? `assignment:${record.courseId}:${ids.associatedAssignmentFolderId}` : ids.associatedDiscussionTopicId ? `discussionThread:${record.courseId}:${ids.associatedDiscussionTopicId}` : null,
+        sourceEntityId: resolveGradeSourceId(ids, record.courseId),
         urls: {
           d2l: record.urls?.item || `${D2L_ORIGIN}/d2l/lms/grades/my_grades/main.d2l?ou=${record.courseId}`,
           quizAttempts: ids.associatedQuizId ? `${D2L_ORIGIN}/d2l/lms/quizzing/user/quiz_submissions.d2l?qi=${ids.associatedQuizId}&ou=${record.courseId}` : ""
