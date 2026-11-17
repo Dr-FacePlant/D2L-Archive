@@ -58,6 +58,7 @@
         "src/content/api/assessments.js",
         "src/content/api/communications.js",
         "src/content/api/tools.js",
+        "src/content/api/course-builders.js",
         "src/content/api/course.js",
         "src/content/extraction.js",
         "src/content/discovery.js",
