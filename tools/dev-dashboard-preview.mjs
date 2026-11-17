@@ -56,7 +56,7 @@ window.chrome = {
 
 // The background's overlay part, played by the mock page: per-tab state lives
 // in sessionStorage, "Open in D2L" loads the mock page again with that URL.
-const MOCK_D2L = `<!doctype html>
+const MOCK_HTML_HEAD = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Mock D2L - Art Foundations</title>
 <style>
@@ -71,13 +71,17 @@ const MOCK_D2L = `<!doctype html>
 </style></head><body>
 <div class="d2l-bar"><b>KSU D2L (mock)</b><span>Art Foundations Section A Term 2024</span></div>
 <nav class="d2l-nav"><span>Course Home</span><span>Content</span><span>Discussions</span><span>Assignments</span><span>Quizzes</span><span>Grades</span></nav>
-<main>
-  <div class="card"><h2 style="margin-top:0">Announcements</h2><p>This page stands in for D2L so the overlay can be tried without the extension.</p><div class="url" id="shown-url"></div></div>
-  <div class="card"><h2 style="margin-top:0">Upcoming events</h2><p>Module 6: Andy Warhol Response, due Oct 5.</p></div>
-  ${Array.from({ length: 6 }, (_, i) => `<div class="card"><h3 style="margin-top:0">Content module ${i + 1}</h3><p>Readings and slides for this module.</p></div>`).join("")}
+`;
+
+const MOCK_HTML_BODY = `<main>
+<div class="card"><h2 style="margin-top:0">Announcements</h2><p>This page stands in for D2L so the overlay can be tried without the extension.</p><div class="url" id="shown-url"></div></div>
+<div class="card"><h2 style="margin-top:0">Upcoming events</h2><p>Module 6: Andy Warhol Response, due Oct 5.</p></div>
+${Array.from({ length: 6 }, (_, i) => `<div class="card"><h3 style="margin-top:0">Content module ${i + 1}</h3><p>Readings and slides for this module.</p></div>`).join("")}
 </main>
 <div class="d2l-foot">D2L footer bar (mock): the launcher should not cover it.</div>
-<script>
+`;
+
+const MOCK_D2L = `${MOCK_HTML_HEAD}\n${MOCK_HTML_BODY}\n<script>
   (function () {
     const KEY = "preview:overlay";
     const read = () => { try { return JSON.parse(sessionStorage.getItem(KEY)) || { open: false, route: "#/" }; } catch { return { open: false, route: "#/" }; } };

@@ -126,45 +126,70 @@
     </section>`;
   }
 
+  function courseHeaderCard(c) {
+    const banner = c.image ? `<img src="${e(c.image)}" alt="" draggable="false">` : "";
+    const meta = e([c.label, c.term].filter(Boolean).join("  ·  "));
+    const d2lLink = c.d2lHome ? `<a class="icon-btn" href="${e(c.d2lHome)}" rel="noopener noreferrer" data-d2l-link title="Open in D2L" aria-label="Open ${e(c.name)} in D2L">${icon("external", 18)}</a>` : "";
+    const section = c.section ? `<div style="display:flex;flex-wrap:wrap;gap:6px 18px;margin-top:8px;font-size:13.5px;color:var(--ink-4)"><span>${e(c.section)}</span></div>` : "";
+    return `<section class="card course-header-card">
+      <div class="course-banner course-hero" style="background:${e(c.tint)}">${banner}</div>
+      <div class="course-header-body">
+        <div class="course-header-meta">
+          <div class="course-code" style="color:${e(c.ink)}">${meta}</div>
+          <div class="course-title-row"><h1 title="${e(c.title)}">${e(c.name)}</h1>${d2lLink}</div>
+          ${section}
+        </div>
+      </div>
+    </section>`;
+  }
+
+  function courseMainColumn(model, c) {
+    const upcomingItems = model.upcoming.length
+      ? model.upcoming.map((item) => workRow(item, { hideCourse: true, rel: true })).join("")
+      : emptyState("", "No upcoming work in this course.");
+    const modules = model.modules.length
+      ? model.modules.map((m) => `<a class="row compact" href="${e(m.route)}"><span class="ico">${icon("folder", 20)}</span><span class="grow"><span class="title plain">${e(m.title)}</span><span class="meta">${e([m.topics, m.completion].join(" · "))}</span></span><span class="chev">${icon("chevronRight", 16)}</span></a>`).join("")
+      : emptyState("", "This course has no content modules in the archive.");
+    return `<div class="course-main-column stack">
+      ${courseHeaderCard(c)}
+      <section class="card card-pad sec-upcoming">
+        ${cardHead("Upcoming work", { href: `#/work?course=${encodeURIComponent(c.courseId)}`, label: "View all" }, model.upcomingTotal > model.upcomingShown ? `${model.upcomingShown} of ${model.upcomingTotal}` : "")}
+        ${upcomingItems}
+      </section>
+      <section class="card card-pad sec-content">
+        ${cardHead("Content", { href: `#/resources/${encodeURIComponent(c.courseId)}`, label: "View all" })}
+        ${modules}
+      </section>
+    </div>`;
+  }
+
+  function courseSideColumn(model, c) {
+    const emptyNews = emptyState("", model.earlierAnnouncements.length ? "No announcements this term yet." : "This course has no announcements.");
+    const news = model.announcements.length ? model.announcements.map(announcementRow).join("") : emptyNews;
+    const earlier = model.earlierAnnouncements.length ? `<details class="earlier"><summary>From earlier terms (${model.earlierAnnouncements.length}) ${icon("chevronDown", 15)}</summary>${model.earlierAnnouncements.map(announcementRow).join("")}</details>` : "";
+    const disc = model.discussions.length ? `<section class="card card-pad sec-discussions">
+      ${cardHead("Discussions", { href: `#/work?type=discussion&tab=all&course=${encodeURIComponent(c.courseId)}`, label: "View all" })}
+      ${model.discussions.map((item) => `<a class="row compact" href="${e(item.route)}"><span class="ico">${icon("chat", 20)}</span><span class="grow"><span class="title plain">${e(item.title)}</span><span class="meta">${e(item.dueLine)}</span></span>${statusMark(item.status)}</a>`).join("")}
+    </section>` : "";
+    return `<div class="course-side-column stack">
+      ${instructorContactCard(model.contacts, model.syllabus, c.courseId, model.syllabusOverride)}
+      ${textbooksCard(model, c)}
+      <section class="card card-pad sec-announcements">
+        ${cardHead("Announcements", model.announcementTotal ? { href: `#/updates?course=${encodeURIComponent(c.courseId)}`, label: "View all" } : null, model.announcementTotal ? plural(model.announcementTotal, "announcement") : "")}
+        ${news}${earlier}
+      </section>
+      ${disc}
+    </div>`;
+  }
+
   function courseHomePage(model) {
     if (!model) return notFoundPage("That course isn't in your archive.");
     const c = model.course;
     return `<div class="page" data-screen="course">
       <a class="back-link" href="#/courses" data-course-back>${icon("chevronLeft", 18)}<span>Back to Courses</span></a>
       <div class="course-page-layout">
-        <div class="course-main-column stack">
-          <section class="card course-header-card">
-            <div class="course-banner course-hero" style="background:${e(c.tint)}">${c.image ? `<img src="${e(c.image)}" alt="" draggable="false">` : ""}</div>
-            <div class="course-header-body">
-              <div class="course-header-meta">
-                <div class="course-code" style="color:${e(c.ink)}">${e([c.label, c.term].filter(Boolean).join("  ·  "))}</div>
-                <div class="course-title-row"><h1 title="${e(c.title)}">${e(c.name)}</h1>${c.d2lHome ? `<a class="icon-btn" href="${e(c.d2lHome)}" rel="noopener noreferrer" data-d2l-link title="Open in D2L" aria-label="Open ${e(c.name)} in D2L">${icon("external", 18)}</a>` : ""}</div>
-                ${c.section ? `<div style="display:flex;flex-wrap:wrap;gap:6px 18px;margin-top:8px;font-size:13.5px;color:var(--ink-4)"><span>${e(c.section)}</span></div>` : ""}
-              </div>
-            </div>
-          </section>
-          <section class="card card-pad sec-upcoming">
-            ${cardHead("Upcoming work", { href: `#/work?course=${encodeURIComponent(c.courseId)}`, label: "View all" }, model.upcomingTotal > model.upcomingShown ? `${model.upcomingShown} of ${model.upcomingTotal}` : "")}
-            ${model.upcoming.length ? model.upcoming.map((item) => workRow(item, { hideCourse: true, rel: true })).join("") : emptyState("", "No upcoming work in this course.")}
-          </section>
-          <section class="card card-pad sec-content">
-            ${cardHead("Content", { href: `#/resources/${encodeURIComponent(c.courseId)}`, label: "View all" })}
-            ${model.modules.length ? model.modules.map((module) => `<a class="row compact" href="${e(module.route)}"><span class="ico">${icon("folder", 20)}</span><span class="grow"><span class="title plain">${e(module.title)}</span><span class="meta">${e([module.topics, module.completion].join(" · "))}</span></span><span class="chev">${icon("chevronRight", 16)}</span></a>`).join("") : emptyState("", "This course has no content modules in the archive.")}
-          </section>
-        </div>
-        <div class="course-side-column stack">
-          ${instructorContactCard(model.contacts, model.syllabus, c.courseId, model.syllabusOverride)}
-          ${textbooksCard(model, c)}
-          <section class="card card-pad sec-announcements">
-            ${cardHead("Announcements", model.announcementTotal ? { href: `#/updates?course=${encodeURIComponent(c.courseId)}`, label: "View all" } : null, model.announcementTotal ? plural(model.announcementTotal, "announcement") : "")}
-            ${model.announcements.length ? model.announcements.map(announcementRow).join("") : emptyState("", model.earlierAnnouncements.length ? "No announcements this term yet." : "This course has no announcements.")}
-            ${model.earlierAnnouncements.length ? `<details class="earlier"><summary>From earlier terms (${model.earlierAnnouncements.length}) ${icon("chevronDown", 15)}</summary>${model.earlierAnnouncements.map(announcementRow).join("")}</details>` : ""}
-          </section>
-          ${model.discussions.length ? `<section class="card card-pad sec-discussions">
-            ${cardHead("Discussions", { href: `#/work?type=discussion&tab=all&course=${encodeURIComponent(c.courseId)}`, label: "View all" })}
-            ${model.discussions.map((item) => `<a class="row compact" href="${e(item.route)}"><span class="ico">${icon("chat", 20)}</span><span class="grow"><span class="title plain">${e(item.title)}</span><span class="meta">${e(item.dueLine)}</span></span>${statusMark(item.status)}</a>`).join("")}
-          </section>` : ""}
-        </div>
+        ${courseMainColumn(model, c)}
+        ${courseSideColumn(model, c)}
       </div>
     </div>`;
   }
