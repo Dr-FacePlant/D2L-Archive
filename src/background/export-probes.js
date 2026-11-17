@@ -183,6 +183,44 @@ function safePageProbeUrls(urls) {
   return [...new Set((urls || []).map((url) => normalizeText(url)).filter((url) => isSafeReadOnlyUrl(url)))].slice(0, 24);
 }
 
+async function executeProbeUrlTasks(tabId, safeUrls, pages, rows, failures) {
+  for (const url of safeUrls) {
+    const task = {
+      title: url,
+      url,
+      expectedPageType: classifyUrl(url),
+      sourcePageType: "focusedPageProbe"
+    };
+    try {
+      const payload = await navigateAndExtract(tabId, task);
+      payload.crawlTask.sourcePageType = "focusedPageProbe";
+      pages.push(payload);
+      rows.push(...(Array.isArray(payload.items) ? payload.items : []).map((item) => flattenItem(payload, item)));
+    } catch (error) {
+      failures.push({ url, error: error?.message || "Page probe failed." });
+      pages.push({
+        pageType: "failed",
+        page: { url, title: url },
+        course: { orgUnitId: "", title: "" },
+        items: [],
+        error: error?.message || "Page probe failed.",
+        crawlTask: task
+      });
+    }
+  }
+}
+
+async function cleanupWorkerTabs(workerTabs, senderTabId) {
+  for (const workerTab of workerTabs) {
+    if (workerTab.id === senderTabId) continue;
+    try {
+      await chrome.tabs.remove(workerTab.id);
+    } catch {
+      // The user may have closed the tab already.
+    }
+  }
+}
+
 async function downloadPageProbeExport(urls, senderTabId = null) {
   const safeUrls = safePageProbeUrls(urls);
   if (!safeUrls.length) throw new Error("No safe D2L page probe URLs were provided.");
@@ -192,39 +230,13 @@ async function downloadPageProbeExport(urls, senderTabId = null) {
   const pages = [];
   const rows = [];
   const failures = [];
-  // Keep the trigger tab stable so its bridge can report completion. Reusing a
-  // browser-controlled sender tab can make Chrome reject the worker navigation.
   const workerTabs = await createWorkerTabs(startUrl, 1, null);
   const tab = workerTabs[0];
 
   try {
-    // Fail before any page is read if the tab cannot say which account it belongs to.
     const expectedAccountId = await background.verifyTabAccount(tab.id);
     if (!expectedAccountId) throw new background.AccountVerificationError("account-unverified");
-    for (const url of safeUrls) {
-      const task = {
-        title: url,
-        url,
-        expectedPageType: classifyUrl(url),
-        sourcePageType: "focusedPageProbe"
-      };
-      try {
-        const payload = await navigateAndExtract(tab.id, task);
-        payload.crawlTask.sourcePageType = "focusedPageProbe";
-        pages.push(payload);
-        rows.push(...(Array.isArray(payload.items) ? payload.items : []).map((item) => flattenItem(payload, item)));
-      } catch (error) {
-        failures.push({ url, error: error?.message || "Page probe failed." });
-        pages.push({
-          pageType: "failed",
-          page: { url, title: url },
-          course: { orgUnitId: "", title: "" },
-          items: [],
-          error: error?.message || "Page probe failed.",
-          crawlTask: task
-        });
-      }
-    }
+    await executeProbeUrlTasks(tab.id, safeUrls, pages, rows, failures);
 
     await downloadResults(rows, pages, archiveRoot, {
       verifyTabId: tab.id,
@@ -237,14 +249,7 @@ async function downloadPageProbeExport(urls, senderTabId = null) {
 
     return { archiveRoot, rows: rows.length, pages: pages.length, failures };
   } finally {
-    for (const workerTab of workerTabs) {
-      if (workerTab.id === senderTabId) continue;
-      try {
-        await chrome.tabs.remove(workerTab.id);
-      } catch {
-        // The user may have closed the tab already.
-      }
-    }
+    await cleanupWorkerTabs(workerTabs, senderTabId);
   }
 }
 
