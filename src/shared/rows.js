@@ -83,8 +83,8 @@
       ids.groupId,
       ids.userId,
       columns.recoveredFrom ? `observation:${columns.recoveredFrom}` : "",
-      shared.normalizeText(row.itemUrl || row.pageUrl),
-      shared.normalizeText(row.title)
+      (shared.normalizeText || ((s) => String(s || "").trim()))(row.itemUrl || row.pageUrl),
+      (shared.normalizeText || ((s) => String(s || "").trim()))(row.title)
     ].filter((value) => value !== undefined && value !== null && String(value).trim() !== "").join("::");
   }
 
@@ -107,4 +107,5 @@
   }
 
   Object.assign(shared, { pageKey, flattenItem, toCsv, toJsonl, parseColumns, stableRowId, rowSignature });
+  if (typeof module !== "undefined" && module.exports) module.exports = shared;
 })();

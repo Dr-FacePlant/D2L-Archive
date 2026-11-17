@@ -1,5 +1,19 @@
 import fs from "node:fs";
 import path from "node:path";
+import vm from "node:vm";
+
+const _shared = {};
+const _rowsPath = new URL("../../src/shared/rows.js", import.meta.url);
+vm.runInNewContext(fs.readFileSync(_rowsPath, "utf8"), {
+  globalThis: { D2LExtractorShared: _shared },
+  JSON,
+  Date,
+  String
+});
+export const stableRowId = _shared.stableRowId;
+export const rowSignature = _shared.rowSignature;
+export const toJsonl = _shared.toJsonl;
+export const parseColumns = _shared.parseColumns;
 
 export function parseJson(value) {
   try {
@@ -7,47 +21,6 @@ export function parseJson(value) {
   } catch {
     return {};
   }
-}
-
-export function stableRowId(row, parse = parseJson) {
-  const ids = parse(row.ids);
-  return [
-    row.courseOrgUnitId,
-    row.source,
-    ids.contentObjectId,
-    ids.quizId,
-    ids.dropboxFolderId,
-    ids.assignmentFolderId,
-    ids.gradeObjectId,
-    ids.calendarEventId,
-    ids.newsItemId,
-    ids.discussionForumId,
-    ids.discussionTopicId,
-    ids.postId,
-    ids.fileId,
-    ids.rubricId,
-    row.itemUrl || row.pageUrl,
-    row.title
-  ].filter((value) => value !== undefined && value !== null && String(value).trim() !== "").join("::");
-}
-
-export function rowSignature(row) {
-  return JSON.stringify({
-    courseOrgUnitId: row.courseOrgUnitId || "",
-    source: row.source || "",
-    title: row.title || "",
-    status: row.status || "",
-    type: row.type || "",
-    dueAtText: row.dueAtText || "",
-    availabilityText: row.availabilityText || "",
-    itemUrl: row.itemUrl || "",
-    historyUrl: row.historyUrl || "",
-    feedbackUrl: row.feedbackUrl || "",
-    localPath: row.localPath || "",
-    downloadError: row.downloadError || "",
-    ids: row.ids || "",
-    columns: row.columns || ""
-  });
 }
 
 export function createExportSummary(sourceManifest, parse = parseJson) {
@@ -276,10 +249,6 @@ export function aiIndexRecord(row, parse = parseJson) {
     ids,
     columns
   };
-}
-
-export function toJsonl(records) {
-  return records.map((record) => JSON.stringify(record)).join("\n");
 }
 
 export function createRecordTools(deps = {}) {

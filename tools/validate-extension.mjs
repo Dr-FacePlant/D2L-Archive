@@ -31,7 +31,7 @@ const verifyArchiveRuntime = [
 const queryAiIndexFile = fs.readFileSync(path.join(toolsRoot, "query-ai-index.mjs"), "utf8");
 const queryAiIndex = [
   ...queryAiIndexFile.matchAll(/from\s+"(\.\/verify\/[^"]+\.mjs)"/g)
-].map((match) => fs.readFileSync(path.join(toolsRoot, match[1]), "utf8")).join("\n") + `\n${queryAiIndexFile}`;
+].map((match) => fs.readFileSync(path.join(toolsRoot, match[1]), "utf8")).join("\n") + `\n${sharedRuntime}\n${queryAiIndexFile}`;
 const verifyLatest = fs.readFileSync(path.join(toolsRoot, "verify-latest.mjs"), "utf8");
 const remainingExtractionAudit = fs.readFileSync(path.join(toolsRoot, "audit-remaining-extraction.mjs"), "utf8");
 const targetedValidationPlan = fs.readFileSync(path.join(toolsRoot, "plan-targeted-validation.mjs"), "utf8");
