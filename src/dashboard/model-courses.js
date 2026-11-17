@@ -149,10 +149,7 @@
     };
   }
 
-  function courseHomeModel(index, courseId, hiddenWork = {}) {
-    const course = index.courseById.get(courseId);
-    if (!course) return null;
-    const upcoming = upcomingWork(index, courseId, {}, hiddenWork);
+  function buildCourseAnnouncements(index, courseId) {
     const seen = new Set();
     const allAnnouncements = index.list(courseId, "announcement")
       .slice()
@@ -163,11 +160,20 @@
         seen.add(key);
         return true;
       })
-      .map((entity) => ({ title: entity.canonicalTitle, route: routeFor(entity), at: entity.dates?.publishedAt, date: fmtShortDate(entity.dates?.publishedAt, index.now), ago: ago(entity.dates?.publishedAt, index.now) }));
+      .map((entity) => ({
+        title: entity.canonicalTitle,
+        route: routeFor(entity),
+        at: entity.dates?.publishedAt,
+        date: fmtShortDate(entity.dates?.publishedAt, index.now),
+        ago: ago(entity.dates?.publishedAt, index.now)
+      }));
     const announcements = allAnnouncements.filter((a) => !fromEarlierTerm(index, courseId, a.at));
     const earlierAnnouncements = allAnnouncements.filter((a) => fromEarlierTerm(index, courseId, a.at))
       .map((a) => ({ ...a, date: fmtDate(a.at, index.now) }));
-    const modules = resourceModules(index, courseId);
+    return { announcements, earlierAnnouncements };
+  }
+
+  function resolveDetectedSyllabus(index, courseId, modules) {
     const syllabusRegex = /\b(?:syllabus|simple\s+syllabus|course\s+outline|course\s+information|course\s+info|policies\s*(?:&|and)\s*schedule)\b/i;
     let syllabus = modules.flatMap((module) => module.items).find((item) => syllabusRegex.test(item.title)) || null;
     if (!syllabus) {
@@ -177,63 +183,55 @@
       }
     }
     if (!syllabus) {
-      // Check for syllabus policies tagged from announcements or tools (e.g. Simple Syllabus or quickLink)
       const syllabusPolicies = index.list(courseId, "coursePolicy").filter((p) => syllabusRegex.test(p.canonicalTitle || ""));
       if (syllabusPolicies.length) {
         syllabus = { id: syllabusPolicies[0].entityId, title: syllabusPolicies[0].canonicalTitle, from: "Policy" };
       }
     }
-    const listed = new Set(nextRows(upcoming, 6).map((item) => item.id));
-    // Discussions already in Upcoming work aren't repeated in their own card.
-    const discussions = allWork(index).filter((item) => item.courseId === courseId && item.kind === "discussion" && !listed.has(item.id)).sort(byDue);
-    const grades = index.list(courseId, "gradeRecord").filter((entity) => entity.kind === "item");
-    // Manual contact edits sit on top of whatever the archive detected. A
-    // course without a detected instructor still gets one editable row.
-    const contactOverrides = index.courseContactOverrides?.[courseId] || {};
-    // A custom syllabus override (link, uploaded file, or raw text) replaces whatever syllabus the archive detected.
+    return syllabus;
+  }
+
+  function resolveCourseSyllabus(index, courseId, modules, contactOverrides) {
     const customSyllabus = contactOverrides.syllabus || null;
     const syllabusLink = dash.safeSyllabusUrl?.(customSyllabus?.url) || "";
-    let effectiveSyllabus = null;
-    let syllabusEditValue = "";
     if (customSyllabus?.type === "text" && customSyllabus.text) {
-      effectiveSyllabus = {
-        id: "",
-        title: customSyllabus.title || "Custom syllabus",
-        from: "Custom",
-        type: "text",
-        text: customSyllabus.text
-      };
-      syllabusEditValue = customSyllabus.text;
-    } else if (customSyllabus?.type === "file" && customSyllabus.dataUrl) {
-      effectiveSyllabus = {
-        id: "",
-        title: customSyllabus.title || customSyllabus.name || "Custom syllabus",
-        from: "Custom",
-        type: "file",
-        name: customSyllabus.name || "Syllabus",
-        mime: customSyllabus.mime || "application/pdf",
-        dataUrl: customSyllabus.dataUrl
-      };
-      syllabusEditValue = customSyllabus.name || "Syllabus";
-    } else if (syllabusLink) {
-      effectiveSyllabus = {
-        id: "",
-        title: "Custom link",
-        from: "Custom",
-        url: syllabusLink
-      };
-      syllabusEditValue = syllabusLink;
-    } else if (syllabus) {
-      effectiveSyllabus = {
-        id: syllabus.id,
-        title: syllabus.title,
-        from: syllabus.from || "Content"
+      return {
+        effectiveSyllabus: { id: "", title: customSyllabus.title || "Custom syllabus", from: "Custom", type: "text", text: customSyllabus.text },
+        syllabusEditValue: customSyllabus.text
       };
     }
+    if (customSyllabus?.type === "file" && customSyllabus.dataUrl) {
+      return {
+        effectiveSyllabus: { id: "", title: customSyllabus.title || customSyllabus.name || "Custom syllabus", from: "Custom", type: "file", name: customSyllabus.name || "Syllabus", mime: customSyllabus.mime || "application/pdf", dataUrl: customSyllabus.dataUrl },
+        syllabusEditValue: customSyllabus.name || "Syllabus"
+      };
+    }
+    if (syllabusLink) {
+      return {
+        effectiveSyllabus: { id: "", title: "Custom link", from: "Custom", url: syllabusLink },
+        syllabusEditValue: syllabusLink
+      };
+    }
+    const detected = resolveDetectedSyllabus(index, courseId, modules);
+    return {
+      effectiveSyllabus: detected ? { id: detected.id, title: detected.title, from: detected.from || "Content" } : null,
+      syllabusEditValue: ""
+    };
+  }
+
+  function courseHomeModel(index, courseId, hiddenWork = {}) {
+    const course = index.courseById.get(courseId);
+    if (!course) return null;
+    const upcoming = upcomingWork(index, courseId, {}, hiddenWork);
+    const { announcements, earlierAnnouncements } = buildCourseAnnouncements(index, courseId);
+    const modules = resourceModules(index, courseId);
+    const contactOverrides = index.courseContactOverrides?.[courseId] || {};
+    const { effectiveSyllabus, syllabusEditValue } = resolveCourseSyllabus(index, courseId, modules, contactOverrides);
+    const listed = new Set(nextRows(upcoming, 6).map((item) => item.id));
+    const discussions = allWork(index).filter((item) => item.courseId === courseId && item.kind === "discussion" && !listed.has(item.id)).sort(byDue);
+    const grades = index.list(courseId, "gradeRecord").filter((entity) => entity.kind === "item");
     const contacts = (course.instructorContacts.length ? course.instructorContacts : [{}])
-      .map((contact, index) => ({ name: "", email: "", officeHours: "", ...contact, ...(contactOverrides[index] || {}) }));
-    // The shelf shows only entries the user saved; nothing is auto-detected.
-    // A course with none shows the empty state.
+      .map((contact, idx) => ({ name: "", email: "", officeHours: "", ...contact, ...(contactOverrides[idx] || {}) }));
     const textbooks = (dash.normalizeTextbookEntries(index.courseTextbooks?.[courseId]?.entries) || []);
     return {
       course,
