@@ -12,6 +12,51 @@ function listDateToIso(text) {
 
 // The Discussions List page groups topics under forum <h2> headings and shows a
 // topic's window ("Available on … until …") even when the topics API is 403.
+function extractTopicPrompt(cell, text, title) {
+  const htmlBlock = cell?.querySelector?.("d2l-html-block[html]");
+  if (htmlBlock) {
+    return normalizeText(new DOMParser().parseFromString(htmlBlock.getAttribute("html") || "", "text/html").body?.textContent || "");
+  }
+  return normalizeText(text
+    .replace(title, "")
+    .replace(/You must start a thread before you can read and reply to other threads/gi, "")
+    .replace(/Contains unread posts/gi, "")
+    .replace(/[A-Z][a-z]{2} \d{1,2} - [A-Z][a-z]{2} \d{1,2}/, "")
+    .replace(/Available (?:on|until) [A-Z][a-z]{2} \d{1,2}, \d{4} \d{1,2}:\d{2} [AP]M/g, "")
+    .replace(/Access restricted (?:before|after) availability (?:starts|ends)\./gi, "")
+    .replace(/Must post first\./gi, ""));
+}
+
+function buildDiscussionListTopic(node, forumTitle) {
+  const href = node.getAttribute("href") || "";
+  if (/[?&]filters=/i.test(href)) return null;
+  const topicId = href.match(/\/topics\/(\d+)\//)?.[1] || "";
+  if (!topicId) return null;
+  const title = normalizeText(node.textContent);
+  const cell = node.closest("th, td, li") || node.parentElement;
+  const text = normalizeText(cell?.textContent || "");
+  const from = text.match(/Available on ([A-Z][a-z]{2} \d{1,2}, \d{4} \d{1,2}:\d{2} [AP]M)/)?.[1] || "";
+  const until = text.match(/Available until ([A-Z][a-z]{2} \d{1,2}, \d{4} \d{1,2}:\d{2} [AP]M)/)?.[1] || "";
+  const prompt = extractTopicPrompt(cell, text, title);
+  return {
+    source: "discussionTopic",
+    title,
+    description: prompt,
+    url: absoluteUrl(href),
+    status: "visible",
+    gate: /must post first/i.test(text) ? "mustPostFirst" : "",
+    availabilityText: [from, until].filter(Boolean).join(" - "),
+    columns: {
+      recoveredFrom: "discussionListPage",
+      forumTitle,
+      startDate: listDateToIso(from),
+      endDate: listDateToIso(until),
+      hasUnread: /Contains unread posts/i.test(text)
+    },
+    ids: { courseOrgUnitId: getOrgUnitId(), discussionTopicId: topicId }
+  };
+}
+
 function extractDiscussionListTopics() {
   if (!/\/discussions\/List/i.test(window.location.pathname)) return [];
   const nodes = [...document.querySelectorAll("h2, a[href*='/discussions/topics/']")];
@@ -23,47 +68,10 @@ function extractDiscussionListTopics() {
       forumTitle = normalizeText(node.textContent);
       continue;
     }
-    const href = node.getAttribute("href") || "";
-    if (/[?&]filters=/i.test(href)) continue;
-    const topicId = href.match(/\/topics\/(\d+)\//)?.[1] || "";
-    if (!topicId || seen.has(topicId)) continue;
-    seen.add(topicId);
-    const title = normalizeText(node.textContent);
-    const cell = node.closest("th, td, li") || node.parentElement;
-    const text = normalizeText(cell?.textContent || "");
-    const from = text.match(/Available on ([A-Z][a-z]{2} \d{1,2}, \d{4} \d{1,2}:\d{2} [AP]M)/)?.[1] || "";
-    const until = text.match(/Available until ([A-Z][a-z]{2} \d{1,2}, \d{4} \d{1,2}:\d{2} [AP]M)/)?.[1] || "";
-    // The topic prompt renders inside <d2l-html-block html="…">, whose text lives
-    // in a shadow root; the attribute holds the same HTML.
-    const htmlBlock = cell?.querySelector?.("d2l-html-block[html]");
-    const blockText = htmlBlock
-      ? normalizeText(new DOMParser().parseFromString(htmlBlock.getAttribute("html") || "", "text/html").body?.textContent || "")
-      : "";
-    const prompt = blockText || normalizeText(text
-      .replace(title, "")
-      .replace(/You must start a thread before you can read and reply to other threads/gi, "")
-      .replace(/Contains unread posts/gi, "")
-      .replace(/[A-Z][a-z]{2} \d{1,2} - [A-Z][a-z]{2} \d{1,2}/, "")
-      .replace(/Available (?:on|until) [A-Z][a-z]{2} \d{1,2}, \d{4} \d{1,2}:\d{2} [AP]M/g, "")
-      .replace(/Access restricted (?:before|after) availability (?:starts|ends)\./gi, "")
-      .replace(/Must post first\./gi, ""));
-    topics.push({
-      source: "discussionTopic",
-      title,
-      description: prompt,
-      url: absoluteUrl(href),
-      status: "visible",
-      gate: /must post first/i.test(text) ? "mustPostFirst" : "",
-      availabilityText: [from, until].filter(Boolean).join(" - "),
-      columns: {
-        recoveredFrom: "discussionListPage",
-        forumTitle,
-        startDate: listDateToIso(from),
-        endDate: listDateToIso(until),
-        hasUnread: /Contains unread posts/i.test(text)
-      },
-      ids: { courseOrgUnitId: getOrgUnitId(), discussionTopicId: topicId }
-    });
+    const topic = buildDiscussionListTopic(node, forumTitle);
+    if (!topic || seen.has(topic.ids.discussionTopicId)) continue;
+    seen.add(topic.ids.discussionTopicId);
+    topics.push(topic);
   }
   return topics;
 }
