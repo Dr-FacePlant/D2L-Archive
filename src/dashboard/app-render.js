@@ -142,12 +142,11 @@
     if (location.hash === detailHash) render(detailHash); else location.hash = detailHash;
   }
 
-  const backFromDetail = () => { const ctx = state.detail; if (!ctx) return; (ctx.openedFromApp && ctx.depth > 0) ? history.back() : closeDetailToBase(); };
+  const backFromDetail = () => closeDetailToBase();
 
   function closeDetailToBase() {
     const context = state.detail;
     if (!context) return;
-    if (context.openedFromApp && context.depth > 0) { history.go(-context.depth); return; }
     history.replaceState({ d2lArchive: true, route: context.baseHash }, "", context.baseHash);
     rememberScreen();
     render(context.baseHash);
