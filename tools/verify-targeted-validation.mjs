@@ -49,6 +49,43 @@ if (import.meta.url === pathToFileURL(process.argv[1] || "").href) {
   console.log(md);
 }
 
+function evaluateTargetedSection(section, visitedUrls, baselineEvidence, evidence) {
+  const urls = unique(section.urls.map(normalizeUrl));
+  const visitedPlannedUrls = urls.filter((url) => visitedUrls.has(url));
+  const missingPlannedUrls = urls.filter((url) => !visitedUrls.has(url));
+  const proofGaps = proofGapsForSection(section, baselineEvidence);
+  const closedProofGaps = proofGaps.filter((gap) => proofGapClosed(gap, section.label, evidence));
+  const openProofGaps = proofGaps.filter((gap) => !closedProofGaps.includes(gap));
+  const covered = visitedPlannedUrls.length === urls.length && openProofGaps.length === 0;
+  const status = covered ? "covered" : (visitedPlannedUrls.length > 0 || closedProofGaps.length > 0 ? "partial" : "unproven");
+  return {
+    label: section.label || "Untitled section",
+    area: areaForSection(section.label || ""),
+    status,
+    nextAction: nextActionForSection(section.label || "", openProofGaps, missingPlannedUrls),
+    plannedUrlCount: urls.length,
+    visitedPlannedUrlCount: visitedPlannedUrls.length,
+    visitedPlannedUrls,
+    missingPlannedUrls,
+    proofGaps,
+    closedProofGaps,
+    openProofGaps
+  };
+}
+
+function computeSectionTotals(sections) {
+  return {
+    plannedSections: sections.length,
+    coveredSections: sections.filter((s) => s.status === "covered").length,
+    partialSections: sections.filter((s) => s.status === "partial").length,
+    unprovenSections: sections.filter((s) => s.status === "unproven").length,
+    plannedUrls: sections.reduce((sum, s) => sum + s.plannedUrlCount, 0),
+    visitedPlannedUrls: sections.reduce((sum, s) => sum + s.visitedPlannedUrlCount, 0),
+    openProofGaps: sections.reduce((sum, s) => sum + s.openProofGaps.length, 0),
+    closedProofGaps: sections.reduce((sum, s) => sum + s.closedProofGaps.length, 0)
+  };
+}
+
 export function verifyTargetedValidation({ archiveRoot = "", manifest, plan, planPath = "" }) {
   const rows = Array.isArray(manifest?.rows) ? manifest.rows : [];
   const pages = Array.isArray(manifest?.pages) ? manifest.pages : [];
@@ -57,55 +94,17 @@ export function verifyTargetedValidation({ archiveRoot = "", manifest, plan, pla
   const baselineEvidence = plan?.pageEvidence && typeof plan.pageEvidence === "object" ? plan.pageEvidence : evidence;
   const plannedSections = (Array.isArray(plan?.prioritySections) && plan.prioritySections.length
     ? plan.prioritySections
-    : (Array.isArray(plan?.sections) ? plan.sections.filter((section) => section.needsProof) : []));
+    : (Array.isArray(plan?.sections) ? plan.sections.filter((s) => s.needsProof) : []));
 
-  const sections = plannedSections.map((section) => {
-    const urls = unique(section.urls.map(normalizeUrl));
-    const visitedPlannedUrls = urls.filter((url) => visitedUrls.has(url));
-    const missingPlannedUrls = urls.filter((url) => !visitedUrls.has(url));
-    const proofGaps = proofGapsForSection(section, baselineEvidence);
-    const closedProofGaps = proofGaps.filter((gap) => proofGapClosed(gap, section.label, evidence));
-    const openProofGaps = proofGaps.filter((gap) => !closedProofGaps.includes(gap));
-    const status = visitedPlannedUrls.length === urls.length && openProofGaps.length === 0
-      ? "covered"
-      : visitedPlannedUrls.length > 0 || closedProofGaps.length > 0
-        ? "partial"
-        : "unproven";
-    return {
-      label: section.label || "Untitled section",
-      area: areaForSection(section.label || ""),
-      status,
-      nextAction: nextActionForSection(section.label || "", openProofGaps, missingPlannedUrls),
-      plannedUrlCount: urls.length,
-      visitedPlannedUrlCount: visitedPlannedUrls.length,
-      visitedPlannedUrls,
-      missingPlannedUrls,
-      proofGaps,
-      closedProofGaps,
-      openProofGaps
-    };
-  });
-
-  const totals = {
-    plannedSections: sections.length,
-    coveredSections: sections.filter((section) => section.status === "covered").length,
-    partialSections: sections.filter((section) => section.status === "partial").length,
-    unprovenSections: sections.filter((section) => section.status === "unproven").length,
-    plannedUrls: sections.reduce((sum, section) => sum + section.plannedUrlCount, 0),
-    visitedPlannedUrls: sections.reduce((sum, section) => sum + section.visitedPlannedUrlCount, 0),
-    openProofGaps: sections.reduce((sum, section) => sum + section.openProofGaps.length, 0),
-    closedProofGaps: sections.reduce((sum, section) => sum + section.closedProofGaps.length, 0)
-  };
-  const areaCoverage = areaCoverageSummary(sections);
-
+  const sections = plannedSections.map((s) => evaluateTargetedSection(s, visitedUrls, baselineEvidence, evidence));
   return {
     archiveRoot,
     planPath,
     exportedAt: manifest?.exportedAt || "",
     planExportedAt: plan?.exportedAt || "",
     evidence,
-    totals,
-    areaCoverage,
+    totals: computeSectionTotals(sections),
+    areaCoverage: areaCoverageSummary(sections),
     sections
   };
 }
@@ -279,56 +278,50 @@ function nextActionForSection(label, openProofGaps, missingPlannedUrls) {
   return "Inspect the visited pages and exported rows for this section, then patch the parser for any visible data that is missing.";
 }
 
+function renderSectionMarkdown(section) {
+  const lines = [
+    `### ${section.label}`, "",
+    `- Area: ${section.area || "unmapped"}`,
+    `- Status: ${section.status}`,
+    `- Next action: ${section.nextAction}`,
+    `- Visited planned URLs: ${section.visitedPlannedUrlCount} / ${section.plannedUrlCount}`
+  ];
+  if (section.closedProofGaps.length) lines.push(`- Closed proof gaps: ${section.closedProofGaps.join("; ")}`);
+  if (section.openProofGaps.length) lines.push(`- Open proof gaps: ${section.openProofGaps.join("; ")}`);
+  if (section.missingPlannedUrls.length) {
+    lines.push("- Missing planned URLs:");
+    section.missingPlannedUrls.forEach((url) => lines.push(`  - ${url}`));
+  }
+  lines.push("");
+  return lines;
+}
+
 function markdown(value) {
   const lines = [
-    "# D2L Targeted Validation Verification",
-    "",
+    "# D2L Targeted Validation Verification", "",
     `Archive: \`${value.archiveRoot}\``,
     `Plan: \`${value.planPath}\``,
     `Exported: ${value.exportedAt || "unknown"}`,
-    `Plan exported: ${value.planExportedAt || "unknown"}`,
-    "",
-    "## Totals",
-    "",
+    `Plan exported: ${value.planExportedAt || "unknown"}`, "",
+    "## Totals", "",
     `- Planned sections: ${value.totals.plannedSections}`,
     `- Covered sections: ${value.totals.coveredSections}`,
     `- Partial sections: ${value.totals.partialSections}`,
     `- Unproven sections: ${value.totals.unprovenSections}`,
     `- Visited planned URLs: ${value.totals.visitedPlannedUrls} / ${value.totals.plannedUrls}`,
     `- Closed proof gaps: ${value.totals.closedProofGaps}`,
-    `- Open proof gaps: ${value.totals.openProofGaps}`,
-    "",
-    "## Area Coverage",
-    "",
+    `- Open proof gaps: ${value.totals.openProofGaps}`, "",
+    "## Area Coverage", "",
     ...(value.areaCoverage?.length
       ? value.areaCoverage.map((area) => `- ${area.area}: ${area.covered} covered, ${area.partial} partial, ${area.unproven} unproven, ${area.openProofGaps} open proof gaps`)
-      : ["- No mapped targeted validation areas found."]),
-    "",
-    "## Evidence",
-    "",
-    ...Object.entries(value.evidence).map(([key, count]) => `- ${key}: ${count}`),
-    "",
-    "## Sections",
-    ""
+      : ["- No mapped targeted validation areas found."]), "",
+    "## Evidence", "",
+    ...Object.entries(value.evidence).map(([key, count]) => `- ${key}: ${count}`), "",
+    "## Sections", ""
   ];
   if (!value.sections.length) {
-    lines.push("No priority targeted validation sections were found in the plan.");
-    lines.push("");
+    lines.push("No priority targeted validation sections were found in the plan.", "");
   }
-  for (const section of value.sections) {
-    lines.push(`### ${section.label}`);
-    lines.push("");
-    lines.push(`- Area: ${section.area || "unmapped"}`);
-    lines.push(`- Status: ${section.status}`);
-    lines.push(`- Next action: ${section.nextAction}`);
-    lines.push(`- Visited planned URLs: ${section.visitedPlannedUrlCount} / ${section.plannedUrlCount}`);
-    if (section.closedProofGaps.length) lines.push(`- Closed proof gaps: ${section.closedProofGaps.join("; ")}`);
-    if (section.openProofGaps.length) lines.push(`- Open proof gaps: ${section.openProofGaps.join("; ")}`);
-    if (section.missingPlannedUrls.length) {
-      lines.push("- Missing planned URLs:");
-      section.missingPlannedUrls.forEach((url) => lines.push(`  - ${url}`));
-    }
-    lines.push("");
-  }
+  for (const section of value.sections) lines.push(...renderSectionMarkdown(section));
   return lines.join("\n");
 }
