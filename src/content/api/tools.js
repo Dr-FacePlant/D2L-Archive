@@ -127,6 +127,50 @@ async function collectSurveyItems(orgUnitId) {
   return { status: result.status, attemptStatuses, questionStatuses, items };
 }
 
+function buildGroupCategoryItem(category, categoryId, categoryTitle, orgUnitId) {
+  return {
+    source: "courseToolPage",
+    title: categoryTitle,
+    description: richText(category.Description),
+    url: `${window.location.origin}/d2l/lms/group/group_list.d2l?ou=${orgUnitId}`,
+    status: "available",
+    type: "groups",
+    columns: {
+      recoveredFrom: "groupCategoryApi",
+      toolSource: "group",
+      enrollmentStyle: category.EnrollmentStyle ?? "",
+      autoEnroll: category.AutoEnroll ?? "",
+      maxUsersPerGroup: category.MaxUsersPerGroup ?? "",
+      selfEnrollmentStartDate: category.SelfEnrollmentStartDate || "",
+      selfEnrollmentExpiryDate: category.SelfEnrollmentExpiryDate || ""
+    },
+    ids: { courseOrgUnitId: orgUnitId, groupCategoryId: String(categoryId) }
+  };
+}
+
+async function collectCategoryGroups(orgUnitId, categoryId, categoryTitle, items, groupStatuses) {
+  const groupsResult = await apiGet(`/d2l/api/lp/${D2L_LP_API_VERSION}/${orgUnitId}/groupcategories/${categoryId}/groups/`);
+  groupStatuses[String(categoryId)] = groupsResult.status;
+  if (!groupsResult.ok) return;
+  for (const group of apiList(groupsResult.data)) {
+    const groupId = group.GroupId || group.Id;
+    items.push({
+      source: "group",
+      title: normalizeText(group.Name || `Group ${groupId || ""}`),
+      description: richText(group.Description),
+      url: `${window.location.origin}/d2l/lms/group/group_list.d2l?ou=${orgUnitId}`,
+      status: "visible",
+      columns: {
+        recoveredFrom: "groupsApi",
+        categoryName: categoryTitle,
+        code: group.Code || "",
+        enrollmentCount: Array.isArray(group.Enrollments) ? group.Enrollments.length : ""
+      },
+      ids: { courseOrgUnitId: orgUnitId, groupCategoryId: String(categoryId), groupId: String(groupId || "") }
+    });
+  }
+}
+
 async function collectGroupItems(orgUnitId) {
   const items = [];
   const groupStatuses = {};
@@ -137,45 +181,8 @@ async function collectGroupItems(orgUnitId) {
     const categoryId = category.GroupCategoryId || category.Id;
     if (!categoryId) continue;
     const categoryTitle = normalizeText(category.Name || `Group category ${categoryId}`);
-    items.push({
-      source: "courseToolPage",
-      title: categoryTitle,
-      description: richText(category.Description),
-      url: `${window.location.origin}/d2l/lms/group/group_list.d2l?ou=${orgUnitId}`,
-      status: "available",
-      type: "groups",
-      columns: {
-        recoveredFrom: "groupCategoryApi",
-        toolSource: "group",
-        enrollmentStyle: category.EnrollmentStyle ?? "",
-        autoEnroll: category.AutoEnroll ?? "",
-        maxUsersPerGroup: category.MaxUsersPerGroup ?? "",
-        selfEnrollmentStartDate: category.SelfEnrollmentStartDate || "",
-        selfEnrollmentExpiryDate: category.SelfEnrollmentExpiryDate || ""
-      },
-      ids: { courseOrgUnitId: orgUnitId, groupCategoryId: String(categoryId) }
-    });
-
-    const groupsResult = await apiGet(`/d2l/api/lp/${D2L_LP_API_VERSION}/${orgUnitId}/groupcategories/${categoryId}/groups/`);
-    groupStatuses[String(categoryId)] = groupsResult.status;
-    if (!groupsResult.ok) continue;
-    for (const group of apiList(groupsResult.data)) {
-      const groupId = group.GroupId || group.Id;
-      items.push({
-        source: "group",
-        title: normalizeText(group.Name || `Group ${groupId || ""}`),
-        description: richText(group.Description),
-        url: `${window.location.origin}/d2l/lms/group/group_list.d2l?ou=${orgUnitId}`,
-        status: "visible",
-        columns: {
-          recoveredFrom: "groupsApi",
-          categoryName: categoryTitle,
-          code: group.Code || "",
-          enrollmentCount: Array.isArray(group.Enrollments) ? group.Enrollments.length : ""
-        },
-        ids: { courseOrgUnitId: orgUnitId, groupCategoryId: String(categoryId), groupId: String(groupId || "") }
-      });
-    }
+    items.push(buildGroupCategoryItem(category, categoryId, categoryTitle, orgUnitId));
+    await collectCategoryGroups(orgUnitId, categoryId, categoryTitle, items, groupStatuses);
   }
   return { status: result.status, groupStatuses, items };
 }
