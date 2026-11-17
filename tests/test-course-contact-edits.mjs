@@ -89,7 +89,7 @@ check(fileModel.syllabus?.type === "file" && fileModel.syllabus.name === "Art-Sy
 const fileHtml = dash.courseHomePage(fileModel);
 check(fileHtml.includes("data-action=\"view-custom-syllabus\"") && fileHtml.includes("aria-label=\"Visit syllabus: Art-Syllabus.pdf\""), "custom file syllabus should have a view button");
 
-const events = read("src/dashboard/app-events.js");
+const events = read("src/dashboard/app-events.js") + read("src/dashboard/app-events-contacts.js") + read("src/dashboard/app-events-actions.js");
 const css = read("src/dashboard/dashboard.css");
 const hoverRule = css.split("\n").find((line) => line.startsWith(".instructor-copy:hover, .instructor-edit:hover, .instructor-visit:hover")) || "";
 check(hoverRule.includes("background: var(--hover-soft)") && !hoverRule.includes("border-color"), "icon buttons should hover like Cancel: a fill, with no border change");

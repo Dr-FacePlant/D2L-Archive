@@ -23,7 +23,7 @@ check(header.includes('id="account-help" inert') && header.includes('data-action
 check(!dashboardHtml.includes("sync-note") && !/id="overlay-close"[^>]*\bhidden\b/.test(header), "Close should show through the embedded class, not a hidden flag");
 const syncStatus = read("src/dashboard/app-sync.js");
 check(syncStatus.includes('$("#profile-button")') && syncStatus.includes('more.classList.toggle("syncing", running)') && syncStatus.includes('$("#sync-hint")') && syncStatus.includes('$("#sync-label")'), "the profile button should show the sync ring and the menu should say when it last ran");
-const accountEvents = read("src/dashboard/app-events.js");
+const accountEvents = read("src/dashboard/app-events.js") + read("src/dashboard/app-events-menu.js") + read("src/dashboard/app-events-actions.js");
 check(accountEvents.includes("function showAccountView") && accountEvents.includes('action === "account-help"') && accountEvents.includes('event.key === "Escape" && state.menu'), "the account menu should slide to Help and back, and close on Esc");
 check(accountEvents.includes('classList.remove("view-help")'), "closing the menu should reset it to the main list");
 const dashboardRender = read("src/dashboard/render-dashboard.js");
@@ -58,7 +58,7 @@ for (const url of [...read("src/dashboard/model.js").matchAll(/image: "([^"]+)"/
 
 const modelFiles = ["model.js", "model-archive.js", "model-updates.js", "model-work.js", "model-details.js", "model-resources.js", "model-dashboard.js", "model-courses.js", "model-grades.js", "model-calendar.js", "model-search.js", "model-palette.js", "model-routes.js"];
 const renderFiles = ["render.js", "render-dashboard.js", "render-updates.js", "render-courses.js", "render-calendar.js", "render-work.js", "render-details.js", "render-grades.js", "render-resources.js", "render-search.js", "render-palette.js", "render-settings.js"];
-const appFiles = ["app-state.js", "app-plumbing.js", "app-overlay.js", "app-files.js", "app-preview.js", "app-appearance.js", "app-archive.js", "app-render.js", "app-sync.js", "app-events.js", "app-palette.js", "app-selfcheck.js", "app.js"];
+const appFiles = ["app-state.js", "app-plumbing.js", "app-overlay.js", "app-files.js", "app-preview.js", "app-appearance.js", "app-archive.js", "app-render.js", "app-sync.js", "app-events-menu.js", "app-events-contacts.js", "app-events-shelf.js", "app-events-textbooks.js", "app-events-actions.js", "app-events.js", "app-palette.js", "app-selfcheck.js", "app.js"];
 const dashboardJs = ["format.js", ...modelFiles, ...renderFiles, ...appFiles].map((file) => read(`src/dashboard/${file}`)).join("\n");
 check(!/\beval\s*\(|new Function\s*\(|importScripts|<script/i.test(dashboardJs.replace(/!\/<script\/i\.test/g, "")), "dashboard code must not evaluate or inject code");
 check(!/\bscheduleSlide\b/.test(dashboardJs), "boot must not call the removed sponsor slideshow scheduler");
