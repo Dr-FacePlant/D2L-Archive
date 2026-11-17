@@ -10,28 +10,7 @@ function summarizeCoverage(pages, rows, changeReport = null) {
   const skipped = [];
   const failed = [];
   const uncertain = [];
-  const expectedSources = {
-    assignments: "assignment",
-    assignmentSubmissions: "assignmentSubmission",
-    assignmentFeedback: "assignmentFeedback",
-    quizzes: "quiz",
-    quizAttempt: "quizAttemptRow",
-    quizSubmissions: "quizSubmission",
-    quizSummary: "quizSummaryRow",
-    grades: "gradeItem",
-    announcementDetail: "announcement",
-    discussions: "discussionTopic",
-    content: "contentTopic",
-    calendar: "calendarEvent",
-    checklist: "checklistItem",
-    survey: "survey",
-    selfAssessment: "selfAssessment",
-    group: "group",
-    courseLink: "courseLink",
-    attendance: "attendanceRecord",
-    userProgress: "progressRecord",
-    mediaLibrary: "mediaFile"
-  };
+  const expectedSources = shared.PAGE_TYPE_EXPECTED_SOURCES;
 
   for (const page of pages) {
     const courseId = page.course?.orgUnitId || "unknown";

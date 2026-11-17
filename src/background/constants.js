@@ -16,9 +16,24 @@ const DOWNLOAD_MIME = {
   md: "text/markdown"
 };
 
+function createOrganizerRelation(from, toId, type, signal, value, createdAt) {
+  return {
+    relationshipId: `${from.entityId}::${type}::${toId}`,
+    courseId: from.courseId,
+    fromId: from.entityId,
+    toId,
+    type,
+    confidence: 1,
+    classification: "confirmed",
+    evidence: [{ signal, value: shared.normalizeText ? shared.normalizeText(value) : String(value || "").trim(), weight: 1 }],
+    organizerVersion: shared.ORGANIZER_VERSION || "0.9.0",
+    createdAt
+  };
+}
+
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-  Object.assign(background, { CRAWL_STATE_KEY, LAST_EXPORT_KEY, MAX_PAGES, WORKER_COUNT, PAGE_LOAD_DELAY_MS, DOWNLOAD_MIME, sleep });
+  Object.assign(background, { createOrganizerRelation, CRAWL_STATE_KEY, LAST_EXPORT_KEY, MAX_PAGES, WORKER_COUNT, PAGE_LOAD_DELAY_MS, DOWNLOAD_MIME, sleep });
 })(globalThis);

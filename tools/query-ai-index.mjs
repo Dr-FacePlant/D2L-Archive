@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { parseJson, stableRowId, aiIndexRecord } from "./verify/records.mjs";
+import { aiIndexRecord } from "./verify/records.mjs";
 
 const args = process.argv.slice(2);
 const usage = "Usage: node tools/query-ai-index.mjs /path/to/archive-or-index \"search terms\" [--limit 25] [--json]";

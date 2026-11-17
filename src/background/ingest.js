@@ -29,6 +29,25 @@
     return items;
   }
 
+  function getCourseKnowledgeOrganizers() {
+    return [
+      ["assignmentBundle", buildExactAssignmentKnowledge],
+      ["quizBundle", buildQuizKnowledge],
+      ["gradeRecord", buildGradeKnowledge],
+      ["announcement", buildAnnouncementKnowledge],
+      ["discussionForum", buildDiscussionForumKnowledge],
+      ["discussionThread", buildDiscussionThreadKnowledge],
+      ["learningResource", buildLearningResourceKnowledge],
+      ["calendarEvent", buildCalendarKnowledge],
+      ["coursePolicy", buildCoursePolicyKnowledge],
+      ["studentProgress", buildStudentProgressKnowledge],
+      ["courseToolItem", buildCourseToolKnowledge],
+      ["person", buildPersonKnowledge],
+      ["externalResource", buildExternalResourceKnowledge],
+      ["extractionState", buildExtractionStateKnowledge]
+    ];
+  }
+
   async function ingestAndOrganizeRows(rows, options = {}) {
     const repository = options.repository || await background.activeArchiveRepository();
     const syncRunId = options.syncRunId || `export-${new Date().toISOString().replace(/[^0-9]/g, "")}`;
@@ -48,22 +67,7 @@
     for (const courseId of courseIds) {
       const evidence = await allEvidenceForCourse(repository, courseId);
       organizedEvidence.push(...evidence);
-      const organizers = [
-        ["assignmentBundle", buildExactAssignmentKnowledge],
-        ["quizBundle", buildQuizKnowledge],
-        ["gradeRecord", buildGradeKnowledge],
-        ["announcement", buildAnnouncementKnowledge],
-        ["discussionForum", buildDiscussionForumKnowledge],
-        ["discussionThread", buildDiscussionThreadKnowledge],
-        ["learningResource", buildLearningResourceKnowledge],
-        ["calendarEvent", buildCalendarKnowledge],
-        ["coursePolicy", buildCoursePolicyKnowledge],
-        ["studentProgress", buildStudentProgressKnowledge],
-        ["courseToolItem", buildCourseToolKnowledge],
-        ["person", buildPersonKnowledge],
-        ["externalResource", buildExternalResourceKnowledge],
-        ["extractionState", buildExtractionStateKnowledge]
-      ];
+      const organizers = getCourseKnowledgeOrganizers();
       const organized = { entities: 0, relationships: 0, entityTypes: {} };
       for (const [entityType, build] of organizers) {
         const knowledge = build(evidence, { createdAt: options.ingestedAt });
@@ -101,22 +105,7 @@
     const courses = await repository.listCourses({});
     if (!courses.length || (stored === current && options.force !== true)) return { reorganized: false, organizerVersion: current, courses: 0 };
     const createdAt = options.createdAt || new Date().toISOString();
-    const builders = [
-      ["assignmentBundle", buildExactAssignmentKnowledge],
-      ["quizBundle", buildQuizKnowledge],
-      ["gradeRecord", buildGradeKnowledge],
-      ["announcement", buildAnnouncementKnowledge],
-      ["discussionForum", buildDiscussionForumKnowledge],
-      ["discussionThread", buildDiscussionThreadKnowledge],
-      ["learningResource", buildLearningResourceKnowledge],
-      ["calendarEvent", buildCalendarKnowledge],
-      ["coursePolicy", buildCoursePolicyKnowledge],
-      ["studentProgress", buildStudentProgressKnowledge],
-      ["courseToolItem", buildCourseToolKnowledge],
-      ["person", buildPersonKnowledge],
-      ["externalResource", buildExternalResourceKnowledge],
-      ["extractionState", buildExtractionStateKnowledge]
-    ];
+    const builders = getCourseKnowledgeOrganizers();
     for (const course of courses) {
       const evidence = await allEvidenceForCourse(repository, course.courseId);
       for (const [entityType, build] of builders) {

@@ -48,29 +48,7 @@ function extractVisiblePage() {
     }
 
     const text = pageText();
-    const expectedSourceByPageType = {
-      assignments: "assignment",
-      assignmentSubmissions: "assignmentSubmission",
-      assignmentFeedback: "assignmentFeedback",
-      quizzes: "quiz",
-      quizAttempt: "quizAttemptRow",
-      quizSubmissions: "quizSubmission",
-      quizSummary: "quizSummaryRow",
-      grades: "gradeItem",
-      announcementDetail: "announcement",
-      discussions: "discussionTopic",
-      content: "contentTopic",
-      calendar: "calendarEvent",
-      checklist: "checklistItem",
-      survey: "survey",
-      selfAssessment: "selfAssessment",
-      group: "group",
-      courseLink: "courseLink",
-      attendance: "attendanceRecord",
-      userProgress: "progressRecord",
-      mediaLibrary: "mediaFile",
-      dashboard: "dashboardCourseCard"
-    };
+    const expectedSourceByPageType = globalThis.D2LExtractorShared.PAGE_TYPE_EXPECTED_SOURCES;
     const expectedSource = expectedSourceByPageType[pageType] || null;
     const expectedCount = expectedSource ? items.filter((item) => item.source === expectedSource || item.source === "courseToolPage").length : items.length;
     const emptyState = /There are no assignments|There are no quizzes|No surveys at this time|There are no announcements to display|No checklists|No checklist|No self assessments|No groups|No links|No attendance|No items found|No results/i.test(text);

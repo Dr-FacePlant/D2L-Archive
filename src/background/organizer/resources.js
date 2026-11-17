@@ -3,20 +3,7 @@
   const background = global.D2LExtractorBackground ||= {};
   const { normalizeText, normalizedDate, ORGANIZER_VERSION } = shared;
 
-  function relation(from, toId, type, signal, value, createdAt) {
-    return {
-      relationshipId: `${from.entityId}::${type}::${toId}`,
-      courseId: from.courseId,
-      fromId: from.entityId,
-      toId,
-      type,
-      confidence: 1,
-      classification: "confirmed",
-      evidence: [{ signal, value: normalizeText(value), weight: 1 }],
-      organizerVersion: ORGANIZER_VERSION,
-      createdAt
-    };
-  }
+  const relation = background.createOrganizerRelation;
 
   function learningResourceEntityId(courseId, contentObjectId) {
     return `resource:${courseId}:${contentObjectId}`;
