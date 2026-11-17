@@ -45,145 +45,107 @@ function isDownloadCandidate(row) {
 // file, and the full-semester calendar. Rows from the API replace the scraped
 // contentTopic/quiz/assignment/calendarEvent rows rather than sitting alongside
 // them, so the manifest has one authoritative row per item.
+const API_REPLACEABLE_SOURCES = new Set([
+  "contentTopic", "contentAttachment", "courseOverview", "courseOverviewAttachment",
+  "quiz", "quizAttempt", "quizQuestion", "assignment", "assignmentSubmission", "assignmentFeedback",
+  "submittedFile", "calendarEvent", "calendarAttachment", "gradeItem", "gradeFeedback",
+  "gradeSetup", "gradeCategory", "finalGrade", "announcement", "announcementAttachment",
+  "discussionForum", "discussionTopic", "discussionPost", "discussionAttachment", "externalLink",
+  "syllabusPolicy", "rubric", "rubricFeedback", "checklistItem", "survey", "surveyAttempt",
+  "surveyQuestion", "group", "classlistEntry", "progressRecord", "courseToolPage", "apiProbe"
+]);
+
+function purgeObsoleteCourseRows(rows, orgUnitId) {
+  const before = rows.length;
+  for (let index = rows.length - 1; index >= 0; index -= 1) {
+    const columns = parseColumns(rows[index]);
+    const isLiveTopic = rows[index].source === "discussionTopic" && columns.recoveredFrom === "discussionTopicPage";
+    const isLiveAttach = rows[index].source === "discussionAttachment" && /^discussion(?:Page|VisiblePost|Attachment)/.test(columns.recoveredFrom || "");
+    if (rows[index].courseOrgUnitId === orgUnitId && API_REPLACEABLE_SOURCES.has(rows[index].source) && !isLiveTopic && !isLiveAttach) {
+      rows.splice(index, 1);
+    }
+  }
+  return before - rows.length;
+}
+
+function appendCoursePayloadRows(rows, orgUnitId, payload, pages) {
+  const course = pages.find((page) => page.course?.orgUnitId === orgUnitId)?.course || {};
+  const pagePayload = {
+    pageType: "valenceApi",
+    page: { url: `https://kennesaw.view.usg.edu/d2l/home/${orgUnitId}`, title: course.title || orgUnitId },
+    course: { orgUnitId, title: course.title || "" },
+    apiStatus: payload.apiStatus, apiCounts: payload.counts, extractor: { extractedAt: new Date().toISOString() }
+  };
+  for (const item of payload.items || []) {
+    const row = flattenItem(pagePayload, item);
+    row.downloadUrl = item.downloadUrl || "";
+    row.suggestedFileName = item.suggestedFileName || "";
+    rows.push(row);
+  }
+  return payload.items?.length || 0;
+}
+
+async function collectCourseProbes(tab, orgUnitId, course, items, rows, pages) {
+  const ap = await collectAssignmentProbePages(tab, orgUnitId, course, items, rows, pages);
+  const qp = await collectQuizProbePages(tab, orgUnitId, course, items, rows, pages);
+  const anp = await collectAnnouncementProbePages(tab, orgUnitId, course, items, rows, pages);
+  const gp = await collectGradeProbePages(tab, orgUnitId, course, rows, pages);
+  const ctp = await collectCourseToolProbePages(tab, orgUnitId, course, rows, pages);
+  return { ap, qp, anp, gp, ctp };
+}
+
+function mergeProbeSummaries(summary, orgUnitId, payload, probes) {
+  const add = (dest, src) => { dest.visited += src.visited; dest.failed += src.failed; dest.rows += src.rows; };
+  add(summary.assignmentProbePages, probes.ap);
+  add(summary.quizProbePages, probes.qp);
+  add(summary.announcementProbePages, probes.anp);
+  add(summary.gradeProbePages, probes.gp);
+  add(summary.courseToolProbePages, probes.ctp);
+  summary.courses.push({
+    orgUnitId, counts: payload.counts, apiStatus: payload.apiStatus,
+    assignmentProbePages: probes.ap, quizProbePages: probes.qp,
+    announcementProbePages: probes.anp, gradeProbePages: probes.gp, courseToolProbePages: probes.ctp
+  });
+}
+
+async function collectOneCourseApi(tab, orgUnitId, rows, pages, summary) {
+  try {
+    await chrome.tabs.update(tab.id, { url: `https://kennesaw.view.usg.edu/d2l/home/${orgUnitId}` });
+    await sleep(PAGE_LOAD_DELAY_MS);
+    await waitForTabReady(tab.id);
+    const response = await sendToTab(tab.id, { type: "D2L_COLLECT_COURSE_API", orgUnitId });
+    if (!response?.ok) {
+      summary.failed.push({ orgUnitId, error: response?.error || "no response" });
+      return;
+    }
+    const payload = response.payload;
+    summary.replaced += purgeObsoleteCourseRows(rows, orgUnitId);
+    summary.added += appendCoursePayloadRows(rows, orgUnitId, payload, pages);
+    const course = pages.find((page) => page.course?.orgUnitId === orgUnitId)?.course || {};
+    const probes = await collectCourseProbes(tab, orgUnitId, course, payload.items || [], rows, pages);
+    mergeProbeSummaries(summary, orgUnitId, payload, probes);
+  } catch (error) {
+    summary.failed.push({ orgUnitId, error: error?.message || "collection failed" });
+  }
+}
+
 async function collectApiRows(tab, rows, pages) {
   const summary = {
-    courses: [],
-    replaced: 0,
-    added: 0,
+    courses: [], replaced: 0, added: 0, failed: [],
     assignmentProbePages: { visited: 0, failed: 0, rows: 0 },
     quizProbePages: { visited: 0, failed: 0, rows: 0 },
     announcementProbePages: { visited: 0, failed: 0, rows: 0 },
     gradeProbePages: { visited: 0, failed: 0, rows: 0 },
-    courseToolProbePages: { visited: 0, failed: 0, rows: 0 },
-    failed: []
+    courseToolProbePages: { visited: 0, failed: 0, rows: 0 }
   };
   if (!tab) return summary;
-
   const orgUnitIds = [...new Set(rows.map((row) => row.courseOrgUnitId).filter((id) => id && id !== "6629"))];
-
   for (const orgUnitId of orgUnitIds) {
-    try {
-      await chrome.tabs.update(tab.id, { url: `https://kennesaw.view.usg.edu/d2l/home/${orgUnitId}` });
-      await sleep(PAGE_LOAD_DELAY_MS);
-      await waitForTabReady(tab.id);
-      const response = await sendToTab(tab.id, { type: "D2L_COLLECT_COURSE_API", orgUnitId });
-      if (!response?.ok) {
-        summary.failed.push({ orgUnitId, error: response?.error || "no response" });
-        continue;
-      }
-
-      const payload = response.payload;
-      const apiSources = new Set([
-        "contentTopic",
-        "contentAttachment",
-        "courseOverview",
-        "courseOverviewAttachment",
-        "quiz",
-        "quizAttempt",
-        "quizQuestion",
-        "assignment",
-        "assignmentSubmission",
-        "assignmentFeedback",
-        "submittedFile",
-        "calendarEvent",
-        "calendarAttachment",
-        "gradeItem",
-        "gradeFeedback",
-        "gradeSetup",
-        "gradeCategory",
-        "finalGrade",
-        "announcement",
-        "announcementAttachment",
-        "discussionForum",
-        "discussionTopic",
-        "discussionPost",
-        "discussionAttachment",
-        "externalLink",
-        "syllabusPolicy",
-        "rubric",
-        "rubricFeedback",
-        "checklistItem",
-        "survey",
-        "surveyAttempt",
-        "surveyQuestion",
-        "group",
-        "classlistEntry",
-        "progressRecord",
-        "courseToolPage",
-        "apiProbe"
-      ]);
-      const before = rows.length;
-      for (let index = rows.length - 1; index >= 0; index -= 1) {
-        const columns = parseColumns(rows[index]);
-        const isLiveDiscussionTopicEvidence = rows[index].source === "discussionTopic" && columns.recoveredFrom === "discussionTopicPage";
-        const isLiveDiscussionAttachmentEvidence =
-          rows[index].source === "discussionAttachment" &&
-          /^discussion(?:Page|VisiblePost|Attachment)/.test(columns.recoveredFrom || "");
-        if (
-          rows[index].courseOrgUnitId === orgUnitId &&
-          apiSources.has(rows[index].source) &&
-          !isLiveDiscussionTopicEvidence &&
-          !isLiveDiscussionAttachmentEvidence
-        ) rows.splice(index, 1);
-      }
-      summary.replaced += before - rows.length;
-
-      const course = pages.find((page) => page.course?.orgUnitId === orgUnitId)?.course || {};
-      const pagePayload = {
-        pageType: "valenceApi",
-        page: { url: `https://kennesaw.view.usg.edu/d2l/home/${orgUnitId}`, title: course.title || orgUnitId },
-        course: { orgUnitId, title: course.title || "" },
-        apiStatus: payload.apiStatus,
-        apiCounts: payload.counts,
-        extractor: { extractedAt: new Date().toISOString() }
-      };
-      for (const item of payload.items || []) {
-        const row = flattenItem(pagePayload, item);
-        row.downloadUrl = item.downloadUrl || "";
-        row.suggestedFileName = item.suggestedFileName || "";
-        rows.push(row);
-        summary.added += 1;
-      }
-      const probeSummary = await collectAssignmentProbePages(tab, orgUnitId, course, payload.items || [], rows, pages);
-      summary.assignmentProbePages.visited += probeSummary.visited;
-      summary.assignmentProbePages.failed += probeSummary.failed;
-      summary.assignmentProbePages.rows += probeSummary.rows;
-      const quizProbeSummary = await collectQuizProbePages(tab, orgUnitId, course, payload.items || [], rows, pages);
-      summary.quizProbePages.visited += quizProbeSummary.visited;
-      summary.quizProbePages.failed += quizProbeSummary.failed;
-      summary.quizProbePages.rows += quizProbeSummary.rows;
-      const announcementProbeSummary = await collectAnnouncementProbePages(tab, orgUnitId, course, payload.items || [], rows, pages);
-      summary.announcementProbePages.visited += announcementProbeSummary.visited;
-      summary.announcementProbePages.failed += announcementProbeSummary.failed;
-      summary.announcementProbePages.rows += announcementProbeSummary.rows;
-      const gradeProbeSummary = await collectGradeProbePages(tab, orgUnitId, course, rows, pages);
-      summary.gradeProbePages.visited += gradeProbeSummary.visited;
-      summary.gradeProbePages.failed += gradeProbeSummary.failed;
-      summary.gradeProbePages.rows += gradeProbeSummary.rows;
-      const courseToolProbeSummary = await collectCourseToolProbePages(tab, orgUnitId, course, rows, pages);
-      summary.courseToolProbePages.visited += courseToolProbeSummary.visited;
-      summary.courseToolProbePages.failed += courseToolProbeSummary.failed;
-      summary.courseToolProbePages.rows += courseToolProbeSummary.rows;
-      summary.courses.push({
-        orgUnitId,
-        counts: payload.counts,
-        apiStatus: payload.apiStatus,
-        assignmentProbePages: probeSummary,
-        quizProbePages: quizProbeSummary,
-        announcementProbePages: announcementProbeSummary,
-        gradeProbePages: gradeProbeSummary,
-        courseToolProbePages: courseToolProbeSummary
-      });
-    } catch (error) {
-      summary.failed.push({ orgUnitId, error: error?.message || "collection failed" });
-    }
+    await collectOneCourseApi(tab, orgUnitId, rows, pages, summary);
   }
   return summary;
 }
 
-// A topic's bytes come from its DirectFileTopicDownload endpoint (File topics)
-// or from the external URL the API resolved (Link topics). A 403 on a File topic
-// means D2L stores no file for it, which is recorded rather than retried.
 function archivePathFromDownloadItem(item, fallbackPath) {
   const filename = item?.filename || "";
   const match = filename.match(/(?:^|\/)(D2L Export\/d2l-(?:export|api-export|course-export|page-probe-export)-[^/]+\/.*)$/);
