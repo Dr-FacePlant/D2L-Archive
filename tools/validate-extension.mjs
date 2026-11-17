@@ -32,10 +32,16 @@ const queryAiIndexFile = fs.readFileSync(path.join(toolsRoot, "query-ai-index.mj
 const queryAiIndex = [
   ...queryAiIndexFile.matchAll(/from\s+"(\.\/verify\/[^"]+\.mjs)"/g)
 ].map((match) => fs.readFileSync(path.join(toolsRoot, match[1]), "utf8")).join("\n") + `\n${sharedRuntime}\n${queryAiIndexFile}`;
-const verifyLatest = fs.readFileSync(path.join(toolsRoot, "verify-latest.mjs"), "utf8");
+const latestChecksHelper = fs.existsSync(path.join(toolsRoot, "verify/latest-checks.mjs"))
+  ? fs.readFileSync(path.join(toolsRoot, "verify/latest-checks.mjs"), "utf8")
+  : "";
+const verifyLatest = `${fs.readFileSync(path.join(toolsRoot, "verify-latest.mjs"), "utf8")}\n${latestChecksHelper}`;
 const remainingExtractionAudit = fs.readFileSync(path.join(toolsRoot, "audit-remaining-extraction.mjs"), "utf8");
-const targetedValidationPlan = fs.readFileSync(path.join(toolsRoot, "plan-targeted-validation.mjs"), "utf8");
-const targetedValidationVerifier = fs.readFileSync(path.join(toolsRoot, "verify-targeted-validation.mjs"), "utf8");
+const targetedPlanHelper = fs.existsSync(path.join(toolsRoot, "verify/targeted-plan.mjs"))
+  ? fs.readFileSync(path.join(toolsRoot, "verify/targeted-plan.mjs"), "utf8")
+  : "";
+const targetedValidationPlan = `${fs.readFileSync(path.join(toolsRoot, "plan-targeted-validation.mjs"), "utf8")}\n${targetedPlanHelper}`;
+const targetedValidationVerifier = `${fs.readFileSync(path.join(toolsRoot, "verify-targeted-validation.mjs"), "utf8")}\n${targetedPlanHelper}`;
 const testRemainingExtractionAudit = fs.readFileSync(path.join(testsRoot, "test-remaining-extraction-audit.mjs"), "utf8");
 const testChangeSignals = fs.readFileSync(path.join(testsRoot, "test-change-signals.mjs"), "utf8");
 const testUrlSafety = fs.readFileSync(path.join(testsRoot, "test-url-safety.mjs"), "utf8");

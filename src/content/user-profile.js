@@ -2,19 +2,13 @@
 // the local dashboard can show the same identity affordance while offline.
 (() => {
   const content = globalThis.D2LExtractorContent ||= {};
+  const { blobToDataUrl } = content;
   const STORAGE_KEY = "dashboardProfile";
   const LP_VERSION = "1.49";
   const MAX_BYTES = 400 * 1024;
   const IMAGE_REFRESH_MS = 7 * 24 * 60 * 60 * 1000;
 
-  function blobToDataUrl(blob) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result));
-      reader.onerror = () => reject(reader.error);
-      reader.readAsDataURL(blob);
-    });
-  }
+// blobToDataUrl provided by dom.js
 
   function displayName(user) {
     return String(user?.DisplayName || `${user?.FirstName || ""} ${user?.LastName || ""}` || "").trim();

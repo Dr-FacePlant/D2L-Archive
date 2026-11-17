@@ -25,6 +25,8 @@ export const aiIndexRecord = _shared.aiIndexRecord;
 export const recordTextSnippet = _shared.recordTextSnippet;
 export const INDEXED_COLUMN_KEYS = _shared.INDEXED_COLUMN_KEYS;
 export const FEEDBACK_SOURCES = _shared.FEEDBACK_SOURCES;
+export const uniqueRows = _shared.uniqueRows;
+export const isStudentFeedbackRow = _shared.isStudentFeedbackRow;
 
 export function loadArchiveManifest(input, usage) {
   if (!input) {

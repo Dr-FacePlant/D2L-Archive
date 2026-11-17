@@ -1,60 +1,11 @@
-function normalizeText(value) {
-  return String(value || "")
-    .replace(/\u00a0/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
+import { loadContentHooks } from "./test-production-loader.mjs";
 
-function discussionTopicIdFromUrl(url) {
-  return String(url || "").match(/\/discussions\/topics\/(\d+)\/View/i)?.[1] || "";
-}
+const { parseDiscussionTopicRows } = loadContentHooks();
 
 function classifyDiscussionUrl(url) {
   return /\/discussions\/(?:List|topics\/\d+\/View|threads\/\d+\/View)/.test(url) || /\/d2l\/p\/le\/discussions\/\d+/.test(url)
     ? "discussions"
     : "unknown";
-}
-
-function discussionPageRows({ url, title, bodyText, courseOrgUnitId }) {
-  const topicId = discussionTopicIdFromUrl(url);
-  if (!topicId) return [];
-  const text = normalizeText(bodyText);
-  const feedback = text.match(/\bFeedback\s+(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)\s*%/i);
-  const rows = [{
-    source: "discussionTopic",
-    title,
-    description: text.slice(0, 2400),
-    url,
-    status: /locked/i.test(text) ? "locked" : "visible",
-    gate: /must post first/i.test(text) ? "mustPostFirst" : "",
-    columns: {
-      recoveredFrom: "discussionTopicPage",
-      visibleFeedback: feedback?.[0] || "",
-      pointsEarned: feedback?.[1] || "",
-      pointsPossible: feedback?.[2] || "",
-      percent: feedback?.[3] || ""
-    },
-    ids: { courseOrgUnitId, discussionTopicId: topicId }
-  }];
-
-  if (feedback) {
-    rows.push({
-      source: "discussionFeedback",
-      title: `${title} - Feedback`,
-      description: feedback[0],
-      url,
-      status: "graded",
-      columns: {
-        recoveredFrom: "discussionTopicPage",
-        pointsEarned: feedback[1],
-        pointsPossible: feedback[2],
-        percent: feedback[3]
-      },
-      ids: { courseOrgUnitId, discussionTopicId: topicId }
-    });
-  }
-
-  return rows;
 }
 
 function assertEqual(actual, expected, label) {
@@ -63,7 +14,7 @@ function assertEqual(actual, expected, label) {
   }
 }
 
-const rows = discussionPageRows({
+const rows = parseDiscussionTopicRows({
   url: "https://kennesaw.view.usg.edu/d2l/le/9900002/discussions/topics/3359437/View",
   title: "Module 1 Homework - Meet Your Classmates Discussion Post",
   courseOrgUnitId: "9900002",

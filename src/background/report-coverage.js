@@ -1,7 +1,7 @@
 (function initBackgroundReportModule(global) {
   const shared = global.D2LExtractorShared;
   const background = global.D2LExtractorBackground ||= {};
-  const { normalizeText, parseColumns } = shared;
+  const { normalizeText, parseColumns, uniqueRows } = shared;
   const {  } = background;
 
 function summarizeCoverage(pages, rows, changeReport = null) {
@@ -179,15 +179,7 @@ function courseToolProbePageLines(apiSummary) {
   );
 }
 
-function uniqueRows(inputRows, keyFn) {
-  const seen = new Set();
-  return inputRows.filter((row) => {
-    const key = keyFn(row);
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-}
+// uniqueRows provided by shared
 
 function summarizeStudentCoverage(rows, pages, issueLists, changeReport = null) {
   const sourceCounts = rowsBySource(rows);

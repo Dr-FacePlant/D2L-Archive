@@ -1,6 +1,7 @@
 (function initAssignmentOrganizerModule(global) {
   const shared = global.D2LExtractorShared;
   const background = global.D2LExtractorBackground ||= {};
+  const { createOrganizerMeta } = background;
   const { normalizeText, ORGANIZER_VERSION } = shared;
 
   const ASSIGNMENT_RELATIONSHIP_BY_SOURCE = Object.freeze({
@@ -114,11 +115,7 @@
           history: `${D2L_ORIGIN}/d2l/lms/dropbox/user/folders_history.d2l?${query}`,
           feedback: `${D2L_ORIGIN}/d2l/lms/dropbox/user/folder_user_view_feedback.d2l?${query}`
         },
-        conflicts: [],
-        primaryEvidenceId: record.evidenceId,
-        organizerVersion: ORGANIZER_VERSION,
-        createdAt,
-        updatedAt: createdAt
+        ...createOrganizerMeta(record, createdAt)
       };
       entities.push(entity);
       entitiesByFolder.set(`${record.courseId}:${folderId}`, entity);

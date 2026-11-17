@@ -1,6 +1,6 @@
 (() => {
   const content = globalThis.D2LExtractorContent ||= {};
-  const { normalizeText } = globalThis.D2LExtractorShared;
+  const { normalizeText, compactLabelValueRows } = globalThis.D2LExtractorShared;
   const { queryAll, absoluteUrl, getOrgUnitId, looksLikeFileUrl, headingText, pageText } = content;
 
 function extractTableRows(source) {
@@ -215,16 +215,7 @@ function submittedFileRows(context = {}) {
   return rows;
 }
 
-function compactLabelValueRows(text, labels) {
-  const normalized = normalizeText(text);
-  const out = {};
-  for (const label of labels) {
-    const pattern = new RegExp(`\\b${label}\\b\\s*:?\\s*([^]+?)(?=\\s+(?:${labels.join("|")})\\b\\s*:?|$)`, "i");
-    const value = normalized.match(pattern)?.[1]?.trim();
-    if (value) out[label.replace(/\s+/g, "_").toLowerCase()] = value.slice(0, 800);
-  }
-  return out;
-}
+// compactLabelValueRows provided by shared
 
 function generatedAssignmentProbeLinks(orgUnitId) {
   if (!orgUnitId) return [];
@@ -291,38 +282,57 @@ function isUsefulAssignmentSubmissionRow(row) {
     || /\b(?:submission id|submissions?|date submitted|submission date|last submitted|status|score|grade|feedback)\b/i.test(columnLabels);
 }
 
+function makeRubricCriterionItem({ recoveredFrom, rubricTitle, criterionName, rubricLevel, scoreText, feedbackText, index, description, url, assignmentFolderId, orgUnitId }) {
+  return {
+    source: "rubricCriterionFeedback",
+    title: criterionName || `${rubricTitle || "Rubric criterion"} ${index + 1}`,
+    description: (description || "").slice(0, 1600),
+    url,
+    status: scoreText || rubricLevel || feedbackText ? "criterionFeedbackVisible" : "criterionVisible",
+    columns: {
+      recoveredFrom,
+      rubricTitle,
+      criterionName,
+      rubricLevel,
+      scoreText,
+      feedbackText: (feedbackText || "").slice(0, 800)
+    },
+    ids: { courseOrgUnitId: orgUnitId, assignmentFolderId, dropboxFolderId: assignmentFolderId, criterionNumber: String(index + 1) }
+  };
+}
+
+function parseRubricCriterionChunks(text) {
+  return normalizeText(text)
+    .split(/(?=\b(?:Criterion|Criteria)\b\s*:?\s*)/i)
+    .map((chunk) => normalizeText(chunk))
+    .filter((chunk) => /\b(?:Criterion|Criteria)\b/i.test(chunk) && /\b(?:Level Achieved|Score|Feedback|Comments)\b/i.test(chunk));
+}
+
+function rubricCriterionRows({ text, rubricTitle, assignmentFolderId, url, orgUnitId }) {
+  const chunks = parseRubricCriterionChunks(text);
+  return chunks.map((chunk, index) => {
+    const criterionName = chunk.match(/\b(?:Criterion|Criteria)\b\s*:?\s*([^]+?)(?=\s+\b(?:Level Achieved|Score|Feedback|Comments|Criterion|Criteria)\b|$)/i)?.[1]?.trim() || "";
+    const rubricLevel = chunk.match(/\bLevel Achieved\b\s*:?\s*([^]+?)(?=\s+\b(?:Score|Feedback|Comments|Criterion|Criteria)\b|$)/i)?.[1]?.trim() || "";
+    const scoreText = chunk.match(/\bScore\b\s*:?\s*(?:\d+(?:\.\d+)?\s*\/\s*\d+(?:\.\d+)?|\d+(?:\.\d+)?\s*(?:point|points|pts)|\d+(?:\.\d+)?%)/i)?.[0] || "";
+    const feedbackText = chunk.match(/\b(?:Feedback|Comments)\b\s*:?\s*([^]+?)(?=\s+\b(?:Criterion|Criteria|Score|Level Achieved)\b|$)/i)?.[1]?.trim() || "";
+    return makeRubricCriterionItem({
+      recoveredFrom: "assignmentFeedbackPageRubricCriterion",
+      rubricTitle, criterionName, rubricLevel, scoreText, feedbackText, index,
+      description: chunk,
+      url: url || (typeof window !== "undefined" ? window.location?.href : ""),
+      assignmentFolderId,
+      orgUnitId: orgUnitId || (typeof getOrgUnitId === "function" ? getOrgUnitId() : "")
+    });
+  });
+}
+
 function extractAssignmentFeedback() {
   const rows = [];
   const text = pageText();
   const assignmentFolderId = assignmentFolderIdFromUrl();
-  const rubricCriterionRows = (rubricText, rubricTitle) => {
-    const chunks = normalizeText(rubricText)
-      .split(/(?=\b(?:Criterion|Criteria)\b\s*:?\s*)/i)
-      .map((chunk) => normalizeText(chunk))
-      .filter((chunk) => /\b(?:Criterion|Criteria)\b/i.test(chunk) && /\b(?:Level Achieved|Score|Feedback|Comments)\b/i.test(chunk));
-    return chunks.map((chunk, index) => {
-      const criterionName = chunk.match(/\b(?:Criterion|Criteria)\b\s*:?\s*([^]+?)(?=\s+\b(?:Level Achieved|Score|Feedback|Comments|Criterion|Criteria)\b|$)/i)?.[1]?.trim() || "";
-      const rubricLevel = chunk.match(/\bLevel Achieved\b\s*:?\s*([^]+?)(?=\s+\b(?:Score|Feedback|Comments|Criterion|Criteria)\b|$)/i)?.[1]?.trim() || "";
-      const scoreText = chunk.match(/\bScore\b\s*:?\s*(?:\d+(?:\.\d+)?\s*\/\s*\d+(?:\.\d+)?|\d+(?:\.\d+)?\s*(?:point|points|pts)|\d+(?:\.\d+)?%)/i)?.[0] || "";
-      const feedbackText = chunk.match(/\b(?:Feedback|Comments)\b\s*:?\s*([^]+?)(?=\s+\b(?:Criterion|Criteria|Score|Level Achieved)\b|$)/i)?.[1]?.trim() || "";
-      return {
-        source: "rubricCriterionFeedback",
-        title: criterionName || `${rubricTitle || "Rubric criterion"} ${index + 1}`,
-        description: chunk.slice(0, 1600),
-        url: window.location.href,
-        status: scoreText || rubricLevel || feedbackText ? "criterionFeedbackVisible" : "criterionVisible",
-        columns: {
-          recoveredFrom: "assignmentFeedbackPageRubricCriterion",
-          rubricTitle,
-          criterionName,
-          rubricLevel,
-          scoreText,
-          feedbackText: feedbackText.slice(0, 800)
-        },
-        ids: { courseOrgUnitId: getOrgUnitId(), assignmentFolderId, dropboxFolderId: assignmentFolderId, criterionNumber: String(index + 1) }
-      };
-    });
-  };
+  const parseRubricCriteria = (rubricText, rubricTitle) => rubricCriterionRows({
+    text: rubricText, rubricTitle, assignmentFolderId, url: window.location.href, orgUnitId: getOrgUnitId()
+  });
   const rubricCriterionRowsFromTable = (node, rubricTitle) => {
     return Array.from(node.querySelectorAll?.("tr") || [])
       .slice(1)
@@ -335,22 +345,11 @@ function extractAssignmentFeedback() {
         const rubricLevel = normalizeText(cells.find((cell) => /\b(?:Level|Achieved|Exemplary|Excellent|Proficient|Good|Needs|Unsatisfactory)\b/i.test(cell.textContent || ""))?.textContent || "");
         const scoreText = rowText.match(/\b(?:Score\b\s*:?\s*)?(?:\d+(?:\.\d+)?\s*\/\s*\d+(?:\.\d+)?|\d+(?:\.\d+)?\s*(?:point|points|pts)|\d+(?:\.\d+)?%)/i)?.[0] || "";
         const feedbackText = rowText.match(/\b(?:Feedback|Comments)\b\s*:?\s*([^]+?)(?=\s+\b(?:Criterion|Criteria|Score|Level Achieved)\b|$)/i)?.[1]?.trim() || "";
-        return {
-          source: "rubricCriterionFeedback",
-          title: criterionName || `${rubricTitle || "Rubric criterion"} ${index + 1}`,
-          description: rowText.slice(0, 1600),
-          url: window.location.href,
-          status: scoreText || rubricLevel || feedbackText ? "criterionFeedbackVisible" : "criterionVisible",
-          columns: {
-            recoveredFrom: "assignmentFeedbackPageRubricTableRow",
-            rubricTitle,
-            criterionName,
-            rubricLevel,
-            scoreText,
-            feedbackText: feedbackText.slice(0, 800)
-          },
-          ids: { courseOrgUnitId: getOrgUnitId(), assignmentFolderId, dropboxFolderId: assignmentFolderId, criterionNumber: String(index + 1) }
-        };
+        return makeRubricCriterionItem({
+          recoveredFrom: "assignmentFeedbackPageRubricTableRow",
+          rubricTitle, criterionName, rubricLevel, scoreText, feedbackText, index,
+          description: rowText, url: window.location.href, assignmentFolderId, orgUnitId: getOrgUnitId()
+        });
       })
       .filter(Boolean);
   };
@@ -398,7 +397,7 @@ function extractAssignmentFeedback() {
 }
 
 
-  Object.assign(content, {
+  Object.assign(content, { compactLabelValueRows, makeRubricCriterionItem, rubricCriterionRows,
     extractTableRows,
     extractAssignments,
     extractAssignmentsFallback,

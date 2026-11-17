@@ -1,3 +1,4 @@
+import { areaForSection } from "./verify/targeted-plan.mjs";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -249,17 +250,7 @@ function proofGapsForSection(section, evidence) {
   return [];
 }
 
-function areaForSection(label) {
-  const text = String(label || "").toLowerCase();
-  if (text.includes("rubric") || text.includes("assignment feedback")) return "1 rubric details/feedback and 4 assignment feedback";
-  if (text.includes("quiz")) return "2 quiz/exam released results";
-  if (text.includes("grade")) return "3 grade item feedback/comments";
-  if (text.includes("announcement")) return "5 announcement details/attachments";
-  if (text.includes("course tool")) return "6 disabled/empty course tools";
-  if (text.includes("content")) return "7 content page text/HTML snapshots";
-  if (text.includes("change")) return "8 change detection/daily update mode";
-  return "unmapped";
-}
+// areaForSection imported from ./verify/targeted-plan.mjs
 
 function areaCoverageSummary(sections) {
   const byArea = new Map();

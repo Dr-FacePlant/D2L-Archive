@@ -104,19 +104,18 @@ function discussionTopicIdFromUrl(url = window.location.href) {
   return String(url || "").match(/\/discussions\/topics\/(\d+)\/View/i)?.[1] || "";
 }
 
-function extractDiscussionPageMeta() {
-  const topicId = discussionTopicIdFromUrl();
+function parseDiscussionTopicRows({ url, title, bodyText, courseOrgUnitId }) {
+  const topicId = discussionTopicIdFromUrl(url);
   if (!topicId) return [];
-  const bodyText = normalizeText(queryOne("body")?.textContent || "");
-  const title = normalizeText(queryOne("h1, [role='heading'][aria-level='1']")?.textContent || document.title.replace(/\s+-\s+Kennesaw State University$/i, ""));
-  const feedback = bodyText.match(/\bFeedback\s+(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)\s*%/i);
+  const text = normalizeText(bodyText);
+  const feedback = text.match(/\bFeedback\s+(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)\s*%/i);
   const rows = [{
     source: "discussionTopic",
     title,
-    description: bodyText.slice(0, 2400),
-    url: window.location.href,
-    status: /locked/i.test(bodyText) ? "locked" : "visible",
-    gate: /must post first/i.test(bodyText) ? "mustPostFirst" : "",
+    description: text.slice(0, 2400),
+    url,
+    status: /locked/i.test(text) ? "locked" : "visible",
+    gate: /must post first/i.test(text) ? "mustPostFirst" : "",
     columns: {
       recoveredFrom: "discussionTopicPage",
       visibleFeedback: feedback?.[0] || "",
@@ -124,7 +123,7 @@ function extractDiscussionPageMeta() {
       pointsPossible: feedback?.[2] || "",
       percent: feedback?.[3] || ""
     },
-    ids: { courseOrgUnitId: getOrgUnitId(), discussionTopicId: topicId }
+    ids: { courseOrgUnitId, discussionTopicId: topicId }
   }];
 
   if (feedback) {
@@ -132,7 +131,7 @@ function extractDiscussionPageMeta() {
       source: "discussionFeedback",
       title: `${title} - Feedback`,
       description: feedback[0],
-      url: window.location.href,
+      url,
       status: "graded",
       columns: {
         recoveredFrom: "discussionTopicPage",
@@ -140,11 +139,20 @@ function extractDiscussionPageMeta() {
         pointsPossible: feedback[2],
         percent: feedback[3]
       },
-      ids: { courseOrgUnitId: getOrgUnitId(), discussionTopicId: topicId }
+      ids: { courseOrgUnitId, discussionTopicId: topicId }
     });
   }
 
   return rows;
+}
+
+function extractDiscussionPageMeta() {
+  const url = window.location.href;
+  const topicId = discussionTopicIdFromUrl(url);
+  if (!topicId) return [];
+  const bodyText = queryOne("body")?.textContent || "";
+  const title = queryOne("h1, [role='heading'][aria-level='1']")?.textContent || document.title.replace(/\s+-\s+Kennesaw State University$/i, "");
+  return parseDiscussionTopicRows({ url, title, bodyText, courseOrgUnitId: getOrgUnitId() });
 }
 
 function extractDiscussionPosts() {
@@ -206,7 +214,7 @@ function dedupeDiscussionAttachments(items) {
 }
 
 
-  Object.assign(content, { extractDiscussionListTopics, listDateToIso,
+  Object.assign(content, { extractDiscussionListTopics, listDateToIso, parseDiscussionTopicRows,
     extractDiscussions,
     discussionTopicIdFromUrl,
     extractDiscussionPageMeta,

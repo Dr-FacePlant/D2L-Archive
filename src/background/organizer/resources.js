@@ -1,6 +1,7 @@
 (function initResourceOrganizerModule(global) {
   const shared = global.D2LExtractorShared;
   const background = global.D2LExtractorBackground ||= {};
+  const { createOrganizerMeta } = background;
   const { normalizeText, normalizedDate, ORGANIZER_VERSION } = shared;
 
   const relation = background.createOrganizerRelation;
@@ -69,10 +70,7 @@
         localFilePath: record.local?.filePath || "",
         attachmentCount: 0,
         progress: null,
-        primaryEvidenceId: record.evidenceId,
-        organizerVersion: ORGANIZER_VERSION,
-        createdAt,
-        updatedAt: createdAt
+        ...createOrganizerMeta(record, createdAt)
       };
       entities.push(entity);
       byContentId.set(`${record.courseId}:${contentObjectId}`, entity);

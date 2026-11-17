@@ -1,6 +1,7 @@
 (function initCommunicationOrganizerModule(global) {
   const shared = global.D2LExtractorShared;
   const background = global.D2LExtractorBackground ||= {};
+  const { createOrganizerMeta } = background;
   const { normalizeText, normalizedDate, ORGANIZER_VERSION } = shared;
 
   const relation = background.createOrganizerRelation;
@@ -147,10 +148,7 @@
           recoveredFrom: normalizeText(record.fields?.columns?.recoveredFrom) || "discussionTopicsApi",
           urls: { d2l: record.urls?.item || `${D2L_ORIGIN}/d2l/le/${record.courseId}/discussions/topics/${topicId}/View` },
           attachmentCount: 0,
-          primaryEvidenceId: record.evidenceId,
-          organizerVersion: ORGANIZER_VERSION,
-          createdAt,
-          updatedAt: createdAt
+          ...createOrganizerMeta(record, createdAt)
         };
         entities.push(entity);
         threads.set(key, entity);

@@ -275,7 +275,29 @@
     };
   }
 
+
+  const STUDENT_FEEDBACK_SOURCES = Object.freeze([
+    "assignmentSubmission", "assignmentFeedback", "submittedFile",
+    "quizAttempt", "quizSubmission", "quizAttemptRow", "quizSummaryRow", "quizQuestionResult",
+    "gradeFeedback", "discussionFeedback", "rubricFeedback", "rubricCriterionFeedback"
+  ]);
+
+  function isStudentFeedbackRow(row) {
+    return STUDENT_FEEDBACK_SOURCES.includes(row?.source);
+  }
+
+  function uniqueRows(inputRows, keyFn) {
+    const seen = new Set();
+    return inputRows.filter((row) => {
+      const key = keyFn(row);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+
   Object.assign(shared, {
+    STUDENT_FEEDBACK_SOURCES, isStudentFeedbackRow, uniqueRows,
     pageKey, flattenItem, toCsv, toJsonl, parseColumns, stableRowId, rowSignature,
     INDEXED_COLUMN_KEYS, recordTextSnippet, aiIndexRecord, createExportSummary,
     FEEDBACK_SOURCES, feedbackSignal, emptyChangeReport, diffRow, summarizeChanges

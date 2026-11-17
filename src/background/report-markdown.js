@@ -1,8 +1,8 @@
 (function initBackgroundReportModule(global) {
   const shared = global.D2LExtractorShared;
   const background = global.D2LExtractorBackground ||= {};
-  const { normalizeText, parseColumns } = shared;
-  const { rowsBySource, rowHasAny, apiProbeBreakdown, apiProbeSummaryRows, apiProbeLegendLines, assignmentProbePageLines, quizProbePageLines, announcementProbePageLines, gradeProbePageLines, courseToolProbePageLines, uniqueRows, summarizeStudentCoverage } = background;
+  const { normalizeText, parseColumns, isStudentFeedbackRow, uniqueRows } = shared;
+  const { rowsBySource, rowHasAny, apiProbeBreakdown, apiProbeSummaryRows, apiProbeLegendLines, assignmentProbePageLines, quizProbePageLines, announcementProbePageLines, gradeProbePageLines, courseToolProbePageLines, summarizeStudentCoverage } = background;
 
 function auditMarkdown(audit) {
   const lines = [
@@ -184,20 +184,7 @@ function actionBriefMarkdown(rows, audit, changeReport) {
     })
     .slice(0, 80);
   const fileItems = uniqueRows(rows.filter((row) => row.localPath), (row) => row.localPath || [row.courseOrgUnitId, row.title].join("::")).slice(0, 80);
-  const feedbackItems = uniqueRows(rows.filter((row) => [
-    "assignmentSubmission",
-    "assignmentFeedback",
-    "submittedFile",
-    "quizAttempt",
-    "quizSubmission",
-    "quizAttemptRow",
-    "quizSummaryRow",
-    "quizQuestionResult",
-    "gradeFeedback",
-    "discussionFeedback",
-    "rubricFeedback",
-    "rubricCriterionFeedback"
-  ].includes(row.source)), (row) => [row.courseOrgUnitId, row.source, row.title, row.status, row.itemUrl, row.localPath].join("::")).slice(0, 100);
+  const feedbackItems = uniqueRows(rows.filter(isStudentFeedbackRow), (row) => [row.courseOrgUnitId, row.source, row.title, row.status, row.itemUrl, row.localPath].join("::")).slice(0, 100);
   const policyItems = uniqueRows(rows.filter((row) => row.source === "syllabusPolicy"), (row) => [row.courseOrgUnitId, row.title, row.localPath, row.itemUrl].join("::")).slice(0, 80);
   const rubricItems = uniqueRows(rows.filter((row) => row.source === "rubric" || row.source === "rubricFeedback" || row.source === "rubricCriterionFeedback"), (row) => [row.courseOrgUnitId, row.source, row.title, row.itemUrl].join("::")).slice(0, 80);
   const progressItems = uniqueRows(rows.filter((row) => row.source === "checklistItem" || row.source === "survey" || row.source === "selfAssessment" || row.source === "attendanceRecord" || row.source === "progressRecord" || row.source === "group"), (row) => [row.courseOrgUnitId, row.source, row.title, row.status, row.itemUrl].join("::")).slice(0, 80);
@@ -310,19 +297,7 @@ function studentQuestionsMarkdown(rows, audit) {
   const sourceCounts = rowsBySource(rows);
   const dueRows = rows.filter((row) => row.dueAtText || /due|availability ends|closes/i.test(`${row.title || ""} ${row.description || ""}`));
   const downloadedRows = rows.filter((row) => row.localPath);
-  const feedbackRows = rows.filter((row) => [
-    "assignmentSubmission",
-    "assignmentFeedback",
-    "submittedFile",
-    "quizAttempt",
-    "quizSubmission",
-    "quizAttemptRow",
-    "quizSummaryRow",
-    "quizQuestionResult",
-    "discussionFeedback",
-    "rubricFeedback",
-    "rubricCriterionFeedback"
-  ].includes(row.source));
+  const feedbackRows = rows.filter(isStudentFeedbackRow);
   const coverageById = new Map((audit.studentCoverage?.checks || []).map((check) => [check.id, check]));
   const statusFor = (ids, fallback) => {
     const checks = ids.map((id) => coverageById.get(id)).filter(Boolean);

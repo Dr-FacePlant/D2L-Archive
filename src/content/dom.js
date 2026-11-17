@@ -70,5 +70,15 @@
     return normalizeText(document.body?.innerText || document.body?.textContent || "");
   }
 
-  Object.assign(content, { allRoots, queryAll, queryOne, absoluteUrl, isExternalResourceUrl, linkRecord, headingText, pageText });
+
+  function blobToDataUrl(blob) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  Object.assign(content, { blobToDataUrl, allRoots, queryAll, queryOne, absoluteUrl, isExternalResourceUrl, linkRecord, headingText, pageText });
 })();

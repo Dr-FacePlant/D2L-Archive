@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { createRecoveryTools } from "./verify/recovery.mjs";
-import { createRecordTools, apiProbeBreakdown as apiProbeBreakdownHelper, apiProbeSummaryRows as apiProbeSummaryRowsHelper, apiProbeLegendLines } from "./verify/records.mjs";
+import { createRecordTools, apiProbeBreakdown as apiProbeBreakdownHelper, apiProbeSummaryRows as apiProbeSummaryRowsHelper, apiProbeLegendLines, uniqueRows, isStudentFeedbackRow } from "./verify/records.mjs";
 
 const source = process.argv[2];
 if (!source) {
@@ -128,15 +128,7 @@ function rowLine(row) {
   return `- ${row.courseTitle || row.courseOrgUnitId || "Unknown course"} | ${row.source || "item"} | ${row.title || "(untitled)"}${row.dueAtText ? ` | due: ${row.dueAtText}` : ""}${row.localPath ? ` | ${row.localPath}` : ""}`;
 }
 
-function uniqueRows(inputRows, keyFn) {
-  const seen = new Set();
-  return inputRows.filter((row) => {
-    const key = keyFn(row);
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-}
+// uniqueRows provided by _shared
 
 function offlineActionBrief() {
   const dueItems = uniqueRows(dueRows
@@ -158,20 +150,7 @@ function offlineActionBrief() {
     .filter((row) => (row.localPath || row.source === "contentAttachment") && /syllabus|schedule|quiz|test|exam|assignment|project|paper|rubric|instructions|overview|reference|content|handout|slides?/i.test(`${row.title} ${row.localPath} ${row.source}`)),
     (row) => row.localPath || [row.courseOrgUnitId, row.title].join("::"))
     .slice(0, 160);
-  const feedbackItems = uniqueRows(rows
-    .filter((row) => [
-      "assignmentSubmission",
-      "assignmentFeedback",
-      "submittedFile",
-      "quizAttempt",
-      "quizSubmission",
-      "quizAttemptRow",
-      "quizSummaryRow",
-      "gradeFeedback",
-      "discussionFeedback",
-      "rubricFeedback",
-      "rubricCriterionFeedback"
-    ].includes(row.source)),
+  const feedbackItems = uniqueRows(rows.filter(isStudentFeedbackRow),
     (row) => [row.courseOrgUnitId, row.source, row.title, row.status, row.itemUrl, row.localPath].join("::"))
     .slice(0, 160);
   const apiProbeItems = uniqueRows(rows

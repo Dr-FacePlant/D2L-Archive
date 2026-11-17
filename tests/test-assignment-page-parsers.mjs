@@ -1,6 +1,6 @@
 import { loadContentHooks } from "./test-production-loader.mjs";
 
-const { isUsefulAssignmentSubmissionRow } = loadContentHooks();
+const { isUsefulAssignmentSubmissionRow, compactLabelValueRows, rubricCriterionRows } = loadContentHooks();
 
 function normalizeText(value) {
   return String(value || "")
@@ -21,16 +21,7 @@ function looksLikeFileUrl(href) {
     || /\.(?:pdf|docx?|pptx?|xlsx?|csv|txt|rtf|zip|png|jpe?g|gif|heic|mp4|mov|m4a|mp3)(?:[?#]|$)/i.test(href);
 }
 
-function compactLabelValueRows(text, labels) {
-  const normalized = normalizeText(text);
-  const out = {};
-  for (const label of labels) {
-    const pattern = new RegExp(`\\b${label}\\b\\s*:?\\s*([^]+?)(?=\\s+(?:${labels.join("|")})\\b\\s*:?|$)`, "i");
-    const value = normalized.match(pattern)?.[1]?.trim();
-    if (value) out[label.replace(/\s+/g, "_").toLowerCase()] = value.slice(0, 800);
-  }
-  return out;
-}
+// compactLabelValueRows already loaded
 
 function assignmentSubmissionStatus(text) {
   return /not submitted|no submission/i.test(text)
@@ -61,32 +52,7 @@ function rubricFeedbackRow({ text, href, assignmentFolderId }) {
   };
 }
 
-function rubricCriterionRows({ text, rubricTitle, assignmentFolderId }) {
-  const chunks = normalizeText(text)
-    .split(/(?=\b(?:Criterion|Criteria)\b\s*:?\s*)/i)
-    .map((chunk) => normalizeText(chunk))
-    .filter((chunk) => /\b(?:Criterion|Criteria)\b/i.test(chunk) && /\b(?:Level Achieved|Score|Feedback|Comments)\b/i.test(chunk));
-  return chunks.map((chunk, index) => {
-    const criterionName = chunk.match(/\b(?:Criterion|Criteria)\b\s*:?\s*([^]+?)(?=\s+\b(?:Level Achieved|Score|Feedback|Comments|Criterion|Criteria)\b|$)/i)?.[1]?.trim() || "";
-    const rubricLevel = chunk.match(/\bLevel Achieved\b\s*:?\s*([^]+?)(?=\s+\b(?:Score|Feedback|Comments|Criterion|Criteria)\b|$)/i)?.[1]?.trim() || "";
-    const scoreText = chunk.match(/\bScore\b\s*:?\s*(?:\d+(?:\.\d+)?\s*\/\s*\d+(?:\.\d+)?|\d+(?:\.\d+)?\s*(?:point|points|pts)|\d+(?:\.\d+)?%)/i)?.[0] || "";
-    const feedbackText = chunk.match(/\b(?:Feedback|Comments)\b\s*:?\s*([^]+?)(?=\s+\b(?:Criterion|Criteria|Score|Level Achieved)\b|$)/i)?.[1]?.trim() || "";
-    return {
-      source: "rubricCriterionFeedback",
-      title: criterionName || `${rubricTitle || "Rubric criterion"} ${index + 1}`,
-      status: scoreText || rubricLevel || feedbackText ? "criterionFeedbackVisible" : "criterionVisible",
-      columns: {
-        recoveredFrom: "assignmentFeedbackPageRubricCriterion",
-        rubricTitle,
-        criterionName,
-        rubricLevel,
-        scoreText,
-        feedbackText
-      },
-      ids: { courseOrgUnitId: "9900002", assignmentFolderId, dropboxFolderId: assignmentFolderId, criterionNumber: String(index + 1) }
-    };
-  });
-}
+// rubricCriterionRows imported from loadContentHooks()
 
 function assertEqual(actual, expected, label) {
   if (actual !== expected) {

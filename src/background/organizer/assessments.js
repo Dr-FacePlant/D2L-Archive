@@ -1,6 +1,7 @@
 (function initAssessmentOrganizerModule(global) {
   const shared = global.D2LExtractorShared;
   const background = global.D2LExtractorBackground ||= {};
+  const { createOrganizerMeta } = background;
   const { normalizeText, ORGANIZER_VERSION } = shared;
 
   const QUIZ_RELATIONSHIP_BY_SOURCE = Object.freeze({
@@ -148,11 +149,7 @@
           submissions: `${D2L_ORIGIN}/d2l/lms/quizzing/user/quiz_submissions.d2l?qi=${quizId}&ou=${record.courseId}`
         },
         access: { attempts: "unknown", questions: "unknown", feedback: "unknown" },
-        conflicts: [],
-        primaryEvidenceId: record.evidenceId,
-        organizerVersion: ORGANIZER_VERSION,
-        createdAt,
-        updatedAt: createdAt
+        ...createOrganizerMeta(record, createdAt)
       };
       entities.push(entity);
       byQuizId.set(`${record.courseId}:${quizId}`, entity);

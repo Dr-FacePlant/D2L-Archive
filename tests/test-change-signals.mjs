@@ -1,28 +1,7 @@
-import { loadBackgroundHooks } from "./test-production-loader.mjs";
-
-const { feedbackSignal, summarizeChanges } = loadBackgroundHooks();
-
-function createStoredSummary(rows) {
-  return {
-    rows: rows.map((row) => ({
-      id: row.id,
-      signature: row.signature,
-      source: row.source || "",
-      title: row.title || "",
-      status: row.status || "",
-      dueAtText: row.dueAtText || "",
-      availabilityText: row.availabilityText || "",
-      itemUrl: row.itemUrl || "",
-      localPath: row.localPath || "",
-      columns: row.columns || "{}"
-    }))
-  };
-}
+import assert from "node:assert";
 
 function assertEqual(actual, expected, label) {
-  if (actual !== expected) {
-    throw new Error(`${label}: expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
-  }
+  assert.strictEqual(actual, expected, label);
 }
 
 const ordinaryGrade = {
@@ -30,6 +9,18 @@ const ordinaryGrade = {
   title: "Quiz 1",
   columns: JSON.stringify({ displayedGrade: "9 / 10", pointsEarned: 9, pointsPossible: 10 })
 };
+import { loadBackgroundHooks } from "./test-production-loader.mjs";
+
+const { feedbackSignal, summarizeChanges } = loadBackgroundHooks();
+
+function createStoredSummary(rows) {
+  return {
+    rows: rows.map((r) => Object.assign({
+      id: r.id, signature: r.signature, source: "", title: "",
+      status: "", dueAtText: "", availabilityText: "", itemUrl: "", localPath: "", columns: "{}"
+    }, r))
+  };
+}
 
 const gradeWithComment = {
   source: "gradeItem",

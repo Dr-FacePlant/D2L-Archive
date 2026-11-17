@@ -470,20 +470,11 @@
     coverInput.accept = "image/png,image/jpeg,image/webp,image/gif";
     coverUpload.append(coverInput, document.createTextNode("Upload image"));
     coverInput.addEventListener("change", () => {
-      const file = coverInput.files?.[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = () => {
-        const url = String(reader.result || "");
-        if (!dash.safeCoverUrl?.(url)) {
-          toast("That image type can't be used — pick a PNG, JPEG, WebP or GIF.");
-          return;
-        }
+      handleCoverFile(coverInput, (url) => {
         coverImage = url;
         coverMode = "image";
         paintCover();
-      };
-      reader.readAsDataURL(file);
+      });
     });
     coverModes.append(defaultChip, coverUpload);
     const coverSwatches = {};
@@ -591,20 +582,11 @@
     uploadChip.append(uploadInput, document.createTextNode("Upload image"));
     modeButtons.image = uploadChip;
     uploadInput.addEventListener("change", () => {
-      const file = uploadInput.files?.[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = () => {
-        const url = String(reader.result || "");
-        if (!dash.safeCoverUrl?.(url)) {
-          toast("That image type can't be used — pick a PNG, JPEG, WebP or GIF.");
-          return;
-        }
+      handleCoverFile(uploadInput, (url) => {
         image = url;
         mode = "image";
         paint();
-      };
-      reader.readAsDataURL(file);
+      });
     });
     modeRow.append(chip("glyph", "Link icon"), chip("letter", "First letter"), uploadChip);
     const swatches = {};

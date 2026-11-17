@@ -50,10 +50,11 @@ function extractCalendarEventDetail(calendarEventId) {
       const href = absoluteUrl(link.getAttribute("href"));
       const label = normalizeText(link.textContent || link.getAttribute("aria-label") || link.title);
       if (!href || !label || !looksLikeFileUrl(href)) return null;
+      const eventDesc = normalizeText(link.closest("li, tr, div, section")?.textContent || label).slice(0, 1200);
       return {
         source: "calendarAttachment",
         title: label,
-        description: normalizeText(link.closest("li, tr, div, section")?.textContent || label).slice(0, 1200),
+        description: eventDesc,
         url: href,
         downloadUrl: href,
         suggestedFileName: label,

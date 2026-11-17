@@ -82,13 +82,12 @@ function assignmentFolderIdFromSnapshot(snapshot) {
 function compactAssignmentLabelValues(text) {
   const labels = ["Submitted", "Submission Date", "Date Submitted", "Last Submitted", "Status", "Score", "Grade", "Overall Feedback", "Feedback", "Comments", "Rubric", "Level Achieved"];
   const normalized = String(text || "").replace(/\s+/g, " ").trim();
-  const out = {};
-  for (const label of labels) {
-    const pattern = new RegExp(`\\b${label}\\b\\s*:?\\s*([^]+?)(?=\\s+(?:${labels.join("|")})\\b\\s*:?|$)`, "i");
-    const value = normalized.match(pattern)?.[1]?.trim();
-    if (value) out[label.replace(/\s+/g, "_").toLowerCase()] = value.slice(0, 800);
-  }
-  return out;
+  const matched = {};
+  labels.forEach((label) => {
+    const m = normalized.match(new RegExp(`\\b${label}\\b\\s*:?\\s*([^]+?)(?=\\s+(?:${labels.join("|")})\\b\\s*:?|$)`, "i"));
+    if (m?.[1]?.trim()) matched[label.replace(/\s+/g, "_").toLowerCase()] = m[1].trim().slice(0, 800);
+  });
+  return matched;
 }
 
 function recoveredRowsFromPage(snapshot) {
