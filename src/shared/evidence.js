@@ -145,22 +145,8 @@
     }));
   }
 
-  function normalizeEvidenceRow(row, options = {}) {
-    const ids = parseColumns({ columns: row.ids });
-    const columns = parseColumns(row);
-    const crawledAt = normalizeText(row.crawledAt) || options.extractedAt || new Date().toISOString();
-    const evidence = {
-      evidenceId: evidenceIdentity(row),
-      revision: Number(options.revision || 1),
-      courseId: normalizeText(row.courseOrgUnitId) || "unknown",
-      courseTitle: normalizeText(row.courseTitle),
-      source: normalizeText(row.source) || "unknown",
-      originalSource: normalizeText(row.source),
-      title: normalizeText(row.title),
-      description: normalizeText(row.description),
-      status: normalizeText(row.status),
-      gate: normalizeText(row.gate),
-      type: normalizeText(row.type),
+  function extractEvidenceDates(row, columns) {
+    return {
       dates: {
         dueAt: normalizedDate(row.dueAtText || columns.dueAt || columns.dueDate),
         availableFrom: normalizedDate(columns.startDate || columns.availableFrom),
@@ -173,15 +159,41 @@
         availability: normalizeText(row.availabilityText),
         submittedAt: normalizeText(columns.submittedAt || columns.submissionDate || columns.dateSubmitted),
         gradedAt: normalizeText(columns.gradedAt || columns.gradedDate)
-      },
-      urls: {
-        item: normalizeText(row.itemUrl),
-        page: normalizeText(row.pageUrl),
-        download: normalizeText(row.downloadUrl),
-        history: normalizeText(row.historyUrl),
-        feedback: normalizeText(row.feedbackUrl),
-        canonical: canonicalEvidenceUrl(row)
-      },
+      }
+    };
+  }
+
+  function extractEvidenceUrls(row) {
+    return {
+      item: normalizeText(row.itemUrl),
+      page: normalizeText(row.pageUrl),
+      download: normalizeText(row.downloadUrl),
+      history: normalizeText(row.historyUrl),
+      feedback: normalizeText(row.feedbackUrl),
+      canonical: canonicalEvidenceUrl(row)
+    };
+  }
+
+  function normalizeEvidenceRow(row, options = {}) {
+    const ids = parseColumns({ columns: row.ids });
+    const columns = parseColumns(row);
+    const crawledAt = normalizeText(row.crawledAt) || options.extractedAt || new Date().toISOString();
+    const { dates, dateText } = extractEvidenceDates(row, columns);
+    const evidence = {
+      evidenceId: evidenceIdentity(row),
+      revision: Number(options.revision || 1),
+      courseId: normalizeText(row.courseOrgUnitId) || "unknown",
+      courseTitle: normalizeText(row.courseTitle),
+      source: normalizeText(row.source) || "unknown",
+      originalSource: normalizeText(row.source),
+      title: normalizeText(row.title),
+      description: normalizeText(row.description),
+      status: normalizeText(row.status),
+      gate: normalizeText(row.gate),
+      type: normalizeText(row.type),
+      dates,
+      dateText,
+      urls: extractEvidenceUrls(row),
       platformIds: ids,
       fields: {
         columns,
