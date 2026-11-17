@@ -205,6 +205,45 @@ async function courseFileDownloadsEnabled() {
   }
 }
 
+function buildCourseFileDownloadPath(row, archiveRoot) {
+  const courseFolder = slug(`${row.courseOrgUnitId || "unknown"}-${row.courseTitle || "course"}`, row.courseOrgUnitId || "course");
+  const suggested = row.suggestedFileName || "";
+  const fileName = /\.[a-z0-9]{2,5}$/i.test(suggested)
+    ? `${slug(row.title, "content")}-${suggested}`
+    : `${slug(row.title, "content")}.${extensionForRow(row)}`;
+  return `${archiveRoot}/courses/${courseFolder}/files/${fileName}`;
+}
+
+async function executeCourseFileDownload(row, target, localPath, activityRepository) {
+  try {
+    const downloadId = await chrome.downloads.download({
+      url: target,
+      filename: localPath,
+      saveAs: false,
+      conflictAction: "uniquify"
+    });
+    const item = await waitForDownloadComplete(downloadId);
+    if (item?.state === "interrupted") {
+      row.localPath = "";
+      row.downloadError = item.error || "download interrupted";
+      return 0;
+    }
+    row.localPath = archivePathFromDownloadItem(item, localPath);
+    if (row.localPath) {
+      await activityRepository?.recordActivity({ operation: "download.file", category: "download", status: "completed", courseId: row.courseOrgUnitId, itemId: row.evidenceId || row.itemUrl, source: "d2l", details: { localPath: row.localPath } }).catch(() => {});
+      return 1;
+    }
+    row.downloadError = "download finished but no local path was reported";
+    await activityRepository?.recordActivity({ operation: "download.file", category: "download", status: "failed", courseId: row.courseOrgUnitId, itemId: row.evidenceId || row.itemUrl, source: "d2l", error: row.downloadError }).catch(() => {});
+    return 0;
+  } catch (error) {
+    row.localPath = "";
+    row.downloadError = error?.message || "download failed";
+    await activityRepository?.recordActivity({ operation: "download.file", category: "download", status: "failed", courseId: row.courseOrgUnitId, itemId: row.evidenceId || row.itemUrl, source: "d2l", error: row.downloadError }).catch(() => {});
+    return 0;
+  }
+}
+
 async function downloadCourseFiles(rows, archiveRoot, options = {}) {
   let downloaded = 0;
   const allowDownloads = options.downloadFiles === true
@@ -212,12 +251,11 @@ async function downloadCourseFiles(rows, archiveRoot, options = {}) {
     : options.downloadFiles === false
       ? false
       : await courseFileDownloadsEnabled();
-  // Activity is only recorded into a known account's archive; otherwise it is skipped.
   const activityRepository = options.repository || await background.activeArchiveRepository().catch(() => null);
+
   for (const row of rows) {
     const target = row.downloadUrl || (isDownloadCandidate(row) ? row.itemUrl : "");
-    if (!target) continue;
-    if (!/^https?:/i.test(target)) continue;
+    if (!target || !/^https?:/i.test(target)) continue;
     if (options.reuseArchivedFiles) {
       const reused = await archivedCopyFor(target);
       if (reused) {
@@ -227,45 +265,13 @@ async function downloadCourseFiles(rows, archiveRoot, options = {}) {
       }
     }
 
-    // Files already on disk stay linked even when new downloads are off.
     if (!allowDownloads) {
       row.localPath = row.localPath || "";
       continue;
     }
 
-    const courseFolder = slug(`${row.courseOrgUnitId || "unknown"}-${row.courseTitle || "course"}`, row.courseOrgUnitId || "course");
-    const suggested = row.suggestedFileName || "";
-    const fileName = /\.[a-z0-9]{2,5}$/i.test(suggested)
-      ? `${slug(row.title, "content")}-${suggested}`
-      : `${slug(row.title, "content")}.${extensionForRow(row)}`;
-    const localPath = `${archiveRoot}/courses/${courseFolder}/files/${fileName}`;
-
-    try {
-      const downloadId = await chrome.downloads.download({
-        url: target,
-        filename: localPath,
-        saveAs: false,
-        conflictAction: "uniquify"
-      });
-      const item = await waitForDownloadComplete(downloadId);
-      if (item?.state === "interrupted") {
-        row.localPath = "";
-        row.downloadError = item.error || "download interrupted";
-      } else {
-        row.localPath = archivePathFromDownloadItem(item, localPath);
-        if (row.localPath) {
-          downloaded += 1;
-          await activityRepository?.recordActivity({ operation: "download.file", category: "download", status: "completed", courseId: row.courseOrgUnitId, itemId: row.evidenceId || row.itemUrl, source: "d2l", details: { localPath: row.localPath } }).catch(() => {});
-        } else {
-          row.downloadError = "download finished but no local path was reported";
-          await activityRepository?.recordActivity({ operation: "download.file", category: "download", status: "failed", courseId: row.courseOrgUnitId, itemId: row.evidenceId || row.itemUrl, source: "d2l", error: row.downloadError }).catch(() => {});
-        }
-      }
-    } catch (error) {
-      row.localPath = "";
-      row.downloadError = error?.message || "download failed";
-      await activityRepository?.recordActivity({ operation: "download.file", category: "download", status: "failed", courseId: row.courseOrgUnitId, itemId: row.evidenceId || row.itemUrl, source: "d2l", error: row.downloadError }).catch(() => {});
-    }
+    const localPath = buildCourseFileDownloadPath(row, archiveRoot);
+    downloaded += await executeCourseFileDownload(row, target, localPath, activityRepository);
   }
   return downloaded;
 }
