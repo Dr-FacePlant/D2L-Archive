@@ -59,6 +59,33 @@
     }
   }
 
+  function handleLinkClick(event, link) {
+    if (link.hasAttribute("data-preview")) {
+      event.preventDefault();
+      previewFile(link);
+      return true;
+    }
+    if (dash.isOutboundLink(link.getAttribute("href"))) {
+      event.preventDefault();
+      const d2l = link.hasAttribute("data-d2l-link") || dash.embeddedLinkTarget(link.getAttribute("href")) === "d2l";
+      const title = link.getAttribute("data-confirm-external")
+        || link.getAttribute("data-confirm-title")
+        || link.getAttribute("aria-label")
+        || link.textContent.trim()
+        || link.getAttribute("title")
+        || "this link";
+      closeMenu();
+      showLinkConfirm({ url: link.href, title, kind: d2l ? "d2l" : "external" });
+      return true;
+    }
+    if (dash.isLayerRoute(link.getAttribute("href"))) {
+      event.preventDefault();
+      navigateToDetail(link.getAttribute("href"), link);
+      return true;
+    }
+    return false;
+  }
+
   document.addEventListener("click", async (event) => {
     const link = event.target.closest("a[href]");
     const plain = event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey;
@@ -69,31 +96,7 @@
       return;
     }
     if (EMBEDDED && event.target.closest("[data-action=close-overlay]")) { closeMenu(); mod.closeOverlay(); return; }
-    if (link && plain) {
-      if (link.hasAttribute("data-preview")) {
-        event.preventDefault();
-        previewFile(link);
-        return;
-      }
-      if (dash.isOutboundLink(link.getAttribute("href"))) {
-        event.preventDefault();
-        const d2l = link.hasAttribute("data-d2l-link") || dash.embeddedLinkTarget(link.getAttribute("href")) === "d2l";
-        const title = link.getAttribute("data-confirm-external")
-          || link.getAttribute("data-confirm-title")
-          || link.getAttribute("aria-label")
-          || link.textContent.trim()
-          || link.getAttribute("title")
-          || "this link";
-        closeMenu();
-        showLinkConfirm({ url: link.href, title, kind: d2l ? "d2l" : "external" });
-        return;
-      }
-      if (dash.isLayerRoute(link.getAttribute("href"))) {
-        event.preventDefault();
-        navigateToDetail(link.getAttribute("href"), link);
-        return;
-      }
-    }
+    if (link && plain && handleLinkClick(event, link)) return;
     const toggle = event.target.closest("[data-menu-toggle]");
     if (toggle) { handleMenuToggleClick(toggle); return; }
     if (state.menu && !event.target.closest(".menu")) closeMenu();
