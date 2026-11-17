@@ -92,21 +92,20 @@
     };
   }
 
-  function dashboardGradeSnapshot(index, course, upcoming) {
-    const grades = index.list(course.courseId, "gradeRecord").filter((entity) => entity.kind === "item" && !entity.excludedFromDisplay);
-    const graded = grades
+  function buildGradedPoints(grades) {
+    return grades
       .filter((entity) => isGradedGrade(entity))
-      .map((entity) => {
-        return {
-          at: entity.dates?.gradedAt,
-          pct: gradePercent(entity.grade),
-          score: gradeLabel(entity) || entity.grade?.displayed || "",
-          title: entity.canonicalTitle
-        };
-      })
+      .map((entity) => ({
+        at: entity.dates?.gradedAt,
+        pct: gradePercent(entity.grade),
+        score: gradeLabel(entity) || entity.grade?.displayed || "",
+        title: entity.canonicalTitle
+      }))
       .filter((point) => Number.isFinite(time(point.at)))
       .sort((a, b) => time(a.at) - time(b.at));
-    const pctPoints = graded.filter((point) => Number.isFinite(point.pct)).slice(-8);
+  }
+
+  function buildGradeTrendChart(pctPoints) {
     const values = pctPoints.map((point) => point.pct);
     const min = values.length ? Math.max(0, Math.floor((Math.min(...values) - 8) / 10) * 10) : 0;
     const max = values.length ? Math.min(110, Math.max(100, Math.ceil((Math.max(...values) + 4) / 10) * 10)) : 100;
@@ -122,6 +121,14 @@
     const first = values[0];
     const last = values.at(-1);
     const delta = Number.isFinite(first) && Number.isFinite(last) && values.length > 1 ? Math.round((last - first) * 10) / 10 : null;
+    return { min, max, chart, delta };
+  }
+
+  function dashboardGradeSnapshot(index, course, upcoming) {
+    const grades = index.list(course.courseId, "gradeRecord").filter((entity) => entity.kind === "item" && !entity.excludedFromDisplay);
+    const graded = buildGradedPoints(grades);
+    const pctPoints = graded.filter((point) => Number.isFinite(point.pct)).slice(-8);
+    const { min, max, chart, delta } = buildGradeTrendChart(pctPoints);
     const next = upcoming.find((item) => item.courseId === course.courseId && item.kind !== "task") || null;
     const final = courseGradeSummary(index, course);
     return {
