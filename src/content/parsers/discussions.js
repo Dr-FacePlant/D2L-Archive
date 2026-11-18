@@ -1,15 +1,7 @@
 (() => {
   const content = globalThis.D2LExtractorContent ||= {};
   const { normalizeText } = globalThis.D2LExtractorShared;
-  const {
-    queryAll,
-    queryOne,
-    absoluteUrl,
-    looksLikeFileUrl,
-    isDiscussionAttachmentUrl,
-    getOrgUnitId,
-    discussionAttachmentRowFromLink
-  } = content;
+  const { queryAll, queryOne, absoluteUrl, looksLikeFileUrl, isDiscussionAttachmentUrl, getOrgUnitId, discussionAttachmentRowFromLink } = content;
 
 // D2L date text such as "Sep 27, 2026 8:00 AM", read in the browser's time zone
 // (the same zone D2L renders it in).
@@ -20,6 +12,51 @@ function listDateToIso(text) {
 
 // The Discussions List page groups topics under forum <h2> headings and shows a
 // topic's window ("Available on … until …") even when the topics API is 403.
+function extractTopicPrompt(cell, text, title) {
+  const htmlBlock = cell?.querySelector?.("d2l-html-block[html]");
+  if (htmlBlock) {
+    return normalizeText(new DOMParser().parseFromString(htmlBlock.getAttribute("html") || "", "text/html").body?.textContent || "");
+  }
+  return normalizeText(text
+    .replace(title, "")
+    .replace(/You must start a thread before you can read and reply to other threads/gi, "")
+    .replace(/Contains unread posts/gi, "")
+    .replace(/[A-Z][a-z]{2} \d{1,2} - [A-Z][a-z]{2} \d{1,2}/, "")
+    .replace(/Available (?:on|until) [A-Z][a-z]{2} \d{1,2}, \d{4} \d{1,2}:\d{2} [AP]M/g, "")
+    .replace(/Access restricted (?:before|after) availability (?:starts|ends)\./gi, "")
+    .replace(/Must post first\./gi, ""));
+}
+
+function buildDiscussionListTopic(node, forumTitle) {
+  const href = node.getAttribute("href") || "";
+  if (/[?&]filters=/i.test(href)) return null;
+  const topicId = href.match(/\/topics\/(\d+)\//)?.[1] || "";
+  if (!topicId) return null;
+  const title = normalizeText(node.textContent);
+  const cell = node.closest("th, td, li") || node.parentElement;
+  const text = normalizeText(cell?.textContent || "");
+  const from = text.match(/Available on ([A-Z][a-z]{2} \d{1,2}, \d{4} \d{1,2}:\d{2} [AP]M)/)?.[1] || "";
+  const until = text.match(/Available until ([A-Z][a-z]{2} \d{1,2}, \d{4} \d{1,2}:\d{2} [AP]M)/)?.[1] || "";
+  const prompt = extractTopicPrompt(cell, text, title);
+  return {
+    source: "discussionTopic",
+    title,
+    description: prompt,
+    url: absoluteUrl(href),
+    status: "visible",
+    gate: /must post first/i.test(text) ? "mustPostFirst" : "",
+    availabilityText: [from, until].filter(Boolean).join(" - "),
+    columns: {
+      recoveredFrom: "discussionListPage",
+      forumTitle,
+      startDate: listDateToIso(from),
+      endDate: listDateToIso(until),
+      hasUnread: /Contains unread posts/i.test(text)
+    },
+    ids: { courseOrgUnitId: getOrgUnitId(), discussionTopicId: topicId }
+  };
+}
+
 function extractDiscussionListTopics() {
   if (!/\/discussions\/List/i.test(window.location.pathname)) return [];
   const nodes = [...document.querySelectorAll("h2, a[href*='/discussions/topics/']")];
@@ -31,47 +68,10 @@ function extractDiscussionListTopics() {
       forumTitle = normalizeText(node.textContent);
       continue;
     }
-    const href = node.getAttribute("href") || "";
-    if (/[?&]filters=/i.test(href)) continue;
-    const topicId = href.match(/\/topics\/(\d+)\//)?.[1] || "";
-    if (!topicId || seen.has(topicId)) continue;
-    seen.add(topicId);
-    const title = normalizeText(node.textContent);
-    const cell = node.closest("th, td, li") || node.parentElement;
-    const text = normalizeText(cell?.textContent || "");
-    const from = text.match(/Available on ([A-Z][a-z]{2} \d{1,2}, \d{4} \d{1,2}:\d{2} [AP]M)/)?.[1] || "";
-    const until = text.match(/Available until ([A-Z][a-z]{2} \d{1,2}, \d{4} \d{1,2}:\d{2} [AP]M)/)?.[1] || "";
-    // The topic prompt renders inside <d2l-html-block html="…">, whose text lives
-    // in a shadow root; the attribute holds the same HTML.
-    const htmlBlock = cell?.querySelector?.("d2l-html-block[html]");
-    const blockText = htmlBlock
-      ? normalizeText(new DOMParser().parseFromString(htmlBlock.getAttribute("html") || "", "text/html").body?.textContent || "")
-      : "";
-    const prompt = blockText || normalizeText(text
-      .replace(title, "")
-      .replace(/You must start a thread before you can read and reply to other threads/gi, "")
-      .replace(/Contains unread posts/gi, "")
-      .replace(/[A-Z][a-z]{2} \d{1,2} - [A-Z][a-z]{2} \d{1,2}/, "")
-      .replace(/Available (?:on|until) [A-Z][a-z]{2} \d{1,2}, \d{4} \d{1,2}:\d{2} [AP]M/g, "")
-      .replace(/Access restricted (?:before|after) availability (?:starts|ends)\./gi, "")
-      .replace(/Must post first\./gi, ""));
-    topics.push({
-      source: "discussionTopic",
-      title,
-      description: prompt,
-      url: absoluteUrl(href),
-      status: "visible",
-      gate: /must post first/i.test(text) ? "mustPostFirst" : "",
-      availabilityText: [from, until].filter(Boolean).join(" - "),
-      columns: {
-        recoveredFrom: "discussionListPage",
-        forumTitle,
-        startDate: listDateToIso(from),
-        endDate: listDateToIso(until),
-        hasUnread: /Contains unread posts/i.test(text)
-      },
-      ids: { courseOrgUnitId: getOrgUnitId(), discussionTopicId: topicId }
-    });
+    const topic = buildDiscussionListTopic(node, forumTitle);
+    if (!topic || seen.has(topic.ids.discussionTopicId)) continue;
+    seen.add(topic.ids.discussionTopicId);
+    topics.push(topic);
   }
   return topics;
 }
@@ -112,19 +112,18 @@ function discussionTopicIdFromUrl(url = window.location.href) {
   return String(url || "").match(/\/discussions\/topics\/(\d+)\/View/i)?.[1] || "";
 }
 
-function extractDiscussionPageMeta() {
-  const topicId = discussionTopicIdFromUrl();
+function parseDiscussionTopicRows({ url, title, bodyText, courseOrgUnitId }) {
+  const topicId = discussionTopicIdFromUrl(url);
   if (!topicId) return [];
-  const bodyText = normalizeText(queryOne("body")?.textContent || "");
-  const title = normalizeText(queryOne("h1, [role='heading'][aria-level='1']")?.textContent || document.title.replace(/\s+-\s+Kennesaw State University$/i, ""));
-  const feedback = bodyText.match(/\bFeedback\s+(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)\s*%/i);
+  const text = normalizeText(bodyText);
+  const feedback = text.match(/\bFeedback\s+(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)\s*%/i);
   const rows = [{
     source: "discussionTopic",
     title,
-    description: bodyText.slice(0, 2400),
-    url: window.location.href,
-    status: /locked/i.test(bodyText) ? "locked" : "visible",
-    gate: /must post first/i.test(bodyText) ? "mustPostFirst" : "",
+    description: text.slice(0, 2400),
+    url,
+    status: /locked/i.test(text) ? "locked" : "visible",
+    gate: /must post first/i.test(text) ? "mustPostFirst" : "",
     columns: {
       recoveredFrom: "discussionTopicPage",
       visibleFeedback: feedback?.[0] || "",
@@ -132,7 +131,7 @@ function extractDiscussionPageMeta() {
       pointsPossible: feedback?.[2] || "",
       percent: feedback?.[3] || ""
     },
-    ids: { courseOrgUnitId: getOrgUnitId(), discussionTopicId: topicId }
+    ids: { courseOrgUnitId, discussionTopicId: topicId }
   }];
 
   if (feedback) {
@@ -140,7 +139,7 @@ function extractDiscussionPageMeta() {
       source: "discussionFeedback",
       title: `${title} - Feedback`,
       description: feedback[0],
-      url: window.location.href,
+      url,
       status: "graded",
       columns: {
         recoveredFrom: "discussionTopicPage",
@@ -148,11 +147,20 @@ function extractDiscussionPageMeta() {
         pointsPossible: feedback[2],
         percent: feedback[3]
       },
-      ids: { courseOrgUnitId: getOrgUnitId(), discussionTopicId: topicId }
+      ids: { courseOrgUnitId, discussionTopicId: topicId }
     });
   }
 
   return rows;
+}
+
+function extractDiscussionPageMeta() {
+  const url = window.location.href;
+  const topicId = discussionTopicIdFromUrl(url);
+  if (!topicId) return [];
+  const bodyText = queryOne("body")?.textContent || "";
+  const title = queryOne("h1, [role='heading'][aria-level='1']")?.textContent || document.title.replace(/\s+-\s+Kennesaw State University$/i, "");
+  return parseDiscussionTopicRows({ url, title, bodyText, courseOrgUnitId: getOrgUnitId() });
 }
 
 function extractDiscussionPosts() {
@@ -214,7 +222,7 @@ function dedupeDiscussionAttachments(items) {
 }
 
 
-  Object.assign(content, { extractDiscussionListTopics, listDateToIso,
+  Object.assign(content, { extractDiscussionListTopics, listDateToIso, parseDiscussionTopicRows,
     extractDiscussions,
     discussionTopicIdFromUrl,
     extractDiscussionPageMeta,

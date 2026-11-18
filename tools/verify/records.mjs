@@ -1,291 +1,146 @@
-export function createRecordTools({ fs, path, parseJson, normalizeText, recoverManifestFromArchive }) {
-function stableRowId(row) {
-  const ids = parseJson(row.ids);
-  return [
-    row.courseOrgUnitId,
-    row.source,
-    ids.contentObjectId,
-    ids.quizId,
-    ids.dropboxFolderId,
-    ids.assignmentFolderId,
-    ids.gradeObjectId,
-    ids.calendarEventId,
-    ids.newsItemId,
-    ids.discussionForumId,
-    ids.discussionTopicId,
-    ids.postId,
-    ids.fileId,
-    row.itemUrl || row.pageUrl,
-    row.title
-  ].filter((value) => value !== undefined && value !== null && String(value).trim() !== "").join("::");
-}
+import fs from "node:fs";
+import path from "node:path";
+import vm from "node:vm";
 
-function rowSignature(row) {
-  return JSON.stringify({
-    courseOrgUnitId: row.courseOrgUnitId || "",
-    source: row.source || "",
-    title: row.title || "",
-    status: row.status || "",
-    type: row.type || "",
-    dueAtText: row.dueAtText || "",
-    availabilityText: row.availabilityText || "",
-    itemUrl: row.itemUrl || "",
-    historyUrl: row.historyUrl || "",
-    feedbackUrl: row.feedbackUrl || "",
-    localPath: row.localPath || "",
-    downloadError: row.downloadError || "",
-    ids: row.ids || "",
-    columns: row.columns || ""
-  });
-}
+const _shared = {};
+const _rowsPath = new URL("../../src/shared/rows.js", import.meta.url);
+const _evidencePath = new URL("../../src/shared/evidence.js", import.meta.url);
+const _vmContext = { globalThis: { D2LExtractorShared: _shared }, JSON, Date, String };
+vm.runInNewContext(fs.readFileSync(_rowsPath, "utf8"), _vmContext);
+vm.runInNewContext(fs.readFileSync(_evidencePath, "utf8"), _vmContext);
 
-function createExportSummary(sourceManifest) {
-  const sourceRows = Array.isArray(sourceManifest.rows) ? sourceManifest.rows : [];
-  return {
-    exportedAt: sourceManifest.exportedAt || sourceManifest.audit?.generatedAt || "",
-    rows: sourceRows.map((row) => ({
-      id: stableRowId(row),
-      signature: rowSignature(row),
-      courseOrgUnitId: row.courseOrgUnitId || "",
-      courseTitle: row.courseTitle || "",
-      source: row.source || "",
-      title: row.title || "",
-      status: row.status || "",
-      dueAtText: row.dueAtText || "",
-      availabilityText: row.availabilityText || "",
-      itemUrl: row.itemUrl || "",
-      localPath: row.localPath || "",
-      columns: row.columns || ""
-    })).filter((row) => row.id)
-  };
-}
+export const apiProbeBreakdown = _shared.apiProbeBreakdown;
+export const apiProbeSummaryRows = _shared.apiProbeSummaryRows;
+export const apiProbeLegendLines = _shared.apiProbeLegendLines;
+export const stableRowId = _shared.stableRowId;
+export const rowSignature = _shared.rowSignature;
+export const toJsonl = _shared.toJsonl;
+export const parseColumns = _shared.parseColumns;
+export const createExportSummary = _shared.createExportSummary;
+export const feedbackSignal = _shared.feedbackSignal;
+export const summarizeChanges = _shared.summarizeChanges;
+export const emptyChangeReport = _shared.emptyChangeReport;
+export const diffRow = _shared.diffRow;
+export const aiIndexRecord = _shared.aiIndexRecord;
+export const recordTextSnippet = _shared.recordTextSnippet;
+export const INDEXED_COLUMN_KEYS = _shared.INDEXED_COLUMN_KEYS;
+export const FEEDBACK_SOURCES = _shared.FEEDBACK_SOURCES;
+export const uniqueRows = _shared.uniqueRows;
+export const isStudentFeedbackRow = _shared.isStudentFeedbackRow;
 
-function feedbackSignal(row) {
-  const columns = parseJson(row.columns);
-  if (["assignmentFeedback", "gradeFeedback", "quizAttempt", "quizSubmission", "quizAttemptRow", "quizSummaryRow", "discussionFeedback", "rubricFeedback", "rubricCriterionFeedback"].includes(row.source)) {
-    return row.source;
+export function loadArchiveManifest(input, usage) {
+  if (!input) {
+    console.error(usage);
+    process.exit(1);
   }
-  const text = [
-    columns.feedbackText,
-    columns.rubricText,
-    columns.commentsAndAssessments
-  ].filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
-  return /feedback|comment|rubric|assessment/i.test(text) ? text : "";
+  const archiveRoot = path.resolve(input);
+  const manifestPath = path.join(archiveRoot, "manifest.json");
+  if (!fs.existsSync(manifestPath)) {
+    console.error(`No manifest.json found in ${archiveRoot}`);
+    process.exit(1);
+  }
+  const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+  return { archiveRoot, manifestPath, manifest };
 }
 
-function summarizeChanges(previous, current) {
-  if (!previous?.rows?.length) {
+export function newestExport(exportDir) {
+  if (!fs.existsSync(exportDir)) return "";
+  return fs.readdirSync(exportDir, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && /^d2l-export-/.test(entry.name))
+    .map((entry) => {
+      const fullPath = path.join(exportDir, entry.name);
+      return { fullPath, mtimeMs: fs.statSync(fullPath).mtimeMs };
+    })
+    .sort((a, b) => b.mtimeMs - a.mtimeMs)[0]?.fullPath || "";
+}
+
+export function parseJson(value) {
+  try {
+    return JSON.parse(value || "{}");
+  } catch {
+    return {};
+  }
+}
+
+export function manifestFromSource(source, deps = {}) {
+  const resolve = deps.resolve || path.resolve;
+  const existsSync = deps.existsSync || fs.existsSync;
+  const readFileSync = deps.readFileSync || fs.readFileSync;
+  const target = resolve(source);
+  const manifestPath = target.endsWith("manifest.json") ? target : path.join(target, "manifest.json");
+  if (!existsSync(manifestPath)) return null;
+  try {
+    const raw = JSON.parse(readFileSync(manifestPath, "utf8"));
     return {
-      available: false,
-      previousExportedAt: previous?.exportedAt || "",
-      currentExportedAt: current.exportedAt,
-      reason: "No previous export rows were available for offline comparison.",
-      totals: { added: 0, removed: 0, changed: 0, newlyGraded: 0, newlyDue: 0, dueChanged: 0, availabilityChanged: 0, newlyDownloaded: 0, newlyFeedback: 0 },
-      added: [],
-      removed: [],
-      changed: [],
-      newlyGraded: [],
-      newlyDue: [],
-      dueChanged: [],
-      availabilityChanged: [],
-      newlyDownloaded: [],
-      newlyFeedback: []
+      exportedAt: raw.exportedAt || raw.audit?.generatedAt || "",
+      rows: Array.isArray(raw.rows) ? raw.rows : []
     };
+  } catch {
+    return null;
   }
-
-  const previousById = new Map(previous.rows.map((row) => [row.id, row]));
-  const currentById = new Map(current.rows.map((row) => [row.id, row]));
-  const added = [];
-  const removed = [];
-  const changed = [];
-  const newlyGraded = [];
-  const newlyDue = [];
-  const dueChanged = [];
-  const availabilityChanged = [];
-  const newlyDownloaded = [];
-  const newlyFeedback = [];
-
-  for (const row of current.rows) {
-    const before = previousById.get(row.id);
-    if (!before) {
-      added.push(row);
-      if (feedbackSignal(row)) newlyFeedback.push(row);
-      continue;
-    }
-    if (before.signature !== row.signature) {
-      changed.push({ before, after: row });
-      const beforeColumns = parseJson(before.columns);
-      const afterColumns = parseJson(row.columns);
-      const beforeGrade = `${beforeColumns.displayedGrade || beforeColumns.pointsEarned || beforeColumns.points || ""}`.trim();
-      const afterGrade = `${afterColumns.displayedGrade || afterColumns.pointsEarned || afterColumns.points || ""}`.trim();
-      if (!beforeGrade && afterGrade) newlyGraded.push(row);
-      if (!before.dueAtText && row.dueAtText) newlyDue.push(row);
-      if (before.dueAtText && row.dueAtText && normalizeText(before.dueAtText) !== normalizeText(row.dueAtText)) dueChanged.push({ before, after: row });
-      if (normalizeText(before.availabilityText || "") !== normalizeText(row.availabilityText || "")) availabilityChanged.push({ before, after: row });
-      if (!before.localPath && row.localPath) newlyDownloaded.push(row);
-      if (!feedbackSignal(before) && feedbackSignal(row)) newlyFeedback.push(row);
-    }
-  }
-
-  for (const row of previous.rows) {
-    if (!currentById.has(row.id)) removed.push(row);
-  }
-
-  const limit = (items) => items.slice(0, 200);
-  return {
-    available: true,
-    previousExportedAt: previous.exportedAt || "",
-    currentExportedAt: current.exportedAt || "",
-    totals: {
-      added: added.length,
-      removed: removed.length,
-      changed: changed.length,
-      newlyGraded: newlyGraded.length,
-      newlyDue: newlyDue.length,
-      dueChanged: dueChanged.length,
-      availabilityChanged: availabilityChanged.length,
-      newlyDownloaded: newlyDownloaded.length,
-      newlyFeedback: newlyFeedback.length
-    },
-    added: limit(added),
-    removed: limit(removed),
-    changed: limit(changed),
-    newlyGraded: limit(newlyGraded),
-    newlyDue: limit(newlyDue),
-    dueChanged: limit(dueChanged),
-    availabilityChanged: limit(availabilityChanged),
-    newlyDownloaded: limit(newlyDownloaded),
-    newlyFeedback: limit(newlyFeedback)
-  };
 }
 
-function manifestFromSource(input) {
-  const inputIsDirectory = fs.statSync(input).isDirectory();
-  const primary = inputIsDirectory ? path.join(input, "manifest.json") : input;
-  if (fs.existsSync(primary)) return JSON.parse(fs.readFileSync(primary, "utf8"));
-  const recovered = inputIsDirectory ? path.join(input, "recovered-manifest.json") : "";
-  if (recovered && fs.existsSync(recovered)) return JSON.parse(fs.readFileSync(recovered, "utf8"));
-  if (inputIsDirectory) return recoverManifestFromArchive(input);
-  throw new Error(`No manifest found for ${input}`);
+function appendChangeList(lines, title, items, rowFormatter) {
+  if (!items.length) return;
+  lines.push("", `### ${title} (${items.length})`);
+  items.slice(0, 50).forEach((entry) => lines.push(rowFormatter(entry)));
 }
 
-function changeReportMarkdown(changeReport) {
-  const itemLine = (row) => `- ${row.courseTitle || row.courseOrgUnitId || "Unknown course"} | ${row.source || "item"} | ${row.title || "(untitled)"}`;
-  const changedLine = (entry) => {
-    const before = entry.before || {};
-    const after = entry.after || {};
-    return `- ${after.courseTitle || after.courseOrgUnitId || "Unknown course"} | ${after.source || "item"} | ${after.title || "(untitled)"} | due: ${before.dueAtText || "(blank)"} -> ${after.dueAtText || "(blank)"} | status: ${before.status || "(blank)"} -> ${after.status || "(blank)"}`;
-  };
+function rowTitle(row) {
+  return `${row.source || "row"}: ${row.title || row.id}`;
+}
+
+export function changeReportMarkdown(report) {
+  if (!report.available) {
+    return [
+      "# Offline Change Detection Report",
+      "",
+      `- Status: ${report.reason}`,
+      `- Current export: ${report.currentExportedAt || "unknown"}`
+    ].join("\n");
+  }
+
   const lines = [
-    "# D2L Offline Change Report",
+    "# Offline Change Detection Report",
     "",
-    `Current export: ${changeReport.currentExportedAt || ""}`,
-    `Previous export: ${changeReport.previousExportedAt || ""}`,
-    ""
+    `- Previous export: ${report.previousExportedAt || "none"}`,
+    `- Current export: ${report.currentExportedAt}`,
+    `- Added: ${report.totals.added}`,
+    `- Removed: ${report.totals.removed}`,
+    `- Changed: ${report.totals.changed}`,
+    `- Newly graded: ${report.totals.newlyGraded}`,
+    `- Newly due: ${report.totals.newlyDue}`,
+    `- Due date changed: ${report.totals.dueChanged}`,
+    `- Availability changed: ${report.totals.availabilityChanged}`,
+    `- Newly downloaded files: ${report.totals.newlyDownloaded}`,
+    `- Newly available feedback: ${report.totals.newlyFeedback}`
   ];
-  if (!changeReport.available) {
-    lines.push("No previous export rows were available for comparison.", "", `Reason: ${changeReport.reason || "unknown"}`);
-    return lines.join("\n");
-  }
-  lines.push("## Totals", "");
-  lines.push(`- Added: ${changeReport.totals.added}`);
-  lines.push(`- Removed: ${changeReport.totals.removed}`);
-  lines.push(`- Changed: ${changeReport.totals.changed}`);
-  lines.push(`- Newly graded: ${changeReport.totals.newlyGraded}`);
-  lines.push(`- Newly due: ${changeReport.totals.newlyDue}`);
-  lines.push(`- Due date changed: ${changeReport.totals.dueChanged || 0}`);
-  lines.push(`- Availability changed: ${changeReport.totals.availabilityChanged || 0}`);
-  lines.push(`- Newly downloaded: ${changeReport.totals.newlyDownloaded}`);
-  lines.push(`- New feedback/results: ${changeReport.totals.newlyFeedback || 0}`);
-  lines.push("");
-  for (const [title, items, formatter] of [
-    ["New Feedback / Results", changeReport.newlyFeedback || [], itemLine],
-    ["Newly Graded", changeReport.newlyGraded, itemLine],
-    ["Newly Due", changeReport.newlyDue, itemLine],
-    ["Due Date Changed", changeReport.dueChanged || [], changedLine],
-    ["Availability Changed", changeReport.availabilityChanged || [], changedLine],
-    ["Added", changeReport.added, itemLine],
-    ["Removed", changeReport.removed, itemLine],
-    ["Changed", changeReport.changed, changedLine],
-    ["Newly Downloaded", changeReport.newlyDownloaded, itemLine]
-  ]) {
-    lines.push(`## ${title}`, "");
-    if (!items.length) lines.push("- None");
-    else items.forEach((item) => lines.push(formatter(item)));
-    lines.push("");
-  }
+
+  appendChangeList(lines, "Added Evidence", report.added, (row) => `- ${rowTitle(row)}`);
+  appendChangeList(lines, "Removed Evidence", report.removed, (row) => `- ${rowTitle(row)}`);
+  appendChangeList(lines, "Newly Graded", report.newlyGraded, (row) => `- ${rowTitle(row)}`);
+  appendChangeList(lines, "Newly Due", report.newlyDue, (row) => `- ${rowTitle(row)} (due: ${row.dueAtText || "set"})`);
+  appendChangeList(lines, "Due Date Changes", report.dueChanged, ({ before, after }) => `- ${rowTitle(after)}: "${before.dueAtText || ""}" -> "${after.dueAtText || ""}"`);
+  appendChangeList(lines, "Availability Changes", report.availabilityChanged, ({ before, after }) => `- ${rowTitle(after)}: "${before.availabilityText || ""}" -> "${after.availabilityText || ""}"`);
+  appendChangeList(lines, "Newly Downloaded Files", report.newlyDownloaded, (row) => `- ${rowTitle(row)} -> ${row.localPath}`);
+  appendChangeList(lines, "Newly Available Feedback / Results", report.newlyFeedback, (row) => `- ${rowTitle(row)}`);
+  appendChangeList(lines, "Other Changed Rows", report.changed, ({ before, after }) => `- ${rowTitle(after)} (signature changed)`);
+
   return lines.join("\n");
 }
 
-function aiIndexRecord(row) {
-  const columns = parseJson(row.columns);
-  const ids = parseJson(row.ids);
+export function createRecordTools(deps = {}) {
+  const parse = deps.parseJson || parseJson;
+  const normalize = deps.normalizeText || ((s) => String(s || "").trim());
   return {
-    id: stableRowId(row),
-    courseOrgUnitId: row.courseOrgUnitId || "",
-    courseTitle: row.courseTitle || "",
-    source: row.source || "",
-    title: row.title || "",
-    status: row.status || "",
-    type: row.type || "",
-    linkKind: columns.linkKind || "",
-    text: [
-      row.title,
-      row.description,
-      row.status,
-      row.gate,
-      row.type,
-      row.dueAtText,
-      row.availabilityText,
-      columns.module,
-      columns.topicType,
-      columns.displayedGrade,
-      columns.points,
-      columns.commentsAndAssessments,
-      columns.feedbackText,
-      columns.rubricText,
-      columns.criterionName,
-      columns.rubricLevel,
-      columns.scoreText,
-      columns.status,
-      columns.assignmentTitle,
-      columns.quizTitle,
-      columns.discussionTopicId,
-      columns.author,
-      columns.postSubject,
-      columns.calendarEventTitle,
-      columns.contentTitle,
-      columns.linkKind,
-      columns.recoveredFrom,
-      columns.toolSource,
-      columns.emptyStateText,
-      columns.blockedText,
-      row.localPageTextSnippet
-    ].filter(Boolean).join(" ").replace(/\s+/g, " ").trim(),
-    dueAtText: row.dueAtText || "",
-    availabilityText: row.availabilityText || "",
-    itemUrl: row.itemUrl || "",
-    localPath: row.localPath || "",
-    localPageTextPath: row.localPageTextPath || "",
-    localPageTextSnippet: row.localPageTextSnippet || "",
-    ids,
-    columns
-  };
-}
-
-function toJsonl(records) {
-  return records.map((record) => JSON.stringify(record)).join("\n");
-}
-
-  return {
-    stableRowId,
+    stableRowId: (row) => stableRowId(row),
     rowSignature,
-    createExportSummary,
-    feedbackSignal,
-    summarizeChanges,
-    manifestFromSource,
+    createExportSummary: (manifest) => createExportSummary(manifest),
+    feedbackSignal: (row) => feedbackSignal(row),
+    summarizeChanges: (prev, curr) => summarizeChanges(prev, curr, normalize),
+    manifestFromSource: (source) => manifestFromSource(source, deps),
     changeReportMarkdown,
-    aiIndexRecord,
+    aiIndexRecord: (row) => aiIndexRecord(row),
     toJsonl
   };
 }

@@ -81,7 +81,7 @@ check(customRoundTrip.ok === true && customRoundTrip.overrides["1002"].syllabus.
 check(customRoundTrip.ok === true && customRoundTrip.overrides["1003"].syllabus.name === "art.pdf", "file syllabus should survive backup round-trip");
 
 const settings = read("src/dashboard/render-settings.js");
-const events = read("src/dashboard/app-events.js");
+const events = read("src/dashboard/app-events.js") + read("src/dashboard/app-events-contacts.js");
 const appearance = read("src/dashboard/app-appearance.js");
 const html = read("dashboard.html");
 check(settings.includes('data-action="export-contact-edits"'), "Storage should offer exporting contact edits");

@@ -3,6 +3,42 @@
   const { normalizeText } = globalThis.D2LExtractorShared;
   const { apiGet, apiList, richText, firstRichText, D2L_API_MODERN_VERSION, D2L_LP_API_VERSION } = content;
 
+function buildChecklistToolItem(orgUnitId, checklistId, checklist) {
+  return {
+    source: "courseToolPage",
+    title: normalizeText(checklist.Name || `Checklist ${checklistId}`),
+    description: richText(checklist.Description),
+    url: `${window.location.origin}/d2l/lms/checklist/checklists.d2l?ou=${orgUnitId}`,
+    status: "available",
+    type: "checklist",
+    columns: { recoveredFrom: "checklistApi", toolSource: "checklist", emptyStateText: "", blockedText: "" },
+    ids: { courseOrgUnitId: orgUnitId, checklistId: String(checklistId) }
+  };
+}
+
+async function collectChecklistEntryRows(orgUnitId, checklistId, checklistTitle, categoriesResult, itemStatuses) {
+  const categoriesById = new Map(apiList(categoriesResult.data).map((category) => [String(category.CategoryId || category.Id || ""), category]));
+  const itemsResult = await apiGet(`/d2l/api/le/${D2L_API_MODERN_VERSION}/${orgUnitId}/checklists/${checklistId}/items/`);
+  itemStatuses[String(checklistId)] = itemsResult.status;
+  if (!itemsResult.ok) return [];
+
+  return apiList(itemsResult.data).map((entry) => {
+    const itemId = entry.ChecklistItemId || entry.Id;
+    const categoryId = String(entry.CategoryId || "");
+    const category = categoriesById.get(categoryId);
+    return {
+      source: "checklistItem",
+      title: normalizeText(entry.Name || `Checklist item ${itemId || ""}`),
+      description: richText(entry.Description),
+      url: `${window.location.origin}/d2l/lms/checklist/checklists.d2l?ou=${orgUnitId}`,
+      dueAtText: entry.DueDate || "",
+      status: entry.IsCompleted ? "completed" : "visible",
+      columns: { recoveredFrom: "checklistApi", checklistTitle, categoryName: normalizeText(category?.Name || ""), sortOrder: entry.SortOrder ?? "" },
+      ids: { courseOrgUnitId: orgUnitId, checklistId: String(checklistId), checklistItemId: String(itemId || ""), checklistCategoryId: categoryId }
+    };
+  });
+}
+
 async function collectChecklistItems(orgUnitId) {
   const items = [];
   const itemStatuses = {};
@@ -14,52 +50,63 @@ async function collectChecklistItems(orgUnitId) {
     const checklistId = checklist.Id || checklist.ChecklistId;
     if (!checklistId) continue;
     const checklistTitle = normalizeText(checklist.Name || `Checklist ${checklistId}`);
-    items.push({
-      source: "courseToolPage",
-      title: checklistTitle,
-      description: richText(checklist.Description),
-      url: `${window.location.origin}/d2l/lms/checklist/checklists.d2l?ou=${orgUnitId}`,
-      status: "available",
-      type: "checklist",
-      columns: {
-        recoveredFrom: "checklistApi",
-        toolSource: "checklist",
-        emptyStateText: "",
-        blockedText: ""
-      },
-      ids: { courseOrgUnitId: orgUnitId, checklistId: String(checklistId) }
-    });
+    items.push(buildChecklistToolItem(orgUnitId, checklistId, checklist));
 
     const categoriesResult = await apiGet(`/d2l/api/le/${D2L_API_MODERN_VERSION}/${orgUnitId}/checklists/${checklistId}/categories/`);
     categoryStatuses[String(checklistId)] = categoriesResult.status;
-    const categoriesById = new Map(apiList(categoriesResult.data).map((category) => [String(category.CategoryId || category.Id || ""), category]));
-
-    const itemsResult = await apiGet(`/d2l/api/le/${D2L_API_MODERN_VERSION}/${orgUnitId}/checklists/${checklistId}/items/`);
-    itemStatuses[String(checklistId)] = itemsResult.status;
-    if (!itemsResult.ok) continue;
-
-    for (const entry of apiList(itemsResult.data)) {
-      const itemId = entry.ChecklistItemId || entry.Id;
-      const categoryId = String(entry.CategoryId || "");
-      const category = categoriesById.get(categoryId);
-      items.push({
-        source: "checklistItem",
-        title: normalizeText(entry.Name || `Checklist item ${itemId || ""}`),
-        description: richText(entry.Description),
-        url: `${window.location.origin}/d2l/lms/checklist/checklists.d2l?ou=${orgUnitId}`,
-        dueAtText: entry.DueDate || "",
-        status: entry.IsCompleted ? "completed" : "visible",
-        columns: {
-          recoveredFrom: "checklistApi",
-          checklistTitle,
-          categoryName: normalizeText(category?.Name || ""),
-          sortOrder: entry.SortOrder ?? ""
-        },
-        ids: { courseOrgUnitId: orgUnitId, checklistId: String(checklistId), checklistItemId: String(itemId || ""), checklistCategoryId: categoryId }
-      });
-    }
+    const entryRows = await collectChecklistEntryRows(orgUnitId, checklistId, checklistTitle, categoriesResult, itemStatuses);
+    items.push(...entryRows);
   }
   return { status: result.status, itemStatuses, categoryStatuses, items };
+}
+
+function buildSurveyItem(orgUnitId, surveyId, survey) {
+  return {
+    source: "survey",
+    title: normalizeText(survey.Name || `Survey ${surveyId}`),
+    description: firstRichText(survey.Description?.Text, survey.Description, survey.Submission, survey.Footer?.Text),
+    url: `${window.location.origin}/d2l/lms/survey/surveys.d2l?ou=${orgUnitId}`,
+    status: survey.IsActive === false ? "inactive" : "visible",
+    availabilityText: [survey.StartDate, survey.EndDate].filter(Boolean).join(" - "),
+    columns: {
+      recoveredFrom: "surveyApi", isAnonymous: survey.IsAnonymous ?? "", hasInstantFeedback: survey.HasInstantFeedback ?? "",
+      attemptsAllowedTypeId: survey.UserResponses?.AttemptsAllowedTypeId ?? "", numberOfAttempts: survey.UserResponses?.NumberOfAttempts ?? ""
+    },
+    ids: { courseOrgUnitId: orgUnitId, surveyId: String(surveyId) }
+  };
+}
+
+async function collectSurveyAttemptsAndQuestions(orgUnitId, surveyId, title, attemptStatuses, questionStatuses) {
+  const items = [];
+  const attemptsResult = await apiGet(`/d2l/api/le/${D2L_API_MODERN_VERSION}/${orgUnitId}/surveys/${surveyId}/attempts/`);
+  attemptStatuses[String(surveyId)] = attemptsResult.status;
+  for (const attempt of apiList(attemptsResult.data)) {
+    items.push({
+      source: "surveyAttempt",
+      title: `${title} attempt ${attempt.AttemptNumber ?? attempt.AttemptId ?? ""}`.trim(),
+      description: normalizeText(`Started ${attempt.Started || ""} Completed ${attempt.Completed || ""}`),
+      url: `${window.location.origin}/d2l/lms/survey/survey_attempts.d2l?ou=${orgUnitId}&surveyId=${surveyId}`,
+      status: attempt.Completed ? "completed" : "started",
+      columns: { recoveredFrom: "surveyAttemptsApi", attemptNumber: attempt.AttemptNumber ?? "", started: attempt.Started || "", completed: attempt.Completed || "" },
+      ids: { courseOrgUnitId: orgUnitId, surveyId: String(surveyId), surveyAttemptId: String(attempt.AttemptId || "") }
+    });
+  }
+
+  const questionsResult = await apiGet(`/d2l/api/le/${D2L_API_MODERN_VERSION}/${orgUnitId}/surveys/${surveyId}/questions/`);
+  questionStatuses[String(surveyId)] = questionsResult.status;
+  for (const question of apiList(questionsResult.data)) {
+    const questionId = question.QuestionId || question.Id;
+    items.push({
+      source: "surveyQuestion",
+      title: normalizeText(question.Name || question.Text?.Text || question.Text || `Survey question ${questionId || ""}`),
+      description: firstRichText(question.Text, question.Description, question.QuestionText),
+      url: `${window.location.origin}/d2l/lms/survey/surveys.d2l?ou=${orgUnitId}`,
+      type: question.Type || question.QuestionType || "",
+      columns: { recoveredFrom: "surveyQuestionsApi", surveyTitle: title, points: question.Points ?? "", sortOrder: question.SortOrder ?? "" },
+      ids: { courseOrgUnitId: orgUnitId, surveyId: String(surveyId), surveyQuestionId: String(questionId || "") }
+    });
+  }
+  return items;
 }
 
 async function collectSurveyItems(orgUnitId) {
@@ -72,64 +119,56 @@ async function collectSurveyItems(orgUnitId) {
   for (const survey of apiList(result.data)) {
     const surveyId = survey.SurveyId || survey.Id;
     if (!surveyId) continue;
-    const title = normalizeText(survey.Name || `Survey ${surveyId}`);
-    items.push({
-      source: "survey",
-      title,
-      description: firstRichText(survey.Description?.Text, survey.Description, survey.Submission, survey.Footer?.Text),
-      url: `${window.location.origin}/d2l/lms/survey/surveys.d2l?ou=${orgUnitId}`,
-      status: survey.IsActive === false ? "inactive" : "visible",
-      availabilityText: [survey.StartDate, survey.EndDate].filter(Boolean).join(" - "),
-      columns: {
-        recoveredFrom: "surveyApi",
-        isAnonymous: survey.IsAnonymous ?? "",
-        hasInstantFeedback: survey.HasInstantFeedback ?? "",
-        attemptsAllowedTypeId: survey.UserResponses?.AttemptsAllowedTypeId ?? "",
-        numberOfAttempts: survey.UserResponses?.NumberOfAttempts ?? ""
-      },
-      ids: { courseOrgUnitId: orgUnitId, surveyId: String(surveyId) }
-    });
-
-    const attemptsResult = await apiGet(`/d2l/api/le/${D2L_API_MODERN_VERSION}/${orgUnitId}/surveys/${surveyId}/attempts/`);
-    attemptStatuses[String(surveyId)] = attemptsResult.status;
-    for (const attempt of apiList(attemptsResult.data)) {
-      items.push({
-        source: "surveyAttempt",
-        title: `${title} attempt ${attempt.AttemptNumber ?? attempt.AttemptId ?? ""}`.trim(),
-        description: normalizeText(`Started ${attempt.Started || ""} Completed ${attempt.Completed || ""}`),
-        url: `${window.location.origin}/d2l/lms/survey/survey_attempts.d2l?ou=${orgUnitId}&surveyId=${surveyId}`,
-        status: attempt.Completed ? "completed" : "started",
-        columns: {
-          recoveredFrom: "surveyAttemptsApi",
-          attemptNumber: attempt.AttemptNumber ?? "",
-          started: attempt.Started || "",
-          completed: attempt.Completed || ""
-        },
-        ids: { courseOrgUnitId: orgUnitId, surveyId: String(surveyId), surveyAttemptId: String(attempt.AttemptId || "") }
-      });
-    }
-
-    const questionsResult = await apiGet(`/d2l/api/le/${D2L_API_MODERN_VERSION}/${orgUnitId}/surveys/${surveyId}/questions/`);
-    questionStatuses[String(surveyId)] = questionsResult.status;
-    for (const question of apiList(questionsResult.data)) {
-      const questionId = question.QuestionId || question.Id;
-      items.push({
-        source: "surveyQuestion",
-        title: normalizeText(question.Name || question.Text?.Text || question.Text || `Survey question ${questionId || ""}`),
-        description: firstRichText(question.Text, question.Description, question.QuestionText),
-        url: `${window.location.origin}/d2l/lms/survey/surveys.d2l?ou=${orgUnitId}`,
-        type: question.Type || question.QuestionType || "",
-        columns: {
-          recoveredFrom: "surveyQuestionsApi",
-          surveyTitle: title,
-          points: question.Points ?? "",
-          sortOrder: question.SortOrder ?? ""
-        },
-        ids: { courseOrgUnitId: orgUnitId, surveyId: String(surveyId), surveyQuestionId: String(questionId || "") }
-      });
-    }
+    const surveyItem = buildSurveyItem(orgUnitId, surveyId, survey);
+    items.push(surveyItem);
+    const detailItems = await collectSurveyAttemptsAndQuestions(orgUnitId, surveyId, surveyItem.title, attemptStatuses, questionStatuses);
+    items.push(...detailItems);
   }
   return { status: result.status, attemptStatuses, questionStatuses, items };
+}
+
+function buildGroupCategoryItem(category, categoryId, categoryTitle, orgUnitId) {
+  return {
+    source: "courseToolPage",
+    title: categoryTitle,
+    description: richText(category.Description),
+    url: `${window.location.origin}/d2l/lms/group/group_list.d2l?ou=${orgUnitId}`,
+    status: "available",
+    type: "groups",
+    columns: {
+      recoveredFrom: "groupCategoryApi",
+      toolSource: "group",
+      enrollmentStyle: category.EnrollmentStyle ?? "",
+      autoEnroll: category.AutoEnroll ?? "",
+      maxUsersPerGroup: category.MaxUsersPerGroup ?? "",
+      selfEnrollmentStartDate: category.SelfEnrollmentStartDate || "",
+      selfEnrollmentExpiryDate: category.SelfEnrollmentExpiryDate || ""
+    },
+    ids: { courseOrgUnitId: orgUnitId, groupCategoryId: String(categoryId) }
+  };
+}
+
+async function collectCategoryGroups(orgUnitId, categoryId, categoryTitle, items, groupStatuses) {
+  const groupsResult = await apiGet(`/d2l/api/lp/${D2L_LP_API_VERSION}/${orgUnitId}/groupcategories/${categoryId}/groups/`);
+  groupStatuses[String(categoryId)] = groupsResult.status;
+  if (!groupsResult.ok) return;
+  for (const group of apiList(groupsResult.data)) {
+    const groupId = group.GroupId || group.Id;
+    items.push({
+      source: "group",
+      title: normalizeText(group.Name || `Group ${groupId || ""}`),
+      description: richText(group.Description),
+      url: `${window.location.origin}/d2l/lms/group/group_list.d2l?ou=${orgUnitId}`,
+      status: "visible",
+      columns: {
+        recoveredFrom: "groupsApi",
+        categoryName: categoryTitle,
+        code: group.Code || "",
+        enrollmentCount: Array.isArray(group.Enrollments) ? group.Enrollments.length : ""
+      },
+      ids: { courseOrgUnitId: orgUnitId, groupCategoryId: String(categoryId), groupId: String(groupId || "") }
+    });
+  }
 }
 
 async function collectGroupItems(orgUnitId) {
@@ -142,45 +181,8 @@ async function collectGroupItems(orgUnitId) {
     const categoryId = category.GroupCategoryId || category.Id;
     if (!categoryId) continue;
     const categoryTitle = normalizeText(category.Name || `Group category ${categoryId}`);
-    items.push({
-      source: "courseToolPage",
-      title: categoryTitle,
-      description: richText(category.Description),
-      url: `${window.location.origin}/d2l/lms/group/group_list.d2l?ou=${orgUnitId}`,
-      status: "available",
-      type: "groups",
-      columns: {
-        recoveredFrom: "groupCategoryApi",
-        toolSource: "group",
-        enrollmentStyle: category.EnrollmentStyle ?? "",
-        autoEnroll: category.AutoEnroll ?? "",
-        maxUsersPerGroup: category.MaxUsersPerGroup ?? "",
-        selfEnrollmentStartDate: category.SelfEnrollmentStartDate || "",
-        selfEnrollmentExpiryDate: category.SelfEnrollmentExpiryDate || ""
-      },
-      ids: { courseOrgUnitId: orgUnitId, groupCategoryId: String(categoryId) }
-    });
-
-    const groupsResult = await apiGet(`/d2l/api/lp/${D2L_LP_API_VERSION}/${orgUnitId}/groupcategories/${categoryId}/groups/`);
-    groupStatuses[String(categoryId)] = groupsResult.status;
-    if (!groupsResult.ok) continue;
-    for (const group of apiList(groupsResult.data)) {
-      const groupId = group.GroupId || group.Id;
-      items.push({
-        source: "group",
-        title: normalizeText(group.Name || `Group ${groupId || ""}`),
-        description: richText(group.Description),
-        url: `${window.location.origin}/d2l/lms/group/group_list.d2l?ou=${orgUnitId}`,
-        status: "visible",
-        columns: {
-          recoveredFrom: "groupsApi",
-          categoryName: categoryTitle,
-          code: group.Code || "",
-          enrollmentCount: Array.isArray(group.Enrollments) ? group.Enrollments.length : ""
-        },
-        ids: { courseOrgUnitId: orgUnitId, groupCategoryId: String(categoryId), groupId: String(groupId || "") }
-      });
-    }
+    items.push(buildGroupCategoryItem(category, categoryId, categoryTitle, orgUnitId));
+    await collectCategoryGroups(orgUnitId, categoryId, categoryTitle, items, groupStatuses);
   }
   return { status: result.status, groupStatuses, items };
 }

@@ -4,7 +4,7 @@
 // reads the image the page already shows, and never changes anything in D2L.
 (() => {
   const content = globalThis.D2LExtractorContent ||= {};
-  const { queryOne, absoluteUrl } = content;
+  const { queryOne, absoluteUrl, blobToDataUrl } = content;
   const STORAGE_KEY = "schoolLogo";
   const MAX_BYTES = 400 * 1024;
   const REFRESH_MS = 7 * 24 * 60 * 60 * 1000;
@@ -28,14 +28,7 @@
     return null;
   }
 
-  function blobToDataUrl(blob) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result));
-      reader.onerror = () => reject(reader.error);
-      reader.readAsDataURL(blob);
-    });
-  }
+// blobToDataUrl provided by dom.js
 
   async function captureSchoolLogo({ find = queryOne, fetchImpl = globalThis.fetch, storage, toDataUrl = blobToDataUrl, now = () => new Date() } = {}) {
     const found = findSchoolLogo(find);

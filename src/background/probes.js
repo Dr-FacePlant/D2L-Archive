@@ -137,10 +137,10 @@ function courseToolProbeTasksForCourse(orgUnitId) {
   })).filter((task) => isSafeReadOnlyUrl(task.url));
 }
 
-async function collectAssignmentProbePages(tab, orgUnitId, course, apiItems, rows, pages) {
+async function collectProbeTasks(tab, tasks, { orgUnitId, course, failureMessage, filterItems }, rows, pages) {
   const summary = { visited: 0, failed: 0, rows: 0 };
   if (!tab?.id && tab?.mode !== "frame") return summary;
-  for (const task of assignmentProbeTasksFromApiItems(orgUnitId, apiItems)) {
+  for (const task of tasks) {
     try {
       const payload = await navigateAndExtract(tab.mode === "frame" ? tab : tab.id, task);
       if (!payload.course?.orgUnitId) {
@@ -148,7 +148,8 @@ async function collectAssignmentProbePages(tab, orgUnitId, course, apiItems, row
       }
       payload.crawlTask.sourcePageType = task.sourcePageType;
       pages.push(payload);
-      const items = Array.isArray(payload.items) ? payload.items : [];
+      let items = Array.isArray(payload.items) ? payload.items : [];
+      if (filterItems) items = filterItems(items);
       rows.push(...items.map((item) => flattenItem(payload, item)));
       summary.visited += 1;
       summary.rows += items.length;
@@ -159,168 +160,42 @@ async function collectAssignmentProbePages(tab, orgUnitId, course, apiItems, row
         page: { url: task.url, title: task.title || task.url },
         course: { orgUnitId, title: course.title || "" },
         items: [],
-        error: error?.message || "Assignment probe page extraction failed.",
+        error: error?.message || failureMessage,
         crawlTask: task
       });
       summary.failed += 1;
     }
   }
   return summary;
+}
+
+async function collectAssignmentProbePages(tab, orgUnitId, course, apiItems, rows, pages) {
+  return collectProbeTasks(tab, assignmentProbeTasksFromApiItems(orgUnitId, apiItems), { orgUnitId, course, failureMessage: "Assignment probe page extraction failed." }, rows, pages);
 }
 
 async function collectQuizProbePages(tab, orgUnitId, course, apiItems, rows, pages) {
-  const summary = { visited: 0, failed: 0, rows: 0 };
-  if (!tab?.id && tab?.mode !== "frame") return summary;
-  for (const task of quizProbeTasksFromApiItems(orgUnitId, apiItems)) {
-    try {
-      const payload = await navigateAndExtract(tab.mode === "frame" ? tab : tab.id, task);
-      if (!payload.course?.orgUnitId) {
-        payload.course = { ...(payload.course || {}), orgUnitId, title: course.title || "" };
-      }
-      payload.crawlTask.sourcePageType = task.sourcePageType;
-      pages.push(payload);
-      const items = Array.isArray(payload.items) ? payload.items : [];
-      rows.push(...items.map((item) => flattenItem(payload, item)));
-      summary.visited += 1;
-      summary.rows += items.length;
-    } catch (error) {
-      if (error?.code === "D2L_SYNC_CANCELED") throw error;
-      pages.push({
-        pageType: "failed",
-        page: { url: task.url, title: task.title || task.url },
-        course: { orgUnitId, title: course.title || "" },
-        items: [],
-        error: error?.message || "Quiz probe page extraction failed.",
-        crawlTask: task
-      });
-      summary.failed += 1;
-    }
-  }
-  return summary;
+  return collectProbeTasks(tab, quizProbeTasksFromApiItems(orgUnitId, apiItems), { orgUnitId, course, failureMessage: "Quiz probe page extraction failed." }, rows, pages);
 }
 
 async function collectAnnouncementProbePages(tab, orgUnitId, course, apiItems, rows, pages) {
-  const summary = { visited: 0, failed: 0, rows: 0 };
-  if (!tab?.id && tab?.mode !== "frame") return summary;
-  for (const task of announcementProbeTasksFromApiItems(orgUnitId, apiItems)) {
-    try {
-      const payload = await navigateAndExtract(tab.mode === "frame" ? tab : tab.id, task);
-      if (!payload.course?.orgUnitId) {
-        payload.course = { ...(payload.course || {}), orgUnitId, title: course.title || "" };
-      }
-      payload.crawlTask.sourcePageType = task.sourcePageType;
-      pages.push(payload);
-      const items = Array.isArray(payload.items) ? payload.items : [];
-      rows.push(...items.map((item) => flattenItem(payload, item)));
-      summary.visited += 1;
-      summary.rows += items.length;
-    } catch (error) {
-      if (error?.code === "D2L_SYNC_CANCELED") throw error;
-      pages.push({
-        pageType: "failed",
-        page: { url: task.url, title: task.title || task.url },
-        course: { orgUnitId, title: course.title || "" },
-        items: [],
-        error: error?.message || "Announcement probe page extraction failed.",
-        crawlTask: task
-      });
-      summary.failed += 1;
-    }
-  }
-  return summary;
+  return collectProbeTasks(tab, announcementProbeTasksFromApiItems(orgUnitId, apiItems), { orgUnitId, course, failureMessage: "Announcement probe page extraction failed." }, rows, pages);
 }
 
 async function collectDiscussionListProbePages(tab, orgUnitId, course, apiItems, rows, pages) {
-  const summary = { visited: 0, failed: 0, rows: 0 };
-  if (!tab?.id && tab?.mode !== "frame") return summary;
-  for (const task of discussionListProbeTasksFromApiItems(orgUnitId, apiItems)) {
-    try {
-      const payload = await navigateAndExtract(tab.mode === "frame" ? tab : tab.id, task);
-      if (!payload.course?.orgUnitId) {
-        payload.course = { ...(payload.course || {}), orgUnitId, title: course.title || "" };
-      }
-      payload.crawlTask.sourcePageType = task.sourcePageType;
-      pages.push(payload);
-      const items = (Array.isArray(payload.items) ? payload.items : []).filter((item) => item?.source === "discussionTopic" && item.ids?.discussionTopicId);
-      rows.push(...items.map((item) => flattenItem(payload, item)));
-      summary.visited += 1;
-      summary.rows += items.length;
-    } catch (error) {
-      if (error?.code === "D2L_SYNC_CANCELED") throw error;
-      pages.push({
-        pageType: "failed",
-        page: { url: task.url, title: task.title || task.url },
-        course: { orgUnitId, title: course.title || "" },
-        items: [],
-        error: error?.message || "Discussion list probe page extraction failed.",
-        crawlTask: task
-      });
-      summary.failed += 1;
-    }
-  }
-  return summary;
+  return collectProbeTasks(tab, discussionListProbeTasksFromApiItems(orgUnitId, apiItems), {
+    orgUnitId,
+    course,
+    failureMessage: "Discussion list probe page extraction failed.",
+    filterItems: (items) => items.filter((item) => item?.source === "discussionTopic" && item.ids?.discussionTopicId)
+  }, rows, pages);
 }
 
 async function collectGradeProbePages(tab, orgUnitId, course, rows, pages) {
-  const summary = { visited: 0, failed: 0, rows: 0 };
-  if (!tab?.id && tab?.mode !== "frame") return summary;
-  for (const task of gradeProbeTasksForCourse(orgUnitId)) {
-    try {
-      const payload = await navigateAndExtract(tab.mode === "frame" ? tab : tab.id, task);
-      if (!payload.course?.orgUnitId) {
-        payload.course = { ...(payload.course || {}), orgUnitId, title: course.title || "" };
-      }
-      payload.crawlTask.sourcePageType = task.sourcePageType;
-      pages.push(payload);
-      const items = Array.isArray(payload.items) ? payload.items : [];
-      rows.push(...items.map((item) => flattenItem(payload, item)));
-      summary.visited += 1;
-      summary.rows += items.length;
-    } catch (error) {
-      if (error?.code === "D2L_SYNC_CANCELED") throw error;
-      pages.push({
-        pageType: "failed",
-        page: { url: task.url, title: task.title || task.url },
-        course: { orgUnitId, title: course.title || "" },
-        items: [],
-        error: error?.message || "Grade probe page extraction failed.",
-        crawlTask: task
-      });
-      summary.failed += 1;
-    }
-  }
-  return summary;
+  return collectProbeTasks(tab, gradeProbeTasksForCourse(orgUnitId), { orgUnitId, course, failureMessage: "Grade probe page extraction failed." }, rows, pages);
 }
 
 async function collectCourseToolProbePages(tab, orgUnitId, course, rows, pages) {
-  const summary = { visited: 0, failed: 0, rows: 0 };
-  if (!tab?.id && tab?.mode !== "frame") return summary;
-  for (const task of courseToolProbeTasksForCourse(orgUnitId)) {
-    try {
-      const payload = await navigateAndExtract(tab.mode === "frame" ? tab : tab.id, task);
-      if (!payload.course?.orgUnitId) {
-        payload.course = { ...(payload.course || {}), orgUnitId, title: course.title || "" };
-      }
-      payload.crawlTask.sourcePageType = task.sourcePageType;
-      pages.push(payload);
-      const items = Array.isArray(payload.items) ? payload.items : [];
-      rows.push(...items.map((item) => flattenItem(payload, item)));
-      summary.visited += 1;
-      summary.rows += items.length;
-    } catch (error) {
-      if (error?.code === "D2L_SYNC_CANCELED") throw error;
-      pages.push({
-        pageType: "failed",
-        page: { url: task.url, title: task.title || task.url },
-        course: { orgUnitId, title: course.title || "" },
-        items: [],
-        error: error?.message || "Course tool probe page extraction failed.",
-        crawlTask: task
-      });
-      summary.failed += 1;
-    }
-  }
-  return summary;
+  return collectProbeTasks(tab, courseToolProbeTasksForCourse(orgUnitId), { orgUnitId, course, failureMessage: "Course tool probe page extraction failed." }, rows, pages);
 }
 
   Object.assign(background, { discussionListProbeTasksFromApiItems, collectDiscussionListProbePages, assignmentProbeTasksFromApiItems, quizProbeTasksFromApiItems, announcementProbeTasksFromApiItems, gradeProbeTasksForCourse, courseToolProbeTasksForCourse, collectAssignmentProbePages, collectQuizProbePages, collectAnnouncementProbePages, collectGradeProbePages, collectCourseToolProbePages });

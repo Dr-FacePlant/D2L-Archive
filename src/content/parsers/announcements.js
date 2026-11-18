@@ -19,20 +19,16 @@
       .filter((item) => item.title);
   }
 
-  function extractAnnouncementDetail() {
-    const text = pageText();
-    const title = headingText(1) || document.title;
-    const newsItemId = window.location.href.match(/\/news\/\d+\/(\d+)\/view/i)?.[1]
-      || window.location.href.match(/[?&](?:newsId|nid)=(\d+)/i)?.[1]
-      || window.location.href.match(/\/news\/(\d+)(?:[/?#]|$)/i)?.[1]
-      || "";
-    const attachments = queryAll([
+  function extractAnnouncementDetailAttachments(newsItemId) {
+    const selector = [
       "a[href*='news'][href*='attachments']", "a[href*='download']", "a[href*='fileId=']",
       "a[href*='/files/']", "a[href*='/lp/file']", "a[href*='/lp/files']",
       "a[href*='/content/enforced/']", "a[href$='.pdf']", "a[href$='.doc']",
       "a[href$='.docx']", "a[href$='.ppt']", "a[href$='.pptx']", "a[href$='.xls']",
       "a[href$='.xlsx']", "a[href$='.csv']", "a[href$='.zip']"
-    ].join(", ")).map((link) => {
+    ].join(", ");
+
+    return queryAll(selector).map((link) => {
       const href = absoluteUrl(link.getAttribute("href"));
       const label = normalizeText(link.textContent || link.getAttribute("aria-label") || link.title);
       if (!href || !label || !looksLikeFileUrl(href)) return null;
@@ -47,8 +43,10 @@
         ids: { courseOrgUnitId: getOrgUnitId(), newsItemId }
       };
     }).filter(Boolean);
-    const attachmentUrls = new Set(attachments.map((item) => item.url));
-    const detailLinks = queryAll("a[href]").map((link) => {
+  }
+
+  function extractAnnouncementDetailLinks(newsItemId, attachmentUrls) {
+    return queryAll("a[href]").map((link) => {
       const href = absoluteUrl(link.getAttribute("href"));
       const label = normalizeText(link.textContent || link.getAttribute("aria-label") || link.title);
       if (!href || !label || href.startsWith("javascript:") || attachmentUrls.has(href)) return null;
@@ -62,6 +60,18 @@
         ids: { courseOrgUnitId: getOrgUnitId(), newsItemId }
       };
     }).filter(Boolean).slice(0, 80);
+  }
+
+  function extractAnnouncementDetail() {
+    const text = pageText();
+    const title = headingText(1) || document.title;
+    const newsItemId = window.location.href.match(/\/news\/\d+\/(\d+)\/view/i)?.[1]
+      || window.location.href.match(/[?&](?:newsId|nid)=(\d+)/i)?.[1]
+      || window.location.href.match(/\/news\/(\d+)(?:[/?#]|$)/i)?.[1]
+      || "";
+    const attachments = extractAnnouncementDetailAttachments(newsItemId);
+    const attachmentUrls = new Set(attachments.map((item) => item.url));
+    const detailLinks = extractAnnouncementDetailLinks(newsItemId, attachmentUrls);
 
     return [{
       source: "announcement",

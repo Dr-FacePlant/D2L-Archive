@@ -101,6 +101,112 @@
 
   const maskAccount = (value) => { const text = normalizeText(value); return text ? `${text.slice(0, 3)}…(${text.length})` : "(none)"; };
 
+  async function recordJobRequestFailure(repository, job, workerId, cursor, message, category, courseId) {
+    const attempts = Number(job.attempts || 1);
+    const delay = Math.min(60 * 60 * 1000, 30000 * (2 ** Math.min(attempts - 1, 6)));
+    const isBlocked = /403|401|sign in|unauthor/i.test(message);
+    await repository.updateSyncJob(job.jobId, {
+      state: isBlocked ? "blocked" : "retry-wait",
+      cursor,
+      nextEligibleAt: new Date(Date.now() + delay).toISOString(),
+      lastError: message
+    }, workerId).catch(() => {});
+    await repository.recordActivity({
+      operation: "sync.category-refresh",
+      category,
+      status: isBlocked ? "blocked" : "failed",
+      courseId,
+      source: "authenticated-d2l-api",
+      correlationId: job.correlationId,
+      error: message
+    }).catch(() => {});
+  }
+
+  async function handlePayloadAccountMismatch(verification, job, workerId, repository, courseId, category, cursor) {
+    await repository.updateSyncJob(job.jobId, {
+      state: "account-changed",
+      cursor,
+      lastError: verification.reason,
+      nextEligibleAt: new Date(Date.now() + ACCOUNT_RETRY_MS).toISOString()
+    }, workerId);
+    await repository.recordActivity({
+      operation: "sync.category-refresh",
+      category: "identity",
+      status: "blocked",
+      courseId,
+      source: "authenticated-d2l-api",
+      correlationId: job.correlationId,
+      error: `Collected data was discarded: ${verification.reason}.`,
+      details: {
+        category,
+        reason: verification.reason,
+        jobAccount: maskAccount(verification.expected),
+        reportedStart: maskAccount(verification.startId),
+        reportedEnd: maskAccount(verification.endId)
+      }
+    }).catch(() => {});
+  }
+
+  async function recordCourseCategoryFreshnessAndCompletion(context) {
+    const { job, workerId, repository, courseId, category, cursor, priorFreshness, categoryFreshness, freshnessScope, result, rows, databaseRevision } = context;
+    const now = new Date().toISOString();
+    const retryDelay = result.status === "fresh" ? FRESHNESS_MS : CATEGORY_RETRY_MS;
+    categoryFreshness[category] = { ...result, checkedAt: now, nextEligibleAt: new Date(Date.now() + retryDelay).toISOString(), rowCount: rows.length };
+    await repository.setFreshness(freshnessScope, {
+      attemptedAt: now,
+      lastSuccessAt: result.status === "fresh" ? now : priorFreshness.lastSuccessAt || "",
+      nextEligibleAt: categoryFreshness[category].nextEligibleAt,
+      status: result.status,
+      categories: { ...categoryFreshness },
+      rowCount: Object.values(categoryFreshness).reduce((sum, entry) => sum + Number(entry.rowCount || 0), 0),
+      databaseRevision
+    });
+    const blocked = result.status === "blocked";
+    await repository.updateSyncJob(job.jobId, {
+      state: blocked ? "blocked" : "completed",
+      cursor: null,
+      lastError: blocked ? `D2L blocked the ${category} category.` : "",
+      completedAt: now
+    }, workerId);
+    await repository.recordActivity({
+      operation: "sync.category-refresh",
+      category: "sync",
+      status: result.status === "fresh" ? "completed" : result.status,
+      courseId,
+      source: "authenticated-d2l-api",
+      correlationId: job.correlationId,
+      details: { category, rows: rows.length, cursor }
+    }).catch(() => {});
+  }
+
+  async function ingestCourseCategoryPayload(context) {
+    const { payload, job, workerId, repository, courseId, category, cursor, priorFreshness, categoryFreshness, freshnessScope } = context;
+    const courseTitle = normalizeText((payload.items || []).find((item) => item.source === "courseOffering")?.title
+      || (await repository.getCourse(courseId))?.title || courseId);
+    const pagePayload = {
+      pageType: "valenceApi",
+      page: { url: `https://kennesaw.view.usg.edu/d2l/home/${courseId}`, title: courseTitle },
+      course: { orgUnitId: courseId, title: courseTitle },
+      apiStatus: payload.apiStatus || {},
+      apiCounts: payload.counts || {},
+      extractor: { extractedAt: new Date().toISOString(), mode: "priorityApi", category }
+    };
+    const rows = (payload.items || []).map((item) => flattenItem(pagePayload, item));
+    const allCategoryStates = freshnessForPayload(payload);
+    const result = allCategoryStates[category] || { status: "partial", reason: "category-status-missing" };
+    const ingested = await ingestAndOrganizeRows(rows, {
+      syncRunId: `priority-${job.correlationId}-${courseId}-${category}`,
+      correlationId: job.correlationId,
+      mode: "priorityApi",
+      repository,
+      categoryFreshness: { [category]: result },
+      completeCourseSnapshot: false
+    });
+    await recordCourseCategoryFreshnessAndCompletion({
+      job, workerId, repository, courseId, category, cursor, priorFreshness, categoryFreshness, freshnessScope, result, rows, databaseRevision: ingested.databaseRevision
+    });
+  }
+
   async function collectOneCourse(job, workerId, tab, repository) {
     const courseId = String(job.courseId);
     const freshnessScope = `course:${job.accountId}:${courseId}:api`;
@@ -115,90 +221,20 @@
         type: "D2L_COLLECT_COURSE_API", orgUnitId: courseId, category
       }, { frameId: 0 });
     } catch (error) {
-      const attempts = Number(job.attempts || 1);
-      const delay = Math.min(60 * 60 * 1000, 30000 * (2 ** Math.min(attempts - 1, 6)));
-      const message = error?.message || "D2L category request failed.";
-      await repository.updateSyncJob(job.jobId, {
-        state: /403|401|sign in|unauthor/i.test(message) ? "blocked" : "retry-wait",
-        cursor,
-        nextEligibleAt: new Date(Date.now() + delay).toISOString(),
-        lastError: message
-      }, workerId).catch(() => {});
-      await repository.recordActivity({ operation: "sync.category-refresh", category, status: /403|401|sign in|unauthor/i.test(message) ? "blocked" : "failed", courseId, source: "authenticated-d2l-api", correlationId: job.correlationId, error: message }).catch(() => {});
-      return;
+      return recordJobRequestFailure(repository, job, workerId, cursor, error?.message || "D2L category request failed.", category, courseId);
     }
     if (!response?.ok || !response.payload) {
-      const message = response?.error || "D2L did not return category data.";
-      const attempts = Number(job.attempts || 1);
-      const delay = Math.min(60 * 60 * 1000, 30000 * (2 ** Math.min(attempts - 1, 6)));
-      await repository.updateSyncJob(job.jobId, { state: /403|401|sign in|unauthor/i.test(message) ? "blocked" : "retry-wait", cursor, nextEligibleAt: new Date(Date.now() + delay).toISOString(), lastError: message }, workerId);
-      await repository.recordActivity({ operation: "sync.category-refresh", category, status: /403|401|sign in|unauthor/i.test(message) ? "blocked" : "failed", courseId, source: "authenticated-d2l-api", correlationId: job.correlationId, error: message }).catch(() => {});
-      return;
+      return recordJobRequestFailure(repository, job, workerId, cursor, response?.error || "D2L did not return category data.", category, courseId);
     }
 
     const verification = await background.verifyPayloadAccount(job.accountId, response.payload, repository);
     if (!verification.ok) {
-      // Nothing from this payload is written: no evidence, entities, relationships, sync run or freshness.
-      await repository.updateSyncJob(job.jobId, {
-        state: "account-changed", cursor, lastError: verification.reason,
-        nextEligibleAt: new Date(Date.now() + ACCOUNT_RETRY_MS).toISOString()
-      }, workerId);
-      await repository.recordActivity({
-        operation: "sync.category-refresh", category: "identity", status: "blocked", courseId, source: "authenticated-d2l-api", correlationId: job.correlationId,
-        error: `Collected data was discarded: ${verification.reason}.`,
-        details: { category, reason: verification.reason, jobAccount: maskAccount(verification.expected), reportedStart: maskAccount(verification.startId), reportedEnd: maskAccount(verification.endId) }
-      }).catch(() => {});
-      return;
+      return handlePayloadAccountMismatch(verification, job, workerId, repository, courseId, category, cursor);
     }
 
-    {
-      const payload = response.payload;
-      const courseTitle = normalizeText((payload.items || []).find((item) => item.source === "courseOffering")?.title
-        || (await repository.getCourse(courseId))?.title || courseId);
-      const pagePayload = {
-        pageType: "valenceApi",
-        page: { url: `https://kennesaw.view.usg.edu/d2l/home/${courseId}`, title: courseTitle },
-        course: { orgUnitId: courseId, title: courseTitle },
-        apiStatus: payload.apiStatus || {},
-        apiCounts: payload.counts || {},
-        extractor: { extractedAt: new Date().toISOString(), mode: "priorityApi", category }
-      };
-      const rows = (payload.items || []).map((item) => flattenItem(pagePayload, item));
-      const allCategoryStates = freshnessForPayload(payload);
-      const result = allCategoryStates[category] || { status: "partial", reason: "category-status-missing" };
-      const ingested = await ingestAndOrganizeRows(rows, {
-        syncRunId: `priority-${job.correlationId}-${courseId}-${category}`,
-        correlationId: job.correlationId,
-        mode: "priorityApi",
-        repository,
-        categoryFreshness: { [category]: result },
-        completeCourseSnapshot: false
-      });
-      const now = new Date().toISOString();
-      const retryDelay = result.status === "fresh" ? FRESHNESS_MS : CATEGORY_RETRY_MS;
-      categoryFreshness[category] = { ...result, checkedAt: now, nextEligibleAt: new Date(Date.now() + retryDelay).toISOString(), rowCount: rows.length };
-      await repository.setFreshness(freshnessScope, {
-        attemptedAt: now,
-        lastSuccessAt: result.status === "fresh" ? now : priorFreshness.lastSuccessAt || "",
-        nextEligibleAt: categoryFreshness[category].nextEligibleAt,
-        status: result.status,
-        categories: { ...categoryFreshness },
-        rowCount: Object.values(categoryFreshness).reduce((sum, entry) => sum + Number(entry.rowCount || 0), 0),
-        databaseRevision: ingested.databaseRevision
-      });
-      const blocked = result.status === "blocked";
-      await repository.updateSyncJob(job.jobId, {
-        state: blocked ? "blocked" : "completed",
-        cursor: null,
-        lastError: blocked ? `D2L blocked the ${category} category.` : "",
-        completedAt: now
-      }, workerId);
-      await repository.recordActivity({
-        operation: "sync.category-refresh", category: "sync", status: result.status === "fresh" ? "completed" : result.status,
-        courseId, source: "authenticated-d2l-api", correlationId: job.correlationId,
-        details: { category, rows: rows.length, cursor }
-      }).catch(() => {});
-    }
+    await ingestCourseCategoryPayload({
+      payload: response.payload, job, workerId, repository, courseId, category, cursor, priorFreshness, categoryFreshness, freshnessScope
+    });
   }
 
   // Tabs opened before an extension reload/update keep a dead content script, so

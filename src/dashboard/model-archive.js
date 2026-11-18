@@ -42,12 +42,81 @@
     return valid[0] || "";
   }
 
+  function buildInstructorContacts(courseId, list) {
+    const people = list(courseId, "person");
+    const instructorPeople = people.filter((person) => /^instructor$/i.test(person.roleName || ""));
+    const instructors = instructorPeople.map((person) => instructorName(person.displayName)).filter(Boolean);
+    let instructorContacts = instructorPeople.map((person) => {
+      const source = [person.email, person.description].filter(Boolean).join(" ");
+      const name = instructorName(person.displayName);
+      const email = extractEmail(source, name);
+      const officeHours = instructorOfficeHours(person);
+      return { name, email, officeHours };
+    }).filter((person) => person.name || person.email || person.officeHours);
+
+    const instructorPrimary = instructors[0] || instructorContacts[0]?.name || "";
+    const courseTexts = [
+      ...list(courseId, "coursePolicy").map((p) => [p.canonicalTitle, p.body].filter(Boolean).join(" ")),
+      ...list(courseId, "learningResource")
+        .filter((r) => /\b(?:syllabus|course\s+outline|course\s+information|course\s+info)\b/i.test(r.canonicalTitle || ""))
+        .map((r) => [r.canonicalTitle, r.body, r.description].filter(Boolean).join(" ")),
+      ...list(courseId, "announcement").map((a) => [a.canonicalTitle, a.body].filter(Boolean).join(" "))
+    ];
+    const combinedText = courseTexts.join("\n");
+    if (combinedText) {
+      const fallbackEmail = extractEmail(combinedText, instructorPrimary);
+      const fallbackHours = extractOfficeHours(combinedText);
+      if (instructorContacts.length) {
+        instructorContacts = instructorContacts.map((contact) => ({
+          ...contact,
+          email: contact.email || extractEmail(combinedText, contact.name) || fallbackEmail,
+          officeHours: contact.officeHours || fallbackHours
+        }));
+      } else if (fallbackEmail || fallbackHours || instructors.length) {
+        instructorContacts = [{
+          name: instructorPrimary,
+          email: fallbackEmail,
+          officeHours: fallbackHours
+        }].filter((c) => c.name || c.email || c.officeHours);
+      }
+    }
+    return { instructors, instructorContacts };
+  }
+
+  function buildCourseSummary(course, index, list, now, termKnown) {
+    const code = courseCode(course.code);
+    const { instructors, instructorContacts } = buildInstructorContacts(course.courseId, list);
+    const completion = list(course.courseId, "studentProgress").find((entity) => entity.progressKind === "courseCompletion") || null;
+    const finalGrade = list(course.courseId, "gradeRecord").find((entity) => entity.kind === "final") || null;
+    const isCurrent = Boolean(course.startsAt && course.endsAt && time(course.startsAt) <= now.getTime() && now.getTime() <= time(course.endsAt));
+    return {
+      courseId: course.courseId,
+      title: course.title,
+      name: courseName(course.title),
+      code,
+      label: code || courseName(course.title),
+      section: sectionOf(course.title),
+      term: termOf(course.title) || course.semester || "",
+      instructors,
+      instructorContacts,
+      textbooks: [],
+      completion: completion && completion.requiredItems
+        ? { completed: completion.completedItems, required: completion.requiredItems, pct: percent(completion.completedItems, completion.requiredItems) }
+        : null,
+      finalGrade,
+      startsAt: course.startsAt || null,
+      lastSyncedAt: course.lastSeenAt || null,
+      currentTerm: isCurrent,
+      defaultHidden: termKnown && !isCurrent,
+      d2lHome: `${D2L_ORIGIN}/d2l/home/${course.courseId}`,
+      ...themeFor(code, index)
+    };
+  }
+
   function buildIndex(raw) {
     const now = toDate(raw.now) || new Date();
     const hidden = new Set((raw.settings?.hiddenCourseIds || []).map(String));
     const shown = new Set((raw.settings?.shownCourseIds || []).map(String));
-    // Once syncs record D2L's term dates, org units outside the current term
-    // (old courses, advising shells) start hidden; Settings can show them.
     const termKnown = (raw.courses || []).some((course) => course.startsAt && course.endsAt);
     const entities = raw.entities || [];
     const byId = new Map(entities.map((entity) => [entity.entityId, entity]));
@@ -61,81 +130,18 @@
 
     const allCourses = (raw.courses || [])
       .filter((course) => course.courseId && course.courseId !== "unknown")
-      .map((course, index) => {
-        const code = courseCode(course.code);
-        const people = list(course.courseId, "person");
-        const instructorPeople = people.filter((person) => /^instructor$/i.test(person.roleName || ""));
-        const instructors = instructorPeople.map((person) => instructorName(person.displayName)).filter(Boolean);
-        let instructorContacts = instructorPeople.map((person) => {
-          const source = [person.email, person.description].filter(Boolean).join(" ");
-          const name = instructorName(person.displayName);
-          const email = extractEmail(source, name);
-          const officeHours = instructorOfficeHours(person);
-          return { name, email, officeHours };
-        }).filter((person) => person.name || person.email || person.officeHours);
-
-        // Fallback: If email or office hours are missing from Classlist person profiles,
-        // extract from course overview policy bodies, syllabus topic descriptions, and announcements.
-        const instructorPrimary = instructors[0] || instructorContacts[0]?.name || "";
-        const courseTexts = [
-          ...list(course.courseId, "coursePolicy").map((p) => [p.canonicalTitle, p.body].filter(Boolean).join(" ")),
-          ...list(course.courseId, "learningResource")
-            .filter((r) => /\b(?:syllabus|course\s+outline|course\s+information|course\s+info)\b/i.test(r.canonicalTitle || ""))
-            .map((r) => [r.canonicalTitle, r.body, r.description].filter(Boolean).join(" ")),
-          ...list(course.courseId, "announcement").map((a) => [a.canonicalTitle, a.body].filter(Boolean).join(" "))
-        ];
-        const combinedText = courseTexts.join("\n");
-        if (combinedText) {
-          const fallbackEmail = extractEmail(combinedText, instructorPrimary);
-          const fallbackHours = extractOfficeHours(combinedText);
-          if (instructorContacts.length) {
-            instructorContacts = instructorContacts.map((contact) => ({
-              ...contact,
-              email: contact.email || extractEmail(combinedText, contact.name) || fallbackEmail,
-              officeHours: contact.officeHours || fallbackHours
-            }));
-          } else if (fallbackEmail || fallbackHours || instructors.length) {
-            instructorContacts = [{
-              name: instructorPrimary,
-              email: fallbackEmail,
-              officeHours: fallbackHours
-            }].filter((c) => c.name || c.email || c.officeHours);
-          }
-        }
-        // Auto-detection is switched off: the shelf shows only what the user adds.
-        // dash.parseTextbookMentions is kept for when it comes back.
-        const textbooks = [];
-        const completion = list(course.courseId, "studentProgress").find((entity) => entity.progressKind === "courseCompletion") || null;
-        const finalGrade = list(course.courseId, "gradeRecord").find((entity) => entity.kind === "final") || null;
-        return {
-          courseId: course.courseId,
-          title: course.title,
-          name: courseName(course.title),
-          code,
-          label: code || courseName(course.title),
-          section: sectionOf(course.title),
-          term: termOf(course.title) || course.semester || "",
-          instructors,
-          instructorContacts,
-          textbooks,
-          completion: completion && completion.requiredItems
-            ? { completed: completion.completedItems, required: completion.requiredItems, pct: percent(completion.completedItems, completion.requiredItems) }
-            : null,
-          finalGrade,
-          startsAt: course.startsAt || null,
-          lastSyncedAt: course.lastSeenAt || null,
-          currentTerm: Boolean(course.startsAt && course.endsAt && time(course.startsAt) <= now.getTime() && now.getTime() <= time(course.endsAt)),
-          defaultHidden: termKnown && !(course.startsAt && course.endsAt && time(course.startsAt) <= now.getTime() && now.getTime() <= time(course.endsAt)),
-          d2lHome: `${D2L_ORIGIN}/d2l/home/${course.courseId}`,
-          ...themeFor(code, index)
-        };
-      })
+      .map((course, index) => buildCourseSummary(course, index, list, now, termKnown))
       .sort((a, b) => (a.code || a.name).localeCompare(b.code || b.name));
 
     const courses = allCourses.filter((course) => !hidden.has(course.courseId) && (!course.defaultHidden || shown.has(course.courseId)));
     const courseById = new Map(allCourses.map((course) => [course.courseId, course]));
     const visible = new Set(courses.map((course) => course.courseId));
-    const index = { raw, now, entities, byId, list, allCourses, courses, courseById, visible, courseContactOverrides: raw.courseContactOverrides || {}, courseTextbooks: raw.courseTextbooks || {}, lessonDue: lessonDeadlines(entities, byId) };
+    const index = {
+      raw, now, entities, byId, list, allCourses, courses, courseById, visible,
+      courseContactOverrides: raw.courseContactOverrides || {},
+      courseTextbooks: raw.courseTextbooks || {},
+      lessonDue: lessonDeadlines(entities, byId)
+    };
     index.checklistLinks = checklistLinks(index);
     return index;
   }

@@ -88,7 +88,7 @@ const fullHtml = dash.courseHomePage(fullModel);
 check((fullHtml.match(/data-action="add-textbook"/g) || []).length === 0, "a full shelf should drop the add buttons");
 
 // ---- the editor and persistence are wired -------------------------------
-const events = read("src/dashboard/app-events.js");
+const events = read("src/dashboard/app-events.js") + read("src/dashboard/app-events-shelf.js") + read("src/dashboard/app-events-textbooks.js") + read("src/dashboard/app-events-actions.js");
 const css = read("src/dashboard/dashboard.css");
 const htmlDoc = read("dashboard.html");
 const loader = read("tests/test-dashboard-loader.mjs");

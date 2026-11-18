@@ -54,7 +54,7 @@ check(css.includes(".detail-layout > .side-card, .detail-top > .side-card { grid
 
 // Wiring.
 const render = read("src/dashboard/app-render.js");
-const events = read("src/dashboard/app-events.js");
+const events = read("src/dashboard/app-events.js") + read("src/dashboard/app-events-actions.js");
 check(render.includes("function markDetailClamp") && render.includes("clamp.scrollHeight > clamp.clientHeight + 1"), "Show more should appear only when the text overflows the row");
 check(render.includes("new ResizeObserver") && render.includes("fitDetailClamp(body)") && render.includes("fitDetailClamp(node)"), "the overflow check should run on every detail draw and when the width changes");
 check(render.includes("function setDetailMore") && render.includes('more.textContent = open ? "Show less" : "Show more"') && render.includes('more.setAttribute("aria-expanded", String(open))'), "the button should flip its label and aria-expanded");

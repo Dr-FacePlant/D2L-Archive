@@ -56,6 +56,136 @@ async function collectNewsItems(orgUnitId) {
   return { status: result.status, items };
 }
 
+function buildDiscussionForumItem(forum, orgUnitId) {
+  const forumId = forum.ForumId || forum.Id;
+  if (!forumId) return null;
+  return {
+    source: "discussionForum",
+    title: normalizeText(forum.Name || forum.Title || `Forum ${forumId || ""}`),
+    description: richText(forum.Description),
+    url: `${window.location.origin}/d2l/le/${orgUnitId}/discussions/List`,
+    status: forum.IsHidden ? "hidden" : forum.IsLocked ? "locked" : "visible",
+    availabilityText: [forum.StartDate, forum.EndDate].filter(Boolean).join(" - "),
+    columns: {
+      postStartDate: forum.PostStartDate || "",
+      postEndDate: forum.PostEndDate || "",
+      requiresApproval: forum.RequiresApproval ?? "",
+      allowAnonymous: forum.AllowAnonymous ?? ""
+    },
+    ids: { courseOrgUnitId: orgUnitId, discussionForumId: String(forumId || "") }
+  };
+}
+
+function buildDiscussionTopicItem(topic, forum, orgUnitId) {
+  const topicId = topic.TopicId || topic.Id;
+  const forumId = forum.ForumId || forum.Id;
+  if (!topicId) return null;
+  return {
+    source: "discussionTopic",
+    title: normalizeText(topic.Name || topic.Title || `Topic ${topicId || ""}`),
+    description: richText(topic.Description),
+    url: `${window.location.origin}/d2l/le/${orgUnitId}/discussions/topics/${topicId}/View`,
+    status: topic.IsHidden ? "hidden" : topic.IsLocked ? "locked" : "visible",
+    gate: topic.MustPostToParticipate || topic.MustPostFirst ? "mustPostFirst" : "",
+    availabilityText: [topic.StartDate || topic.UnlockStartDate, topic.EndDate || topic.UnlockEndDate].filter(Boolean).join(" - "),
+    columns: {
+      forumTitle: normalizeText(forum.Name || ""),
+      startDate: topic.StartDate || topic.UnlockStartDate || "",
+      endDate: topic.EndDate || topic.UnlockEndDate || "",
+      unlockStartDate: topic.UnlockStartDate || "",
+      unlockEndDate: topic.UnlockEndDate || "",
+      isLocked: topic.IsLocked ?? "",
+      postStartDate: topic.PostStartDate || "",
+      postEndDate: topic.PostEndDate || "",
+      requiresApproval: topic.RequiresApproval ?? "",
+      topicType: topic.Type ?? "",
+      groupTypeId: topic.GroupTypeId ?? "",
+      scoreOutOf: topic.ScoreOutOf ?? "",
+      threadCount: topic.ThreadCount ?? "",
+      postCount: topic.PostCount ?? ""
+    },
+    ids: { courseOrgUnitId: orgUnitId, discussionForumId: String(forumId || ""), discussionTopicId: String(topicId || "") }
+  };
+}
+
+function extractDiscussionPostItems(post, orgUnitId, forumId, topicId, myUserId) {
+  const postId = post.PostId || post.Id;
+  const author = normalizeText(post.PostingUserDisplayName || post.Author?.DisplayName || post.CreatedBy?.DisplayName || "");
+  const attachments = apiList(post.Attachments || post.Files);
+  const items = [{
+    source: "discussionPost",
+    title: normalizeText(post.Subject || `Post ${postId || ""}`),
+    description: richText(post.Message || post.Body || post.Content),
+    url: `${window.location.origin}/d2l/le/${orgUnitId}/discussions/forums/${forumId}/topics/${topicId}/posts/${postId}`,
+    status: post.IsDeleted ? "deleted" : post.IsApproved === false ? "unapproved" : "visible",
+    columns: {
+      author,
+      createdDate: post.DatePosted || post.CreatedDate || "",
+      lastModified: post.LastModifiedDate || post.DateModified || "",
+      parentPostId: post.ParentPostId ?? "",
+      threadId: post.ThreadId ?? "",
+      postingUserId: post.PostingUserId ?? "",
+      isMine: Boolean(myUserId) && String(post.PostingUserId ?? "") === String(myUserId),
+      attachmentCount: attachments.length
+    },
+    ids: { courseOrgUnitId: orgUnitId, discussionForumId: String(forumId || ""), discussionTopicId: String(topicId || ""), postId: String(postId || "") }
+  }];
+
+  for (const file of attachments) {
+    const fileId = file.FileId || file.Id || file.AttachmentId;
+    const fileName = normalizeText(file.FileName || file.Name || file.DisplayName || `discussion-attachment-${fileId || ""}`);
+    const downloadUrl = absoluteUrl(file.DownloadUrl || file.Url || file.Href || "");
+    items.push({
+      source: "discussionAttachment",
+      title: fileName,
+      description: normalizeText(`Discussion attachment ${fileName} from ${post.Subject || `post ${postId || ""}`}`),
+      url: downloadUrl || `${window.location.origin}/d2l/le/${orgUnitId}/discussions/forums/${forumId}/topics/${topicId}/posts/${postId}`,
+      downloadUrl,
+      suggestedFileName: fileName,
+      columns: {
+        author,
+        postSubject: normalizeText(post.Subject || ""),
+        createdDate: post.DatePosted || post.CreatedDate || ""
+      },
+      ids: { courseOrgUnitId: orgUnitId, discussionForumId: String(forumId || ""), discussionTopicId: String(topicId || ""), postId: String(postId || ""), fileId: String(fileId || "") }
+    });
+  }
+  return items;
+}
+
+async function collectTopicPostsAndRubrics(orgUnitId, forumId, topic, myUserId, postStatuses) {
+  const topicId = topic.TopicId || topic.Id;
+  const items = [];
+  const rubricResult = await collectRubricItems(orgUnitId, "Discussion", topicId, { discussionForumId: String(forumId || ""), discussionTopicId: String(topicId) }, myUserId, topic.Name || "");
+  items.push(...rubricResult.items);
+
+  const postsResult = await apiGet(`/d2l/api/le/${D2L_API_MODERN_VERSION}/${orgUnitId}/discussions/forums/${forumId}/topics/${topicId}/posts/?pageSize=1000&pageNumber=1&sort=threaded`);
+  postStatuses[`${forumId}:${topicId}`] = postsResult.status;
+  if (!postsResult.ok) return items;
+
+  for (const post of apiList(postsResult.data).slice(0, 500)) {
+    items.push(...extractDiscussionPostItems(post, orgUnitId, forumId, topicId, myUserId));
+  }
+  return items;
+}
+
+async function collectForumTopics(orgUnitId, forum, myUserId, topicStatuses, postStatuses) {
+  const forumId = forum.ForumId || forum.Id;
+  const items = [];
+  const topicsResult = await apiGet(`/d2l/api/le/${D2L_API_MODERN_VERSION}/${orgUnitId}/discussions/forums/${forumId}/topics/`);
+  topicStatuses[String(forumId || "")] = topicsResult.status;
+  if (!topicsResult.ok) return items;
+
+  for (const topic of apiList(topicsResult.data)) {
+    const topicItem = buildDiscussionTopicItem(topic, forum, orgUnitId);
+    if (!topicItem) continue;
+    items.push(topicItem);
+    const detailItems = await collectTopicPostsAndRubrics(orgUnitId, forumId, topic, myUserId, postStatuses);
+    items.push(...detailItems);
+  }
+  return items;
+}
+
 async function collectDiscussionItems(orgUnitId, myUserId = "") {
   const forumsResult = await apiGet(`/d2l/api/le/${D2L_API_MODERN_VERSION}/${orgUnitId}/discussions/forums/`);
   const items = [];
@@ -64,109 +194,11 @@ async function collectDiscussionItems(orgUnitId, myUserId = "") {
   if (!forumsResult.ok) return { status: forumsResult.status, topicStatuses, postStatuses, items };
 
   for (const forum of apiList(forumsResult.data)) {
-    const forumId = forum.ForumId || forum.Id;
-    if (!forumId) continue;
-    items.push({
-      source: "discussionForum",
-      title: normalizeText(forum.Name || forum.Title || `Forum ${forumId || ""}`),
-      description: richText(forum.Description),
-      url: `${window.location.origin}/d2l/le/${orgUnitId}/discussions/List`,
-      status: forum.IsHidden ? "hidden" : forum.IsLocked ? "locked" : "visible",
-      availabilityText: [forum.StartDate, forum.EndDate].filter(Boolean).join(" - "),
-      columns: {
-        postStartDate: forum.PostStartDate || "",
-        postEndDate: forum.PostEndDate || "",
-        requiresApproval: forum.RequiresApproval ?? "",
-        allowAnonymous: forum.AllowAnonymous ?? ""
-      },
-      ids: { courseOrgUnitId: orgUnitId, discussionForumId: String(forumId || "") }
-    });
-
-    const topicsResult = await apiGet(`/d2l/api/le/${D2L_API_MODERN_VERSION}/${orgUnitId}/discussions/forums/${forumId}/topics/`);
-    topicStatuses[String(forumId || "")] = topicsResult.status;
-    if (!topicsResult.ok) continue;
-
-    for (const topic of apiList(topicsResult.data)) {
-      const topicId = topic.TopicId || topic.Id;
-      if (!topicId) continue;
-      items.push({
-        source: "discussionTopic",
-        title: normalizeText(topic.Name || topic.Title || `Topic ${topicId || ""}`),
-        description: richText(topic.Description),
-        url: `${window.location.origin}/d2l/le/${orgUnitId}/discussions/topics/${topicId}/View`,
-        status: topic.IsHidden ? "hidden" : topic.IsLocked ? "locked" : "visible",
-        // Valence names the "Must post first." rule MustPostToParticipate.
-        gate: topic.MustPostToParticipate || topic.MustPostFirst ? "mustPostFirst" : "",
-        availabilityText: [topic.StartDate || topic.UnlockStartDate, topic.EndDate || topic.UnlockEndDate].filter(Boolean).join(" - "),
-        columns: {
-          forumTitle: normalizeText(forum.Name || ""),
-          startDate: topic.StartDate || topic.UnlockStartDate || "",
-          endDate: topic.EndDate || topic.UnlockEndDate || "",
-          unlockStartDate: topic.UnlockStartDate || "",
-          unlockEndDate: topic.UnlockEndDate || "",
-          isLocked: topic.IsLocked ?? "",
-          postStartDate: topic.PostStartDate || "",
-          postEndDate: topic.PostEndDate || "",
-          requiresApproval: topic.RequiresApproval ?? "",
-          topicType: topic.Type ?? "",
-          groupTypeId: topic.GroupTypeId ?? "",
-          scoreOutOf: topic.ScoreOutOf ?? "",
-          threadCount: topic.ThreadCount ?? "",
-          postCount: topic.PostCount ?? ""
-        },
-        ids: { courseOrgUnitId: orgUnitId, discussionForumId: String(forumId || ""), discussionTopicId: String(topicId || "") }
-      });
-
-      const rubricResult = await collectRubricItems(orgUnitId, "Discussion", topicId, { discussionForumId: String(forumId || ""), discussionTopicId: String(topicId) }, myUserId, topic.Name || "");
-      items.push(...rubricResult.items);
-
-      const postsResult = await apiGet(`/d2l/api/le/${D2L_API_MODERN_VERSION}/${orgUnitId}/discussions/forums/${forumId}/topics/${topicId}/posts/?pageSize=1000&pageNumber=1&sort=threaded`);
-      postStatuses[`${forumId}:${topicId}`] = postsResult.status;
-      if (!postsResult.ok) continue;
-      for (const post of apiList(postsResult.data).slice(0, 500)) {
-        const postId = post.PostId || post.Id;
-        const author = normalizeText(post.PostingUserDisplayName || post.Author?.DisplayName || post.CreatedBy?.DisplayName || "");
-        const attachments = apiList(post.Attachments || post.Files);
-        items.push({
-          source: "discussionPost",
-          title: normalizeText(post.Subject || `Post ${postId || ""}`),
-          description: richText(post.Message || post.Body || post.Content),
-          url: `${window.location.origin}/d2l/le/${orgUnitId}/discussions/forums/${forumId}/topics/${topicId}/posts/${postId}`,
-          status: post.IsDeleted ? "deleted" : post.IsApproved === false ? "unapproved" : "visible",
-          columns: {
-            author,
-            createdDate: post.DatePosted || post.CreatedDate || "",
-            lastModified: post.LastModifiedDate || post.DateModified || "",
-            parentPostId: post.ParentPostId ?? "",
-            threadId: post.ThreadId ?? "",
-            postingUserId: post.PostingUserId ?? "",
-            isMine: Boolean(myUserId) && String(post.PostingUserId ?? "") === String(myUserId),
-            attachmentCount: attachments.length
-          },
-          ids: { courseOrgUnitId: orgUnitId, discussionForumId: String(forumId || ""), discussionTopicId: String(topicId || ""), postId: String(postId || "") }
-        });
-
-        for (const file of attachments) {
-          const fileId = file.FileId || file.Id || file.AttachmentId;
-          const fileName = normalizeText(file.FileName || file.Name || file.DisplayName || `discussion-attachment-${fileId || ""}`);
-          const downloadUrl = absoluteUrl(file.DownloadUrl || file.Url || file.Href || "");
-          items.push({
-            source: "discussionAttachment",
-            title: fileName,
-            description: normalizeText(`Discussion attachment ${fileName} from ${post.Subject || `post ${postId || ""}`}`),
-            url: downloadUrl || `${window.location.origin}/d2l/le/${orgUnitId}/discussions/forums/${forumId}/topics/${topicId}/posts/${postId}`,
-            downloadUrl,
-            suggestedFileName: fileName,
-            columns: {
-              author,
-              postSubject: normalizeText(post.Subject || ""),
-              createdDate: post.DatePosted || post.CreatedDate || ""
-            },
-            ids: { courseOrgUnitId: orgUnitId, discussionForumId: String(forumId || ""), discussionTopicId: String(topicId || ""), postId: String(postId || ""), fileId: String(fileId || "") }
-          });
-        }
-      }
-    }
+    const forumItem = buildDiscussionForumItem(forum, orgUnitId);
+    if (!forumItem) continue;
+    items.push(forumItem);
+    const topicItems = await collectForumTopics(orgUnitId, forum, myUserId, topicStatuses, postStatuses);
+    items.push(...topicItems);
   }
   return { status: forumsResult.status, topicStatuses, postStatuses, items };
 }

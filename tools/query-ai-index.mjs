@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { aiIndexRecord } from "./verify/records.mjs";
 
 const args = process.argv.slice(2);
 const usage = "Usage: node tools/query-ai-index.mjs /path/to/archive-or-index \"search terms\" [--limit 25] [--json]";
@@ -42,91 +43,6 @@ function readJsonl(filePath) {
       throw new Error(`Invalid JSONL at ${filePath}:${index + 1}: ${error.message}`);
     }
   });
-}
-
-function parseJson(value) {
-  try {
-    return JSON.parse(value || "{}");
-  } catch {
-    return {};
-  }
-}
-
-function stableRowId(row) {
-  const ids = parseJson(row.ids);
-  return [
-    row.courseOrgUnitId,
-    row.source,
-    ids.contentObjectId,
-    ids.quizId,
-    ids.dropboxFolderId,
-    ids.assignmentFolderId,
-    ids.gradeObjectId,
-    ids.calendarEventId,
-    ids.newsItemId,
-    ids.discussionForumId,
-    ids.discussionTopicId,
-    ids.postId,
-    ids.fileId,
-    ids.rubricId,
-    row.itemUrl || row.pageUrl,
-    row.title
-  ].filter((value) => value !== undefined && value !== null && String(value).trim() !== "").join("::");
-}
-
-function aiIndexRecord(row) {
-  const columns = parseJson(row.columns);
-  const ids = parseJson(row.ids);
-  return {
-    id: stableRowId(row),
-    courseOrgUnitId: row.courseOrgUnitId || "",
-    courseTitle: row.courseTitle || "",
-    source: row.source || "",
-    title: row.title || "",
-    status: row.status || "",
-    type: row.type || "",
-    linkKind: columns.linkKind || "",
-    text: [
-      row.title,
-      row.description,
-      row.status,
-      row.gate,
-      row.type,
-      row.dueAtText,
-      row.availabilityText,
-      columns.module,
-      columns.topicType,
-      columns.displayedGrade,
-      columns.points,
-      columns.commentsAndAssessments,
-      columns.feedbackText,
-      columns.rubricText,
-      columns.criterionName,
-      columns.rubricLevel,
-      columns.scoreText,
-      columns.status,
-      columns.assignmentTitle,
-      columns.quizTitle,
-      columns.discussionTopicId,
-      columns.author,
-      columns.postSubject,
-      columns.contentTitle,
-      columns.linkKind,
-      columns.recoveredFrom,
-      columns.toolSource,
-      columns.emptyStateText,
-      columns.blockedText,
-      row.localPageTextSnippet
-    ].filter(Boolean).join(" ").replace(/\s+/g, " ").trim(),
-    dueAtText: row.dueAtText || "",
-    availabilityText: row.availabilityText || "",
-    itemUrl: row.itemUrl || "",
-    localPath: row.localPath || "",
-    localPageTextPath: row.localPageTextPath || "",
-    localPageTextSnippet: row.localPageTextSnippet || "",
-    ids,
-    columns
-  };
 }
 
 function readManifestRows(filePath) {

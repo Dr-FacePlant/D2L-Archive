@@ -78,9 +78,8 @@
     return Math.ceil(span / maxTicks);
   }
 
-  function scoreTimeline(index, items, final, params = {}, courseId = "") {
-    const range = CHART_RANGES.find((entry) => entry.key === params.range) || CHART_RANGES.at(-1);
-    const graded = items
+  function buildGradedTimelinePoints(items, index) {
+    return items
       .filter((entity) => isGradedGrade(entity) && toDate(entity.dates?.gradedAt))
       .map((entity) => {
         const shown = String(entity.grade?.displayed || "").trim();
@@ -91,7 +90,6 @@
           title: entity.canonicalTitle,
           route: routeFor(entity),
           at: entity.dates.gradedAt,
-          // D2L's percent, or earned / possible like the dashboard's grade cards.
           pct: gradePercent(entity.grade) ?? NaN,
           earned: earned == null || earned === "" ? NaN : Number(earned),
           possible: Number(entity.grade?.pointsPossible),
@@ -101,15 +99,9 @@
         };
       })
       .sort((a, b) => time(a.at) - time(b.at));
-    if (!graded.length) return null;
-    // Opens on percent, like the dashboard's cards, when every graded item has one.
-    const view = params.view === "points" || params.view === "pct" ? params.view
-      : graded.every((point) => Number.isFinite(point.pct)) ? "pct" : "points";
-    const valueOf = (point) => view === "pct" ? point.pct : point.earned;
-    const usable = graded.filter((point) => Number.isFinite(valueOf(point)));
+  }
 
-    // The time window.
-    const today = startOfDay(index.now).getTime() + DAY_MS;
+  function computeTimelineBounds(range, params, today, usable, graded) {
     let from;
     let to;
     let end = null;
@@ -125,15 +117,14 @@
       from = first - pad;
       to = last + pad;
     }
-    const shownPoints = usable.filter((point) => time(point.at) >= from && time(point.at) < to);
+    return { from, to, end };
+  }
 
-    // The value axis.
-    const finalPct = view === "pct" ? /^(-?\d+(?:\.\d+)?)\s*%$/.exec(String(final?.value || "").trim()) : null;
+  function computeTimelineYScale(view, shownPoints, finalPct) {
     let yMin;
     let yMax;
     let unit;
     if (view === "pct") {
-      // The dashboard cards' scale: just below the lowest score to 100 (or 110).
       const values = shownPoints.map((point) => point.pct).concat(finalPct ? [Number(finalPct[1])] : []);
       yMin = values.length ? Math.max(0, Math.floor((Math.min(...values) - 8) / 10) * 10) : 0;
       yMax = values.length ? Math.min(110, Math.max(100, Math.ceil((Math.max(...values) + 4) / 10) * 10)) : 100;
@@ -145,26 +136,21 @@
       yMax = Math.ceil(top / step) * step;
       unit = " pts";
     }
-    // Dots are evenly spaced in grading order, like the dashboard's cards.
-    const slot = new Map(shownPoints.map((point, i) => [point, shownPoints.length > 1 ? Math.round(i / (shownPoints.length - 1) * 1000) / 10 : 50]));
     const y = (value) => Math.round((value - yMin) / (yMax - yMin) * 1000) / 10;
     const yStep = view === "pct" ? (yMax - yMin) / 2 : niceStep(yMax - yMin, 5);
     const yTicks = [];
-    for (let value = yMin; value <= yMax; value += yStep) yTicks.push({ value, label: `${fmtNumber(value)}${unit}`, y: y(value) });
+    for (let value = yMin; value <= yMax; value += yStep) {
+      yTicks.push({ value, label: `${fmtNumber(value)}${unit}`, y: y(value) });
+    }
+    return { yMin, yMax, yTicks, y };
+  }
 
-    // Date labels: the first and last grading day shown, like the dashboard's cards.
-    const xTicks = shownPoints.length ? [...new Map([shownPoints[0], shownPoints.at(-1)].map((point) => [slot.get(point), { label: fmtShortDate(toDate(point.at), index.now), x: slot.get(point) }])).values()] : [];
-
-    // Controls: each one is a link to the same page with other settings.
-    const base = { course: courseId, view, range: range.key, end: end ? dayKey(new Date(end - DAY_MS)) : "" };
+  function buildTimelineControls(base, range, end, today, graded, usable, view) {
     const at = CHART_RANGES.indexOf(range);
     const zoomTo = (entry) => entry ? gradesHref({ ...base, range: entry.key, end: entry.days ? base.end : "" }) : null;
     const shift = (sign) => gradesHref({ ...base, end: dayKey(new Date(end - DAY_MS + sign * range.days * DAY_MS)) });
     const missing = graded.length - usable.length;
     return {
-      view,
-      range: range.key,
-      rangeText: range.days ? `${fmtShortDate(new Date(from), index.now)} – ${fmtShortDate(new Date(end - DAY_MS), index.now)}` : "",
       viewOptions: [
         { label: "Score (%) per item", href: gradesHref({ ...base, view: "pct" }), selected: view === "pct" },
         { label: "Points earned per item", href: gradesHref({ ...base, view: "points" }), selected: view === "points" }
@@ -174,7 +160,37 @@
       zoomOut: zoomTo(CHART_RANGES[at + 1]),
       back: range.days ? shift(-1) : null,
       forward: range.days && end < today ? shift(1) : null,
-      note: missing ? `${plural(missing, "graded item")} ${missing === 1 ? "has" : "have"} no ${view === "pct" ? "percent" : "points"} from D2L, so ${missing === 1 ? "it isn't" : "they aren't"} shown here.` : "",
+      note: missing ? `${plural(missing, "graded item")} ${missing === 1 ? "has" : "have"} no ${view === "pct" ? "percent" : "points"} from D2L, so ${missing === 1 ? "it isn't" : "they aren't"} shown here.` : ""
+    };
+  }
+
+  function scoreTimeline(index, items, final, params = {}, courseId = "") {
+    const range = CHART_RANGES.find((entry) => entry.key === params.range) || CHART_RANGES.at(-1);
+    const graded = buildGradedTimelinePoints(items, index);
+    if (!graded.length) return null;
+    const view = params.view === "points" || params.view === "pct" ? params.view
+      : graded.every((point) => Number.isFinite(point.pct)) ? "pct" : "points";
+    const valueOf = (point) => view === "pct" ? point.pct : point.earned;
+    const usable = graded.filter((point) => Number.isFinite(valueOf(point)));
+
+    const today = startOfDay(index.now).getTime() + DAY_MS;
+    const { from, to, end } = computeTimelineBounds(range, params, today, usable, graded);
+    const shownPoints = usable.filter((point) => time(point.at) >= from && time(point.at) < to);
+
+    const finalPct = view === "pct" ? /^(-?\d+(?:\.\d+)?)\s*%$/.exec(String(final?.value || "").trim()) : null;
+    const { yTicks, y } = computeTimelineYScale(view, shownPoints, finalPct);
+
+    const slot = new Map(shownPoints.map((point, i) => [point, shownPoints.length > 1 ? Math.round(i / (shownPoints.length - 1) * 1000) / 10 : 50]));
+    const xTicks = shownPoints.length ? [...new Map([shownPoints[0], shownPoints.at(-1)].map((point) => [slot.get(point), { label: fmtShortDate(toDate(point.at), index.now), x: slot.get(point) }])).values()] : [];
+
+    const base = { course: courseId, view, range: range.key, end: end ? dayKey(new Date(end - DAY_MS)) : "" };
+    const controls = buildTimelineControls(base, range, end, today, graded, usable, view);
+
+    return {
+      view,
+      range: range.key,
+      rangeText: range.days ? `${fmtShortDate(new Date(from), index.now)} – ${fmtShortDate(new Date(end - DAY_MS), index.now)}` : "",
+      ...controls,
       empty: shownPoints.length ? "" : "No graded items in this time range.",
       points: shownPoints.map((point) => ({ ...point, x: slot.get(point), y: y(valueOf(point)) })),
       yTicks,

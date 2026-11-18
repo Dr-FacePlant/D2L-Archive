@@ -1,7 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import { createRecoveryTools } from "./verify/recovery.mjs";
-import { createRecordTools } from "./verify/records.mjs";
+import {} from "./verify/recovery-helpers.mjs";
+import { createRecordTools, apiProbeBreakdown as apiProbeBreakdownHelper, apiProbeSummaryRows as apiProbeSummaryRowsHelper, apiProbeLegendLines, uniqueRows, isStudentFeedbackRow } from "./verify/records.mjs";
 
 const source = process.argv[2];
 if (!source) {
@@ -19,18 +20,8 @@ const archiveRoot = path.dirname(manifestPath);
 const manifestExists = fs.existsSync(manifestPath);
 
 const {
-  walkFiles,
-  normalizeText,
-  extractDueText,
-  extractAvailabilityText,
-  parsePageSnapshot,
-  baseRecoveredRow,
-  assignmentFolderIdFromSnapshot,
-  compactAssignmentLabelValues,
-  recoveredRowsFromPage,
-  sourceForRecoveredFile,
-  parseRecoveredFile,
-  recoverManifestFromArchive
+  recoverManifestFromArchive,
+  normalizeText
 } = createRecoveryTools({ fs, path, archiveRoot, parseJson });
 
 const manifest = manifestExists
@@ -69,47 +60,8 @@ function countPageVisits(pattern) {
   ].filter(Boolean).join(" "))).length;
 }
 
-function apiProbeBreakdown(pattern) {
-  const counts = {};
-  for (const row of rows) {
-    if (row.source !== "apiProbe") continue;
-    if (pattern && !pattern.test(row.type || "")) continue;
-    const key = row.status || "unknown";
-    counts[key] = (counts[key] || 0) + 1;
-  }
-  return Object.entries(counts)
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([key, count]) => `${key}:${count}`)
-    .join(", ") || "none";
-}
-
-function apiProbeSummaryRows() {
-  const groups = [
-    ["Assignment submissions", /assignment my submissions/i],
-    ["Quiz attempts", /quiz attempts/i],
-    ["Announcements", /announcements|news/i],
-    ["Discussions", /discussion/i]
-  ];
-  return groups.map(([label, pattern]) => {
-    const matching = rows.filter((row) => row.source === "apiProbe" && pattern.test(row.type || ""));
-    return {
-      label,
-      count: matching.length,
-      breakdown: apiProbeBreakdown(pattern)
-    };
-  }).filter((entry) => entry.count > 0);
-}
-
-function apiProbeLegendLines() {
-  return [
-    "Legend:",
-    "- available: D2L returned data and the extractor captured evidence rows.",
-    "- availableEmpty: D2L allowed the read-only probe but returned no evidence rows.",
-    "- blocked: D2L denied the read-only probe for this student/session.",
-    "- notEnabledOrHidden: D2L returned not found, usually hidden, disabled, or not enabled.",
-    "- unreachable/unavailable: the probe could not be reached or returned an unexpected error."
-  ];
-}
+const apiProbeBreakdown = (pattern) => apiProbeBreakdownHelper(rows, pattern);
+const apiProbeSummaryRows = () => apiProbeSummaryRowsHelper(rows);
 
 function rowsMatching(pattern) {
   return rows.filter((row) => pattern.test(`${row.title || ""} ${row.description || ""} ${row.type || ""} ${row.itemUrl || ""}`));
@@ -177,116 +129,50 @@ function rowLine(row) {
   return `- ${row.courseTitle || row.courseOrgUnitId || "Unknown course"} | ${row.source || "item"} | ${row.title || "(untitled)"}${row.dueAtText ? ` | due: ${row.dueAtText}` : ""}${row.localPath ? ` | ${row.localPath}` : ""}`;
 }
 
-function uniqueRows(inputRows, keyFn) {
-  const seen = new Set();
-  return inputRows.filter((row) => {
-    const key = keyFn(row);
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
+// uniqueRows provided by _shared
+
+function collectOfflineActionItems() {
+  const dueItems = uniqueRows(dueRows.filter((r) => !/Page$/.test(r.source || "")).sort((a, b) => dateValue(a) - dateValue(b)), (r) => [r.courseOrgUnitId, r.source, r.title, r.dueAtText, r.itemUrl].join("::")).slice(0, 120);
+  const gradeItems = uniqueRows(rows.filter((r) => r.source === "gradeItem"), (r) => { const c = parseJson(r.columns); return [r.courseOrgUnitId, r.title, c.displayedGrade, c.pointsEarned, c.pointsPossible, c.points].join("::"); }).slice(0, 120);
+  const policyItems = rows.filter((r) => r.source === "syllabusPolicy").slice(0, 120);
+  const usefulFiles = uniqueRows(rows.filter((r) => (r.localPath || r.source === "contentAttachment") && /syllabus|schedule|quiz|test|exam|assignment|project|paper|rubric|instructions|overview|reference|content|handout|slides?/i.test(`${r.title} ${r.localPath} ${r.source}`)), (r) => r.localPath || [r.courseOrgUnitId, r.title].join("::")).slice(0, 160);
+  const feedbackItems = uniqueRows(rows.filter(isStudentFeedbackRow), (r) => [r.courseOrgUnitId, r.source, r.title, r.status, r.itemUrl, r.localPath].join("::")).slice(0, 160);
+  const apiProbeItems = uniqueRows(rows.filter((r) => r.source === "apiProbe"), (r) => [r.courseOrgUnitId, r.type, r.status, r.title].join("::")).slice(0, 160);
+  return { dueItems, gradeItems, policyItems, usefulFiles, feedbackItems, apiProbeItems };
+}
+
+function renderOfflineActionSections(items) {
+  const { dueItems, gradeItems, policyItems, usefulFiles, feedbackItems, apiProbeItems } = items;
+  const apiProbeSummaries = apiProbeSummaryRows();
+  const reviewChecks = checks.filter(([, , state]) => state !== "covered");
+  const gradeLines = gradeItems.length
+    ? gradeItems.map((r) => { const c = parseJson(r.columns); const s = c.displayedGrade || (c.pointsEarned && c.pointsPossible ? `${c.pointsEarned}/${c.pointsPossible}` : c.points || ""); return `- ${r.courseTitle || r.courseOrgUnitId || "Unknown course"} | ${r.title || "(untitled)"}${s ? ` | ${s}` : ""}`; }).join("\n")
+    : "- None found.";
+  const feedbackLines = feedbackItems.length
+    ? feedbackItems.map((r) => { const c = parseJson(r.columns); const s = c.displayedGrade || c.score || (c.pointsEarned && c.pointsPossible ? `${c.pointsEarned}/${c.pointsPossible}` : c.points || ""); return `- ${r.courseTitle || r.courseOrgUnitId || "Unknown course"} | ${r.source} | ${r.title || "(untitled)"}${r.status ? ` | ${r.status}` : ""}${s ? ` | ${s}` : ""}${r.localPath ? ` | ${r.localPath}` : ""}`; }).join("\n")
+    : "- None found.";
+  return [
+    "## Due / Dated Items", "", dueItems.length ? dueItems.map(rowLine).join("\n") : "- None found.", "",
+    "## Grades / Scores", "", gradeLines, "",
+    "## Syllabus / Policies", "", policyItems.length ? policyItems.map(rowLine).join("\n") : "- None found.", "",
+    "## Useful Downloaded Files", "", usefulFiles.length ? usefulFiles.map(rowLine).join("\n") : "- None found.", "",
+    "## Submissions / Feedback / Results", "", feedbackLines, "",
+    "## API Probe Evidence", "", apiProbeLegendLines().join("\n"), "",
+    apiProbeSummaries.length ? ["Summary:", ...apiProbeSummaries.map((e) => `- ${e.label}: ${e.count} rows (${e.breakdown})`), ""].join("\n") : "",
+    apiProbeItems.length ? apiProbeItems.map((r) => `- ${r.courseTitle || r.courseOrgUnitId || "Unknown course"} | ${r.type || r.title || "API probe"} | ${r.status || "unavailable"} | ${r.title || "(untitled)"}`).join("\n") : "- None recorded.", "",
+    "## Coverage Needing Review", "", reviewChecks.length ? reviewChecks.map(([id, label, state, evidence]) => `- ${state.toUpperCase()} - ${label} (${id}): ${evidence}`).join("\n") : "- All checks covered."
+  ];
 }
 
 function offlineActionBrief() {
-  const dueItems = uniqueRows(dueRows
-    .filter((row) => !/Page$/.test(row.source || ""))
-    .sort((a, b) => dateValue(a) - dateValue(b)),
-    (row) => [row.courseOrgUnitId, row.source, row.title, row.dueAtText, row.itemUrl].join("::"))
-    .slice(0, 120);
-  const gradeItems = uniqueRows(rows
-    .filter((row) => row.source === "gradeItem"),
-    (row) => {
-      const columns = parseJson(row.columns);
-      return [row.courseOrgUnitId, row.title, columns.displayedGrade, columns.pointsEarned, columns.pointsPossible, columns.points].join("::");
-    })
-    .slice(0, 120);
-  const policyItems = rows
-    .filter((row) => row.source === "syllabusPolicy")
-    .slice(0, 120);
-  const usefulFiles = uniqueRows(rows
-    .filter((row) => (row.localPath || row.source === "contentAttachment") && /syllabus|schedule|quiz|test|exam|assignment|project|paper|rubric|instructions|overview|reference|content|handout|slides?/i.test(`${row.title} ${row.localPath} ${row.source}`)),
-    (row) => row.localPath || [row.courseOrgUnitId, row.title].join("::"))
-    .slice(0, 160);
-  const feedbackItems = uniqueRows(rows
-    .filter((row) => [
-      "assignmentSubmission",
-      "assignmentFeedback",
-      "submittedFile",
-      "quizAttempt",
-      "quizSubmission",
-      "quizAttemptRow",
-      "quizSummaryRow",
-      "gradeFeedback",
-      "discussionFeedback",
-      "rubricFeedback",
-      "rubricCriterionFeedback"
-    ].includes(row.source)),
-    (row) => [row.courseOrgUnitId, row.source, row.title, row.status, row.itemUrl, row.localPath].join("::"))
-    .slice(0, 160);
-  const apiProbeItems = uniqueRows(rows
-    .filter((row) => row.source === "apiProbe"),
-    (row) => [row.courseOrgUnitId, row.type, row.status, row.title].join("::"))
-    .slice(0, 160);
-  const apiProbeSummaries = apiProbeSummaryRows();
-  const reviewChecks = checks.filter(([, , state]) => state !== "covered");
-
-  const brief = [
-    "# D2L Offline Action Brief",
-    "",
+  const items = collectOfflineActionItems();
+  const header = [
+    "# D2L Offline Action Brief", "",
     `Generated from: ${manifestPath}`,
     `Rows considered: ${rows.length}`,
-    `Manifest phase: ${manifest.phase || "final"}`,
-    "",
-    "## Due / Dated Items",
-    "",
-    dueItems.length ? dueItems.map(rowLine).join("\n") : "- None found.",
-    "",
-    "## Grades / Scores",
-    "",
-    gradeItems.length
-      ? gradeItems.map((row) => {
-        const columns = parseJson(row.columns);
-        const score = columns.displayedGrade || (columns.pointsEarned && columns.pointsPossible ? `${columns.pointsEarned}/${columns.pointsPossible}` : columns.points || "");
-        return `- ${row.courseTitle || row.courseOrgUnitId || "Unknown course"} | ${row.title || "(untitled)"}${score ? ` | ${score}` : ""}`;
-      }).join("\n")
-      : "- None found.",
-    "",
-    "## Syllabus / Policies",
-    "",
-    policyItems.length ? policyItems.map(rowLine).join("\n") : "- None found.",
-    "",
-    "## Useful Downloaded Files",
-    "",
-    usefulFiles.length ? usefulFiles.map(rowLine).join("\n") : "- None found.",
-    "",
-    "## Submissions / Feedback / Results",
-    "",
-    feedbackItems.length
-      ? feedbackItems.map((row) => {
-        const columns = parseJson(row.columns);
-        const score = columns.displayedGrade || columns.score || (columns.pointsEarned && columns.pointsPossible ? `${columns.pointsEarned}/${columns.pointsPossible}` : columns.points || "");
-        return `- ${row.courseTitle || row.courseOrgUnitId || "Unknown course"} | ${row.source} | ${row.title || "(untitled)"}${row.status ? ` | ${row.status}` : ""}${score ? ` | ${score}` : ""}${row.localPath ? ` | ${row.localPath}` : ""}`;
-      }).join("\n")
-      : "- None found.",
-    "",
-    "## API Probe Evidence",
-    "",
-    apiProbeLegendLines().join("\n"),
-    "",
-    apiProbeSummaries.length
-      ? ["Summary:", ...apiProbeSummaries.map((entry) => `- ${entry.label}: ${entry.count} rows (${entry.breakdown})`), ""].join("\n")
-      : "",
-    apiProbeItems.length
-      ? apiProbeItems.map((row) => `- ${row.courseTitle || row.courseOrgUnitId || "Unknown course"} | ${row.type || row.title || "API probe"} | ${row.status || "unavailable"} | ${row.title || "(untitled)"}`).join("\n")
-      : "- None recorded.",
-    "",
-    "## Coverage Needing Review",
-    "",
-    reviewChecks.length
-      ? reviewChecks.map(([id, label, state, evidence]) => `- ${state.toUpperCase()} - ${label} (${id}): ${evidence}`).join("\n")
-      : "- All checks covered."
+    `Manifest phase: ${manifest.phase || "final"}`, ""
   ];
-  return brief.join("\n");
+  return [...header, ...renderOfflineActionSections(items)].join("\n");
 }
 
 function offlineStudentQuestions() {

@@ -60,7 +60,7 @@
     INTERNAL_ERROR: "INTERNAL_ERROR"
   });
 
-  const APP_API_METHODS = Object.freeze([
+  const APP_API_READ_METHODS = Object.freeze([
     "system.getCapabilities",
     "system.getDatabaseStatus",
     "system.getAccountContext",
@@ -95,7 +95,10 @@
     "sync.getQueue",
     "sync.getRun",
     "activity.list",
-    "activity.getSummary",
+    "activity.getSummary"
+  ]);
+
+  const APP_API_WRITE_METHODS = Object.freeze([
     "archive.ingestRows",
     "archive.ingestExtraction",
     "organizer.runCourse",
@@ -103,6 +106,11 @@
     "organizer.rebuildAll",
     "relationships.confirm",
     "relationships.reject"
+  ]);
+
+  const APP_API_METHODS = Object.freeze([
+    ...APP_API_READ_METHODS,
+    ...APP_API_WRITE_METHODS
   ]);
 
   function appApiError(code, message, details = {}) {
@@ -162,6 +170,7 @@
     ENTITY_TYPES,
     RELATIONSHIP_TYPES,
     APP_API_ERROR_CODES,
+    APP_API_READ_METHODS,
     APP_API_METHODS,
     appApiError,
     appApiResponse,

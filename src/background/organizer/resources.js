@@ -1,22 +1,10 @@
 (function initResourceOrganizerModule(global) {
   const shared = global.D2LExtractorShared;
   const background = global.D2LExtractorBackground ||= {};
+  const { createOrganizerMeta } = background;
   const { normalizeText, normalizedDate, ORGANIZER_VERSION } = shared;
 
-  function relation(from, toId, type, signal, value, createdAt) {
-    return {
-      relationshipId: `${from.entityId}::${type}::${toId}`,
-      courseId: from.courseId,
-      fromId: from.entityId,
-      toId,
-      type,
-      confidence: 1,
-      classification: "confirmed",
-      evidence: [{ signal, value: normalizeText(value), weight: 1 }],
-      organizerVersion: ORGANIZER_VERSION,
-      createdAt
-    };
-  }
+  const relation = background.createOrganizerRelation;
 
   function learningResourceEntityId(courseId, contentObjectId) {
     return `resource:${courseId}:${contentObjectId}`;
@@ -38,60 +26,60 @@
     return "";
   }
 
-  function buildLearningResourceKnowledge(evidenceRecords, options = {}) {
-    const createdAt = options.createdAt || new Date().toISOString();
-    const records = evidenceRecords || [];
+  function createLearningResourceEntity(record, contentObjectId, createdAt) {
+    const columns = record.fields?.columns || {};
+    const isModule = record.source === "contentModule";
+    return {
+      entityId: learningResourceEntityId(record.courseId, contentObjectId),
+      entityType: "learningResource",
+      courseId: record.courseId,
+      canonicalTitle: record.title || `Course resource ${contentObjectId}`,
+      status: record.status || (record.fields?.columns?.isBroken ? "broken" : "available"),
+      resourceType: normalizeText(record.fields?.columns?.topicType || record.type || record.source),
+      module: normalizeText(record.fields?.columns?.module),
+      description: record.description || "",
+      dates: {
+        dueAt: record.dates?.dueAt || null,
+        availableFrom: record.dates?.availableFrom || null,
+        availableUntil: record.dates?.availableUntil || null
+      },
+      urls: {
+        item: record.urls?.item || "",
+        download: record.urls?.download || "",
+        d2l: record.urls?.item || "",
+        external: /^link$/i.test(columns.topicType || "") ? normalizeText(columns.resolvedTarget || record.urls?.download) : ""
+      },
+      isModule,
+      order: Number.isFinite(Number(columns.tocOrder)) ? Number(columns.tocOrder) : null,
+      moduleId: isModule ? contentObjectId : normalizeText(columns.moduleId),
+      moduleTitle: isModule ? record.title : normalizeText(columns.moduleTitle),
+      parentModuleId: normalizeText(columns.parentModuleId),
+      moduleStartsAt: isModule ? normalizedDate(columns.startDate) : normalizedDate(columns.moduleStartDate),
+      completionType: normalizeText(columns.completionType),
+      isExempt: columns.isExempt === true,
+      localFilePath: record.local?.filePath || "",
+      attachmentCount: 0,
+      progress: null,
+      ...createOrganizerMeta(record, createdAt)
+    };
+  }
+
+  function collectLearningResourceEntities(records, createdAt) {
     const entities = [];
     const relationships = [];
     const byContentId = new Map();
-
     for (const record of records.filter((item) => item.source === "contentTopic" || item.source === "contentModule")) {
       const contentObjectId = normalizeText(record.platformIds?.contentObjectId || record.platformIds?.contentModuleId) || record.evidenceId.split(":").at(-1);
       if (!contentObjectId) continue;
-      const columns = record.fields?.columns || {};
-      const isModule = record.source === "contentModule";
-      const entity = {
-        entityId: learningResourceEntityId(record.courseId, contentObjectId),
-        entityType: "learningResource",
-        courseId: record.courseId,
-        canonicalTitle: record.title || `Course resource ${contentObjectId}`,
-        status: record.status || (record.fields?.columns?.isBroken ? "broken" : "available"),
-        resourceType: normalizeText(record.fields?.columns?.topicType || record.type || record.source),
-        module: normalizeText(record.fields?.columns?.module),
-        description: record.description || "",
-        dates: {
-          dueAt: record.dates?.dueAt || null,
-          availableFrom: record.dates?.availableFrom || null,
-          availableUntil: record.dates?.availableUntil || null
-        },
-        urls: {
-          item: record.urls?.item || "",
-          download: record.urls?.download || "",
-          d2l: record.urls?.item || "",
-          // A Link topic's real destination outside D2L.
-          external: /^link$/i.test(columns.topicType || "") ? normalizeText(columns.resolvedTarget || record.urls?.download) : ""
-        },
-        isModule,
-        order: Number.isFinite(Number(columns.tocOrder)) ? Number(columns.tocOrder) : null,
-        moduleId: isModule ? contentObjectId : normalizeText(columns.moduleId),
-        moduleTitle: isModule ? record.title : normalizeText(columns.moduleTitle),
-        parentModuleId: normalizeText(columns.parentModuleId),
-        moduleStartsAt: isModule ? normalizedDate(columns.startDate) : normalizedDate(columns.moduleStartDate),
-        completionType: normalizeText(columns.completionType),
-        isExempt: columns.isExempt === true,
-        localFilePath: record.local?.filePath || "",
-        attachmentCount: 0,
-        progress: null,
-        primaryEvidenceId: record.evidenceId,
-        organizerVersion: ORGANIZER_VERSION,
-        createdAt,
-        updatedAt: createdAt
-      };
+      const entity = createLearningResourceEntity(record, contentObjectId, createdAt);
       entities.push(entity);
       byContentId.set(`${record.courseId}:${contentObjectId}`, entity);
       relationships.push(relation(entity, record.evidenceId, "sameAs", "matchingContentObjectId", contentObjectId, createdAt));
     }
+    return { entities, relationships, byContentId };
+  }
 
+  function linkLearningResourceAttachmentsAndProgress(records, byContentId, relationships, createdAt) {
     for (const record of records) {
       const contentObjectId = normalizeText(record.platformIds?.contentObjectId);
       const entity = byContentId.get(`${record.courseId}:${contentObjectId}`);
@@ -112,7 +100,43 @@
         };
       }
     }
+  }
+
+  function buildLearningResourceKnowledge(evidenceRecords, options = {}) {
+    const createdAt = options.createdAt || new Date().toISOString();
+    const records = evidenceRecords || [];
+    const { entities, relationships, byContentId } = collectLearningResourceEntities(records, createdAt);
+    linkLearningResourceAttachmentsAndProgress(records, byContentId, relationships, createdAt);
     return { entities, relationships };
+  }
+
+  function createCalendarEventEntity(record, eventId, targetEntityId, columns, createdAt) {
+    return {
+      entityId: calendarEventEntityId(record.courseId, eventId),
+      entityType: "calendarEvent",
+      courseId: record.courseId,
+      canonicalTitle: record.title || `Calendar event ${eventId}`,
+      status: record.status || "scheduled",
+      description: record.description || "",
+      dates: {
+        startAt: normalizedDate(columns.startDateTime) || record.dates?.dueAt || null,
+        endAt: normalizedDate(columns.endDateTime) || null,
+        dueAt: record.dates?.dueAt || normalizedDate(columns.endDateTime || columns.startDateTime)
+      },
+      targetEntityId: targetEntityId || null,
+      sourceEntityType: normalizeText(columns.entityType),
+      eventLabel: normalizeText(columns.eventLabel),
+      courseCode: normalizeText(columns.orgUnitCode),
+      urls: {
+        d2l: normalizeText(columns.viewUrl) || record.urls?.item || "",
+        item: record.urls?.item || ""
+      },
+      attachmentCount: 0,
+      primaryEvidenceId: record.evidenceId,
+      organizerVersion: ORGANIZER_VERSION,
+      createdAt,
+      updatedAt: createdAt
+    };
   }
 
   function buildCalendarKnowledge(evidenceRecords, options = {}) {
@@ -125,33 +149,7 @@
       if (!eventId) continue;
       const columns = record.fields?.columns || {};
       const targetEntityId = calendarTargetEntityId(record);
-      const entity = {
-        entityId: calendarEventEntityId(record.courseId, eventId),
-        entityType: "calendarEvent",
-        courseId: record.courseId,
-        canonicalTitle: record.title || `Calendar event ${eventId}`,
-        status: record.status || "scheduled",
-        description: record.description || "",
-        dates: {
-          startAt: normalizedDate(columns.startDateTime) || record.dates?.dueAt || null,
-          endAt: normalizedDate(columns.endDateTime) || null,
-          dueAt: record.dates?.dueAt || normalizedDate(columns.endDateTime || columns.startDateTime)
-        },
-        targetEntityId: targetEntityId || null,
-        sourceEntityType: normalizeText(columns.entityType),
-        // D2L lists events as "<title> - Due", "- Available", "- Availability Ends".
-        eventLabel: normalizeText(columns.eventLabel),
-        courseCode: normalizeText(columns.orgUnitCode),
-        urls: {
-          d2l: normalizeText(columns.viewUrl) || record.urls?.item || "",
-          item: record.urls?.item || ""
-        },
-        attachmentCount: 0,
-        primaryEvidenceId: record.evidenceId,
-        organizerVersion: ORGANIZER_VERSION,
-        createdAt,
-        updatedAt: createdAt
-      };
+      const entity = createCalendarEventEntity(record, eventId, targetEntityId, columns, createdAt);
       entities.push(entity);
       byEventId.set(`${record.courseId}:${eventId}`, entity);
       relationships.push(relation(entity, record.evidenceId, "sameAs", "matchingCalendarEventId", eventId, createdAt));

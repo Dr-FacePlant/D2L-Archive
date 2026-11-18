@@ -44,20 +44,29 @@ function isLikelyReadOnlyD2LUrl(rawUrl) {
     }));
   }
 
+  const NAV_AND_TOOL_PATTERNS = [
+    /\/d2l\/le\/content\//, /\/discussions\//, /\/dropbox\//, /\/quizzing\//,
+    /\/grades\//, /\/calendar\//, /\/classlist\//, /\/checklist\//,
+    /\/competencies\//, /\/group\//, /\/links\//, /\/locker\//,
+    /\/selfassess\//, /\/survey\//, /\/attendance\//, /\/userprogress\//,
+    /\/wcs\/media-library\//, /\/common\/dialogs\/quickLink\/quickLink\.d2l/
+  ];
+
+  function extractPageAnchorLinks(pageType, orgUnitId) {
+    return queryAll("a[href]")
+      .map((link) => ({
+        title: normalizeText(link.getAttribute("aria-label") || link.textContent || link.title),
+        url: absoluteUrl(link.getAttribute("href")),
+        sourcePageType: pageType,
+        courseOrgUnitId: orgUnitId
+      }))
+      .filter((record) => record.title && isLikelyReadOnlyD2LUrl(record.url));
+  }
+
   function discoverCrawlLinks() {
     const pageType = classifyPage();
     const orgUnitId = getOrgUnitId();
-    const links = queryAll("a[href]")
-      .map((link) => {
-        const url = absoluteUrl(link.getAttribute("href"));
-        return {
-          title: normalizeText(link.getAttribute("aria-label") || link.textContent || link.title),
-          url,
-          sourcePageType: pageType,
-          courseOrgUnitId: orgUnitId
-        };
-      })
-      .filter((record) => record.title && isLikelyReadOnlyD2LUrl(record.url));
+    const links = extractPageAnchorLinks(pageType, orgUnitId);
 
     const courseHomeLinks = links.filter((record) => {
       const match = record.url.match(/\/d2l\/home\/(\d+)/);
@@ -69,28 +78,7 @@ function isLikelyReadOnlyD2LUrl(rawUrl) {
     });
     const generatedFromCurrentCourse = courseToolLinks(orgUnitId, getCourse().title);
     const assignmentProbeLinks = pageType === "assignments" ? generatedAssignmentProbeLinks(orgUnitId) : [];
-    const navAndToolLinks = links.filter((record) => {
-      return [
-        /\/d2l\/le\/content\//,
-        /\/discussions\//,
-        /\/dropbox\//,
-        /\/quizzing\//,
-        /\/grades\//,
-        /\/calendar\//,
-        /\/classlist\//,
-        /\/checklist\//,
-        /\/competencies\//,
-        /\/group\//,
-        /\/links\//,
-        /\/locker\//,
-        /\/selfassess\//,
-        /\/survey\//,
-        /\/attendance\//,
-        /\/userprogress\//,
-        /\/wcs\/media-library\//,
-        /\/common\/dialogs\/quickLink\/quickLink\.d2l/
-      ].some((pattern) => pattern.test(record.url));
-    });
+    const navAndToolLinks = links.filter((record) => NAV_AND_TOOL_PATTERNS.some((pattern) => pattern.test(record.url)));
 
     return {
       pageType,

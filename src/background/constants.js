@@ -1,7 +1,7 @@
 (function initBackgroundModule(global) {
   const shared = global.D2LExtractorShared;
   const background = global.D2LExtractorBackground ||= {};
-  const {  } = shared;
+  const { ORGANIZER_VERSION } = shared || {};
   const {  } = background;
 
 const CRAWL_STATE_KEY = "d2lCrawlerState";
@@ -16,9 +16,35 @@ const DOWNLOAD_MIME = {
   md: "text/markdown"
 };
 
+function createOrganizerRelation(from, toId, type, signal, value, createdAt) {
+  return {
+    relationshipId: `${from.entityId}::${type}::${toId}`,
+    courseId: from.courseId,
+    fromId: from.entityId,
+    toId,
+    type,
+    confidence: 1,
+    classification: "confirmed",
+    evidence: [{ signal, value: shared.normalizeText ? shared.normalizeText(value) : String(value || "").trim(), weight: 1 }],
+    organizerVersion: ORGANIZER_VERSION || "8",
+    createdAt
+  };
+}
+
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-  Object.assign(background, { CRAWL_STATE_KEY, LAST_EXPORT_KEY, MAX_PAGES, WORKER_COUNT, PAGE_LOAD_DELAY_MS, DOWNLOAD_MIME, sleep });
+
+  function createOrganizerMeta(record, createdAt) {
+    return {
+      conflicts: [],
+      primaryEvidenceId: record.evidenceId,
+      organizerVersion: ORGANIZER_VERSION || "8",
+      createdAt,
+      updatedAt: createdAt
+    };
+  }
+
+  Object.assign(background, { createOrganizerMeta, createOrganizerRelation, CRAWL_STATE_KEY, LAST_EXPORT_KEY, MAX_PAGES, WORKER_COUNT, PAGE_LOAD_DELAY_MS, DOWNLOAD_MIME, sleep });
 })(globalThis);

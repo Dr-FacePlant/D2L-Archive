@@ -4,49 +4,14 @@
   const {
     APP_API_PROTOCOL_VERSION,
     APP_API_ERROR_CODES,
+    APP_API_READ_METHODS,
     appApiError,
     appApiResponse,
     appApiErrorResponse,
     validateAppApiRequest
   } = shared;
 
-  const IMPLEMENTED_READ_METHODS = Object.freeze([
-    "system.getCapabilities",
-    "system.getDatabaseStatus",
-    "system.getAccountContext",
-    "courses.list",
-    "courses.get",
-    "courses.getOverview",
-    "evidence.list",
-    "evidence.get",
-    "entities.list",
-    "entities.get",
-    "entities.getBundle",
-    "relationships.list",
-    "assignments.list",
-    "quizzes.list",
-    "grades.list",
-    "announcements.list",
-    "discussions.list",
-    "resources.list",
-    "calendar.list",
-    "policies.list",
-    "progress.list",
-    "tools.list",
-    "people.list",
-    "externalResources.list",
-    "gaps.list",
-    "dashboard.getOverview",
-    "dashboard.getUpcoming",
-    "dashboard.getRecentChanges",
-    "dashboard.getUpdates",
-    "search.query",
-    "sync.getState",
-    "sync.getQueue",
-    "sync.getRun",
-    "activity.list",
-    "activity.getSummary"
-  ]);
+  const IMPLEMENTED_READ_METHODS = APP_API_READ_METHODS;
   const IMPLEMENTED_INTERNAL_METHODS = Object.freeze(["archive.ingestRows"]);
 
   // There is no default archive: every request resolves the signed-in
@@ -167,34 +132,21 @@
     };
   }
 
-  async function dispatchAppApiMethod(repository, method, params, options = {}) {
-    if (method === "system.getCapabilities") {
-      return {
-        protocolVersion: APP_API_PROTOCOL_VERSION,
-        readMethods: [...IMPLEMENTED_READ_METHODS],
-        internalMethods: [...IMPLEMENTED_INTERNAL_METHODS],
-        features: {
-          evidenceStorage: true,
-          evidenceRevisions: true,
-          semanticEntities: true,
-          assignmentBundles: true,
-          quizBundles: true,
-          gradeRecords: true,
-          announcements: true,
-          discussions: true,
-          learningResources: true,
-          calendarEvents: true,
-          coursePolicies: true,
-          studentProgress: true,
-          courseTools: true,
-          people: true,
-          externalResources: true,
-          extractionGapTaxonomy: true,
-          dashboardQueries: true
-        }
-      };
-    }
-    if (method === "system.getDatabaseStatus") return repository.getDatabaseStatus();
+  function getSystemCapabilities() {
+    return {
+      protocolVersion: APP_API_PROTOCOL_VERSION,
+      readMethods: [...IMPLEMENTED_READ_METHODS],
+      internalMethods: [...IMPLEMENTED_INTERNAL_METHODS],
+      features: {
+        evidenceStorage: true, evidenceRevisions: true, semanticEntities: true, assignmentBundles: true,
+        quizBundles: true, gradeRecords: true, announcements: true, discussions: true, learningResources: true,
+        calendarEvents: true, coursePolicies: true, studentProgress: true, courseTools: true, people: true,
+        externalResources: true, extractionGapTaxonomy: true, dashboardQueries: true
+      }
+    };
+  }
+
+  async function dispatchCoreEntities(repository, method, params) {
     if (method === "courses.list") return { items: await repository.listCourses(params) };
     if (method === "courses.get") {
       const courseId = requireString(params, "courseId");
@@ -230,6 +182,10 @@
       return bundle;
     }
     if (method === "relationships.list") return { items: await repository.listRelationships(params) };
+    return null;
+  }
+
+  async function dispatchTypedEntities(repository, method, params) {
     if (method === "assignments.list") return { items: await repository.listEntities({ ...params, entityType: "assignmentBundle" }) };
     if (method === "quizzes.list") return { items: await repository.listEntities({ ...params, entityType: "quizBundle" }) };
     if (method === "grades.list") return { items: await repository.listEntities({ ...params, entityType: "gradeRecord" }) };
@@ -257,37 +213,33 @@
         .sort().map((classification) => [classification, states.filter((state) => state.classification === classification).length]));
       return { items: filtered, summary, totalCapabilities: states.length };
     }
+    return null;
+  }
+
+  async function dispatchDashboardAndSync(repository, method, params, options) {
     if (method === "dashboard.getUpcoming") return { items: await upcomingEntities(repository, params) };
     if (method === "dashboard.getRecentChanges") return { items: await repository.listChanges(params) };
     if (method === "dashboard.getUpdates") return { items: await recentUpdates(repository, params) };
     if (method === "dashboard.getOverview") {
       const [courses, entities] = await Promise.all([repository.listCourses({ active: params.active }), repository.listEntities({})]);
       return {
-        courses,
-        entityCounts: entityCounts(entities),
-        upcoming: await upcomingEntities(repository, params),
+        courses, entityCounts: entityCounts(entities), upcoming: await upcomingEntities(repository, params),
         gradedItems: entities.filter((entity) => entity.entityType === "gradeRecord" && entity.status === "graded").length,
         blockedQuizzes: entities.filter((entity) => entity.entityType === "quizBundle" && (entity.access?.attempts === "blocked" || entity.access?.questions === "blocked")).length,
         recentAnnouncements: entities.filter((entity) => entity.entityType === "announcement")
-          .sort((a, b) => Date.parse(b.dates?.publishedAt || 0) - Date.parse(a.dates?.publishedAt || 0))
-          .slice(0, 10)
+          .sort((a, b) => Date.parse(b.dates?.publishedAt || 0) - Date.parse(a.dates?.publishedAt || 0)).slice(0, 10)
       };
     }
     if (method === "search.query") return searchKnowledge(repository, params);
     if (method === "sync.getState") {
-      const [status, runs, latestSyncRunId] = await Promise.all([
-        repository.getDatabaseStatus(),
-        repository.listSyncRuns({ limit: Number(params.limit || 10) }),
-        repository.getMeta("latestSyncRunId")
-      ]);
+      const [status, runs, latestSyncRunId] = await Promise.all([repository.getDatabaseStatus(), repository.listSyncRuns({ limit: Number(params.limit || 10) }), repository.getMeta("latestSyncRunId")]);
       return { status, latestSyncRunId: latestSyncRunId || "", runs };
     }
     if (method === "sync.getQueue") {
       const [jobs, freshness] = await Promise.all([
         repository.listSyncJobs({ limit: Number(params.limit || 100), accountId: params.accountId, jobIds: params.jobIds }),
         Promise.all((Array.isArray(params.courseIds) ? params.courseIds : []).map(async (courseId) => ({
-          courseId: String(courseId),
-          value: await repository.getFreshness(`course:${String(params.accountId || "")}:${String(courseId)}:api`)
+          courseId: String(courseId), value: await repository.getFreshness(`course:${String(params.accountId || "")}:${String(courseId)}:api`)
         })))
       ]);
       return { jobs, freshness: Object.fromEntries(freshness.map((entry) => [entry.courseId, entry.value])) };
@@ -304,6 +256,16 @@
       if (!Array.isArray(params.rows)) throw appApiError(APP_API_ERROR_CODES.INVALID_PARAMS, "rows must be an array.");
       return repository.ingestRows(params.rows, params.options || {});
     }
+    return null;
+  }
+
+  async function dispatchAppApiMethod(repository, method, params, options = {}) {
+    if (method === "system.getCapabilities") return getSystemCapabilities();
+    if (method === "system.getDatabaseStatus") return repository.getDatabaseStatus();
+    const result = (await dispatchCoreEntities(repository, method, params))
+      ?? (await dispatchTypedEntities(repository, method, params))
+      ?? (await dispatchDashboardAndSync(repository, method, params, options));
+    if (result !== null && result !== undefined) return result;
     throw appApiError(APP_API_ERROR_CODES.METHOD_NOT_FOUND, `Application API method is not implemented: ${method}`);
   }
 

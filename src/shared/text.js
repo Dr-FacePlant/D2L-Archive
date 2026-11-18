@@ -23,5 +23,15 @@
     return `data:${mimeType};charset=utf-8,${encodeURIComponent(text)}`;
   }
 
-  Object.assign(shared, { normalizeText, csvEscape, slug, createDataUrl });
+  function compactLabelValueRows(text, labels) {
+    const normalized = normalizeText(text);
+    const out = {};
+    for (const label of labels) {
+      const pattern = new RegExp(`\\b${label}\\b\\s*:?\\s*([^]+?)(?=\\s+(?:${labels.join("|")})\\b\\s*:?|$)`, "i");
+      const value = normalized.match(pattern)?.[1]?.trim();
+      if (value) out[label.replace(/\s+/g, "_").toLowerCase()] = value.slice(0, 800);
+    }
+    return out;
+  }
+  Object.assign(shared, { normalizeText, compactLabelValueRows, csvEscape, slug, createDataUrl });
 })();

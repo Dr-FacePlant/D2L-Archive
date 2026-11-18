@@ -4,33 +4,23 @@
   const { D2L_ORIGIN, allWork, byDue, dayKey, discussionProgress, fmtBytes, fmtDate, fmtDateTime, fmtPoints, gradeLabel, isGradedGrade, plainText, plural, realDue, relativeDay, routeFor, status, time, workItem } = dash;
   // ------------------------------------------------------------ detail pages
 
-  function evidenceOf(bundle, source) {
-    return (bundle?.evidence || []).filter((record) => record.source === source);
-  }
+  const evidenceOf = (bundle, source) => (bundle?.evidence || []).filter((record) => record.source === source);
 
   // Page-probe rows keep the whole page (menus included) as evidence; screens
   // show the API's own record when there is one.
-  function fromApi(record) {
-    return record?.provenance?.pageType === "valenceApi";
-  }
+  const fromApi = (record) => record?.provenance?.pageType === "valenceApi";
 
-  function fileFrom(record) {
-    return {
-      name: record.title || record.fields?.suggestedFileName || "File",
-      size: fmtBytes(record.fields?.columns?.size),
-      localPath: record.local?.filePath || "",
-      downloadUrl: record.urls?.download || "",
-      url: record.urls?.download || record.urls?.item || ""
-    };
-  }
+  const fileFrom = (record) => ({
+    name: record.title || record.fields?.suggestedFileName || "File",
+    size: fmtBytes(record.fields?.columns?.size),
+    localPath: record.local?.filePath || "",
+    downloadUrl: record.urls?.download || "",
+    url: record.urls?.download || record.urls?.item || ""
+  });
 
   function quizRequiresLockdown(...values) {
     const sentences = values.filter(Boolean).join(". ").split(/(?<=[.!?])\s+/);
-    return sentences.some((sentence) => {
-      if (!/(?:respondus\s+)?lock[- ]?down\s+browser/i.test(sentence)) return false;
-      if (/\b(?:not|isn't|is not|will not|won't)\s+(?:be\s+)?required\b/i.test(sentence)) return false;
-      return /\b(?:requires?|required|must|needs?)\b/i.test(sentence);
-    });
+    return sentences.some((s) => /(?:respondus\s+)?lock[- ]?down\s+browser/i.test(s) && !/\b(?:not|isn't|is not|will not|won't)\s+(?:be\s+)?required\b/i.test(s) && /\b(?:requires?|required|must|needs?)\b/i.test(s));
   }
 
   // A quiz description that only repeats D2L's own time limit and attempts
@@ -42,10 +32,10 @@
   function onlyRepeatsSettings(text, minutes, allowed) {
     const sentences = String(text || "").trim().split(/(?<=[.!?])\s+/).filter(Boolean);
     let repeats = false;
-    for (const sentence of sentences) {
-      if (QUIZ_FILLER.test(sentence)) continue;
-      const match = sentence.match(QUIZ_SETTINGS_SENTENCE);
-      if (!match || Number(match[1]) !== minutes || (match[2] && Number(match[2]) !== allowed)) return false;
+    for (const s of sentences) {
+      if (QUIZ_FILLER.test(s)) continue;
+      const m = s.match(QUIZ_SETTINGS_SENTENCE);
+      if (!m || Number(m[1]) !== minutes || (m[2] && Number(m[2]) !== allowed)) return false;
       repeats = true;
     }
     return repeats;
@@ -57,26 +47,26 @@
   // A step is done, todo, late, missed, closed (it closed and D2L doesn't
   // show whether you did it) or tick (a checklist box you tick yourself).
   // Steps follow the same status the lists use, so a screen and its row agree.
-  function step(state, what, when = "", extra = {}) {
-    return { state, what, when, note: "", ...extra };
-  }
+  const step = (state, what, when = "", extra = {}) => ({ state, what, when, note: "", ...extra });
 
   const lowerFirst = (text) => text ? `${text.charAt(0).toLowerCase()}${text.slice(1)}` : "";
 
   // "Due Sun, Oct 25 · 11:00 AM · in 15 days", "Was due … · closes …", "No due date".
   function dueWhen(item, now) {
-    const at = (value) => fmtDateTime(value, now);
+    const at = (v) => fmtDateTime(v, now);
     if (!item.dueAt) return "No due date";
     if (!item.hasDueDate) return `Closes ${at(item.closesAt)} · ${lowerFirst(relativeDay(item.closesAt, now))}`;
-    if (time(item.dueAt) < now.getTime()) return `Was due${item.lesson ? ` with ${item.lesson} ·` : ""} ${at(item.dueAt)}${item.closesAt && time(item.closesAt) > now.getTime() ? ` · closes ${at(item.closesAt)}` : ""}`;
-    return `Due${item.lesson ? ` with ${item.lesson} ·` : ""} ${at(item.dueAt)} · ${lowerFirst(relativeDay(item.dueAt, now))}`;
+    const prefix = time(item.dueAt) < now.getTime() ? "Was due" : "Due";
+    const closes = item.closesAt && time(item.closesAt) > now.getTime() && time(item.dueAt) < now.getTime() ? ` · closes ${at(item.closesAt)}` : "";
+    const suffix = time(item.dueAt) < now.getTime() ? "" : ` · ${lowerFirst(relativeDay(item.dueAt, now))}`;
+    return `${prefix}${item.lesson ? ` with ${item.lesson} ·` : ""} ${at(item.dueAt)}${closes}${suffix}`;
   }
 
   // A step that isn't done: when it opens, when it's due, how late it is, or
   // that it closed. A closed step is missed only when D2L shows you didn't
   // do it (`known`). Quizzes are never late: D2L takes them until they close.
   function pendingStep(what, item, now, { known = true, takes = "it", missedText = "" } = {}) {
-    const at = (value) => fmtDateTime(value, now);
+    const at = (v) => fmtDateTime(v, now);
     const t = now.getTime();
     if (item.status.key === "notOpen" && item.opensAt) return step("todo", what, `Opens ${at(item.opensAt)}`);
     if (item.closesAt && time(item.closesAt) < t) return known ? step("missed", what, `Missed: it closed ${at(item.closesAt)}${missedText}.`) : step("closed", what, `Closed ${at(item.closesAt)}`);
@@ -87,16 +77,12 @@
   // The work's deadline as a fact: Due or Was due, else Closes or Closed
   // when D2L only has a close date.
   function deadlineFact(item, now) {
-    const past = (value) => time(value) < now.getTime();
-    if (item.hasDueDate) return { k: past(item.dueAt) ? "Was due" : "Due", v: `${fmtDateTime(item.dueAt, now)}${item.lesson ? ` · with ${item.lesson}` : ""}` };
-    if (item.closesAt) return { k: past(item.closesAt) ? "Closed" : "Closes", v: fmtDateTime(item.closesAt, now) };
-    return { k: "Due", v: "No due date" };
+    if (item.hasDueDate) return { k: time(item.dueAt) < now.getTime() ? "Was due" : "Due", v: `${fmtDateTime(item.dueAt, now)}${item.lesson ? ` · with ${item.lesson}` : ""}` };
+    return item.closesAt ? { k: time(item.closesAt) < now.getTime() ? "Closed" : "Closes", v: fmtDateTime(item.closesAt, now) } : { k: "Due", v: "No due date" };
   }
 
   // A date fact that changes tense once it passes: Opens or Opened.
-  function datedFact(label, pastLabel, value, now) {
-    return value ? { k: time(value) < now.getTime() ? pastLabel : label, v: fmtDateTime(value, now) } : null;
-  }
+  const datedFact = (label, pastLabel, value, now) => value ? { k: time(value) < now.getTime() ? pastLabel : label, v: fmtDateTime(value, now) } : null;
 
   // A close date that isn't the due date, for work that takes late turn-ins.
   function closesFact(item, now) {
@@ -126,29 +112,18 @@
   // yourself. In a checklist's list (`what` set) the due date shows once at
   // the top, so steps that aren't late leave it out.
   function taskStep(index, task, what = "") {
-    const now = index.now;
-    const link = task.linked;
-    const past = task.dueAt && time(task.dueAt) < now.getTime();
+    const now = index.now, link = task.linked, past = task.dueAt && time(task.dueAt) < now.getTime();
     const due = !task.dueAt ? "No due date" : past ? `Was due ${fmtDateTime(task.dueAt, now)}` : `Due ${fmtDateTime(task.dueAt, now)} · ${lowerFirst(relativeDay(task.dueAt, now))}`;
     if (!link?.known) return step("tick", what || "Check this off when it's done", what ? "" : due, { taskId: task.id, linked: link || null });
     const label = what || linkedWhat(link);
     if (link.done) return step("done", label, "Done on D2L", { linked: link });
     const closes = index.byId.get(link.discussionId)?.dates?.availableUntil;
     if (closes && time(closes) < now.getTime()) return step("missed", label, `Missed: the discussion closed ${fmtDateTime(closes, now)}.`, { linked: link });
-    if (past) return step("late", label, `Late: was due ${fmtDateTime(task.dueAt, now)}.`, { linked: link });
-    return step("todo", label, what ? "" : due, { linked: link });
+    return step(past ? "late" : "todo", label, past ? `Late: was due ${fmtDateTime(task.dueAt, now)}.` : (what ? "" : due), { linked: link });
   }
 
-  function assignmentModel(index, entity, bundle) {
-    const item = workItem(index, entity);
-    const archivedFiles = evidenceOf(bundle, "assignmentAttachment").map(fileFrom);
-    const files = entity.attachments?.length
-      ? entity.attachments.map((file) => {
-        const archived = archivedFiles.find((candidate) => candidate.name === file.name);
-        return { name: file.name, size: fmtBytes(file.size), localPath: archived?.localPath || "", url: archived?.url || "", downloadUrl: archived?.downloadUrl || "" };
-      })
-      : archivedFiles;
-    const submissions = evidenceOf(bundle, "assignmentSubmission")
+  function parseAssignmentSubmissions(bundle, index) {
+    return evidenceOf(bundle, "assignmentSubmission")
       .filter(fromApi)
       .flatMap((record) => Array.isArray(record.fields?.columns?.submissions) && record.fields.columns.submissions.length
         ? record.fields.columns.submissions.map((entry) => ({ ...record, dates: { submittedAt: entry.submittedAt }, fields: { columns: { fileCount: entry.fileCount } } }))
@@ -159,6 +134,15 @@
         files: Number(record.fields?.columns?.fileCount || 0)
       }))
       .sort((a, b) => time(b.at) - time(a.at));
+  }
+
+  function assignmentModel(index, entity, bundle) {
+    const item = workItem(index, entity);
+    const archivedFiles = evidenceOf(bundle, "assignmentAttachment").map(fileFrom);
+    const files = entity.attachments?.length
+      ? entity.attachments.map((f) => ({ name: f.name, size: fmtBytes(f.size), localPath: archivedFiles.find((c) => c.name === f.name)?.localPath || "", url: archivedFiles.find((c) => c.name === f.name)?.url || "", downloadUrl: archivedFiles.find((c) => c.name === f.name)?.downloadUrl || "" }))
+      : archivedFiles;
+    const submissions = parseAssignmentSubmissions(bundle, index);
     const submittedFiles = evidenceOf(bundle, "submittedFile").filter(fromApi).map(fileFrom);
     const feedback = evidenceOf(bundle, "assignmentFeedback").filter(fromApi).map((record) => ({
       text: plainText(record.description || ""),
@@ -256,19 +240,14 @@
     const progress = discussionProgress(index, entity);
     const graded = isGradedGrade(grade);
     const oldest = (list) => [...list].sort((a, b) => time(a.at) - time(b.at));
-    const firstThread = oldest(mine.filter((post) => !post.parentPostId))[0];
-    const enoughReplies = oldest(mine.filter((post) => post.parentPostId))[progress.needed - 1];
+    const firstThread = oldest(mine.filter((p) => !p.parentPostId))[0], enoughReplies = oldest(mine.filter((p) => p.parentPostId))[progress.needed - 1];
     // A graded topic whose posts D2L hides counts as done; otherwise a step
     // waits on its dates like any other work.
     const pending = (what, takes) => progress.graded && !postsKnown ? step("done", what) : pendingStep(what, item, index.now, { known: postsKnown, takes });
-    const thread = progress.hasThread
-      ? step("done", "Start your own thread", firstThread?.at ? `Posted ${fmtDate(firstThread.at, index.now)}` : "Posted")
-      : pending("Start your own thread", "posts");
+    const thread = progress.hasThread ? step("done", "Start your own thread", firstThread?.at ? `Posted ${fmtDate(firstThread.at, index.now)}` : "Posted") : pending("Start your own thread", "posts");
     if (!progress.hasThread && entity.gate === "mustPostFirst") thread.note = "D2L shows classmates' posts after you start a thread.";
     const replyWhat = progress.needed > 1 ? `Reply to ${progress.needed} classmates' threads${postsKnown ? ` (${Math.min(progress.replies, progress.needed)} of ${progress.needed})` : ""}` : "Reply to a classmate's thread";
-    const reply = progress.replies >= progress.needed
-      ? step("done", replyWhat, enoughReplies?.at ? `Replied ${fmtDate(enoughReplies.at, index.now)}` : "Replied")
-      : pending(replyWhat, "replies");
+    const reply = progress.replies >= progress.needed ? step("done", replyWhat, enoughReplies?.at ? `Replied ${fmtDate(enoughReplies.at, index.now)}` : "Replied") : pending(replyWhat, "replies");
     const score = graded ? [gradeLabel(grade), grade.grade?.displayed].filter(Boolean).join(" · ") : fmtPoints(entity.grading?.pointsEarned, entity.grading?.pointsPossible);
     return {
       kind: "discussion",
@@ -295,15 +274,10 @@
   }
 
   function taskModel(index, entity) {
-    const item = workItem(index, entity);
-    const title = taskTitle(entity);
-    const description = plainText(entity.description || "");
+    const item = workItem(index, entity), title = taskTitle(entity), description = plainText(entity.description || "");
     const same = (a, b) => a.replace(/[\s.;:,!]+$/, "") === b.replace(/[\s.;:,!]+$/, "");
     return {
-      kind: "task",
-      item,
-      course: item.course,
-      title,
+      kind: "task", item, course: item.course, title,
       meta: [entity.category || "Checklist task", title !== entity.canonicalTitle ? entity.canonicalTitle : ""].filter(Boolean),
       facts: [
         item.dueAt ? datedFact("Due", "Was due", item.dueAt, index.now) : { k: "Due", v: "No due date" },
@@ -321,62 +295,48 @@
   // task is a step, and the due date shows once in the gray line.
   function checklistModel(index, key) {
     const [courseId, dueDay = "none"] = String(key || "").split("|");
-    const tasks = allWork(index)
-      .filter((item) => item.kind === "task" && item.courseId === courseId && (dayKey(item.dueAt) || "none") === dueDay)
-      .sort(byDue);
+    const tasks = allWork(index).filter((item) => item.kind === "task" && item.courseId === courseId && (dayKey(item.dueAt) || "none") === dueDay).sort(byDue);
     if (!tasks.length) return null;
-    const first = tasks[0];
-    const checklists = [...new Set(tasks.map((task) => task.entity.category).filter(Boolean))];
+    const first = tasks[0], checklists = [...new Set(tasks.map((t) => t.entity.category).filter(Boolean))];
     return {
-      kind: "checklist",
-      course: first.course,
+      kind: "checklist", course: first.course,
       title: checklists.length === 1 ? checklists[0] : `${first.course?.label || "Course"} checklist`,
       meta: ["Checklist", first.dueAt ? `due ${fmtDateTime(first.dueAt, index.now)}` : "no due date"],
       groupLabel: tasks.length > 1 ? `${tasks.length} checklist tasks` : "Checklist task",
-      tasks,
-      facts: [],
+      tasks, facts: [],
       steps: tasks.map((task) => taskStep(index, task, taskTitle(task.entity))),
       links: [...new Map(tasks.map((task) => [task.d2lUrl, task.d2lUrl])).keys()].filter(Boolean).slice(0, 1).map((url) => ({ label: "Open checklist in D2L", url }))
     };
   }
 
-  function announcementModel(index, entity, bundle) {
-    const course = index.courseById.get(entity.courseId);
-    return {
-      kind: "announcement",
-      course,
-      title: entity.canonicalTitle,
-      posted: entity.dates?.publishedAt ? `Posted ${fmtDateTime(entity.dates.publishedAt, index.now)}` : "",
-      body: plainText(entity.body || ""),
-      pinned: entity.isPinned === true,
-      attachments: evidenceOf(bundle, "announcementAttachment").map(fileFrom),
-      links: [{ label: "View in D2L", url: entity.urls?.d2l || `${D2L_ORIGIN}/d2l/le/news/${entity.courseId}/${entity.entityId.split(":").at(-1)}/view?ou=${entity.courseId}`, primary: true }]
-    };
-  }
+  const announcementModel = (index, entity, bundle) => ({
+    kind: "announcement",
+    course: index.courseById.get(entity.courseId),
+    title: entity.canonicalTitle,
+    posted: entity.dates?.publishedAt ? `Posted ${fmtDateTime(entity.dates.publishedAt, index.now)}` : "",
+    body: plainText(entity.body || ""),
+    pinned: entity.isPinned === true,
+    attachments: evidenceOf(bundle, "announcementAttachment").map(fileFrom),
+    links: [{ label: "View in D2L", url: entity.urls?.d2l || `${D2L_ORIGIN}/d2l/le/news/${entity.courseId}/${entity.entityId.split(":").at(-1)}/view?ou=${entity.courseId}`, primary: true }]
+  });
 
   function eventModel(index, entity) {
-    const course = index.courseById.get(entity.courseId);
-    const at = entity.dates?.startAt || entity.dates?.dueAt;
+    const course = index.courseById.get(entity.courseId), at = entity.dates?.startAt || entity.dates?.dueAt;
+    const targetEntity = index.byId.get(entity.targetEntityId);
     return {
-      kind: "event",
-      course,
+      kind: "event", course,
       title: entity.eventLabel ? `${entity.canonicalTitle} - ${entity.eventLabel}` : entity.canonicalTitle,
       facts: [
         { k: "When", v: at ? fmtDateTime(at, index.now) : "No date" },
         entity.dates?.endAt && time(entity.dates.endAt) !== time(at) ? { k: "Ends", v: fmtDateTime(entity.dates.endAt, index.now) } : null
       ].filter(Boolean),
       description: entity.description || "",
-      // "Belongs to" links only to items that have a screen (a whole discussion
-      // forum has none; an empty link would reload the dashboard).
-      target: routeFor(index.byId.get(entity.targetEntityId)) ? { route: routeFor(index.byId.get(entity.targetEntityId)), title: index.byId.get(entity.targetEntityId).canonicalTitle } : null,
-      // Archives made before 0.8.162 lack the event's detail-page URL; the
-      // course calendar is then the closest D2L page.
+      target: routeFor(targetEntity) ? { route: routeFor(targetEntity), title: targetEntity.canonicalTitle } : null,
       links: [entity.urls?.d2l
         ? { label: "Open event in D2L", url: entity.urls.d2l, primary: true }
         : { label: "Open calendar in D2L", url: `${D2L_ORIGIN}/d2l/le/calendar/${entity.courseId}`, primary: true, approximate: true }]
     };
   }
-
 
   Object.assign(dash, {
     evidenceOf, fromApi, fileFrom, quizRequiresLockdown, onlyRepeatsSettings, step, dueWhen, pendingStep, deadlineFact, datedFact, closesFact, taskTitle, linkedWhat, taskStep, assignmentModel, quizModel, discussionModel, taskModel, checklistModel, announcementModel, eventModel, QUIZ_SETTINGS_SENTENCE, QUIZ_FILLER, lowerFirst

@@ -1,0 +1,9 @@
+{
+  "name": "d2l-extractor-extension",
+  "version": "0.9.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node run-local-checks.mjs"
+  }
+}

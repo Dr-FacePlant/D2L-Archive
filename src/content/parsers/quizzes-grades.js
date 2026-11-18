@@ -1,6 +1,7 @@
 (() => {
   const content = globalThis.D2LExtractorContent ||= {};
-  const { normalizeText } = globalThis.D2LExtractorShared;
+  const shared = globalThis.D2LExtractorShared;
+  const { normalizeText } = shared;
   const {
     queryAll,
     queryOne,

@@ -145,22 +145,8 @@
     }));
   }
 
-  function normalizeEvidenceRow(row, options = {}) {
-    const ids = parseColumns({ columns: row.ids });
-    const columns = parseColumns(row);
-    const crawledAt = normalizeText(row.crawledAt) || options.extractedAt || new Date().toISOString();
-    const evidence = {
-      evidenceId: evidenceIdentity(row),
-      revision: Number(options.revision || 1),
-      courseId: normalizeText(row.courseOrgUnitId) || "unknown",
-      courseTitle: normalizeText(row.courseTitle),
-      source: normalizeText(row.source) || "unknown",
-      originalSource: normalizeText(row.source),
-      title: normalizeText(row.title),
-      description: normalizeText(row.description),
-      status: normalizeText(row.status),
-      gate: normalizeText(row.gate),
-      type: normalizeText(row.type),
+  function extractEvidenceDates(row, columns) {
+    return {
       dates: {
         dueAt: normalizedDate(row.dueAtText || columns.dueAt || columns.dueDate),
         availableFrom: normalizedDate(columns.startDate || columns.availableFrom),
@@ -173,15 +159,41 @@
         availability: normalizeText(row.availabilityText),
         submittedAt: normalizeText(columns.submittedAt || columns.submissionDate || columns.dateSubmitted),
         gradedAt: normalizeText(columns.gradedAt || columns.gradedDate)
-      },
-      urls: {
-        item: normalizeText(row.itemUrl),
-        page: normalizeText(row.pageUrl),
-        download: normalizeText(row.downloadUrl),
-        history: normalizeText(row.historyUrl),
-        feedback: normalizeText(row.feedbackUrl),
-        canonical: canonicalEvidenceUrl(row)
-      },
+      }
+    };
+  }
+
+  function extractEvidenceUrls(row) {
+    return {
+      item: normalizeText(row.itemUrl),
+      page: normalizeText(row.pageUrl),
+      download: normalizeText(row.downloadUrl),
+      history: normalizeText(row.historyUrl),
+      feedback: normalizeText(row.feedbackUrl),
+      canonical: canonicalEvidenceUrl(row)
+    };
+  }
+
+  function normalizeEvidenceRow(row, options = {}) {
+    const ids = parseColumns({ columns: row.ids });
+    const columns = parseColumns(row);
+    const crawledAt = normalizeText(row.crawledAt) || options.extractedAt || new Date().toISOString();
+    const { dates, dateText } = extractEvidenceDates(row, columns);
+    const evidence = {
+      evidenceId: evidenceIdentity(row),
+      revision: Number(options.revision || 1),
+      courseId: normalizeText(row.courseOrgUnitId) || "unknown",
+      courseTitle: normalizeText(row.courseTitle),
+      source: normalizeText(row.source) || "unknown",
+      originalSource: normalizeText(row.source),
+      title: normalizeText(row.title),
+      description: normalizeText(row.description),
+      status: normalizeText(row.status),
+      gate: normalizeText(row.gate),
+      type: normalizeText(row.type),
+      dates,
+      dateText,
+      urls: extractEvidenceUrls(row),
       platformIds: ids,
       fields: {
         columns,
@@ -208,7 +220,49 @@
     return evidence;
   }
 
-  Object.assign(shared, {
+  function apiProbeBreakdown(rows, pattern) {
+    const counts = {};
+    for (const row of rows) {
+      if (row.source !== "apiProbe") continue;
+      if (pattern && !pattern.test(row.type || "")) continue;
+      const key = row.status || "unknown";
+      counts[key] = (counts[key] || 0) + 1;
+    }
+    return Object.entries(counts)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, count]) => `${key}:${count}`)
+      .join(", ") || "none";
+  }
+
+  function apiProbeSummaryRows(rows) {
+    const groups = [
+      ["Assignment submissions", /assignment my submissions/i],
+      ["Quiz attempts", /quiz attempts/i],
+      ["Announcements", /announcements|news/i],
+      ["Discussions", /discussion/i]
+    ];
+    return groups.map(([label, pattern]) => {
+      const matching = rows.filter((row) => row.source === "apiProbe" && pattern.test(row.type || ""));
+      return {
+        label,
+        count: matching.length,
+        breakdown: apiProbeBreakdown(rows, pattern)
+      };
+    }).filter((entry) => entry.count > 0);
+  }
+
+  function apiProbeLegendLines() {
+    return [
+      "Legend:",
+      "- available: D2L returned data and the extractor captured evidence rows.",
+      "- availableEmpty: D2L allowed the read-only probe but returned no evidence rows.",
+      "- blocked: D2L denied the read-only probe for this student/session.",
+      "- notEnabledOrHidden: D2L returned not found, usually hidden, disabled, or not enabled.",
+      "- unreachable/unavailable: the probe could not be reached or returned an unexpected error."
+    ];
+  }
+
+  Object.assign(shared, { apiProbeBreakdown, apiProbeSummaryRows, apiProbeLegendLines,
     ID_PRIORITY,
     SOURCE_ID_PRIORITY,
     stableStringify,

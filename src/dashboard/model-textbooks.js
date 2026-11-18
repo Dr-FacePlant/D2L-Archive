@@ -10,6 +10,9 @@
   const COVER_LIMIT = 5000000;
   // An attached book file (PDF or EPUB) is kept inside the extension, so cap it.
   const FILE_BYTES_LIMIT = 25 * 1024 * 1024;
+  // A cover picked from disk is resized before it is stored as a data URL.
+  const IMAGE_BYTES_LIMIT = 5 * 1024 * 1024;
+  const IMAGE_MAX_EDGE = 600;
   const FILE_MIMES = ["application/pdf", "application/epub+zip"];
   const URL_LIMIT = 2000;
   const MAX_ENTRIES = 8;
@@ -201,6 +204,8 @@
     MAX_TEXTBOOK_ENTRIES: MAX_ENTRIES,
     TEXTBOOK_LINK_TONES: LINK_TONES,
     TEXTBOOK_FILE_BYTES_LIMIT: FILE_BYTES_LIMIT,
+    TEXTBOOK_IMAGE_BYTES_LIMIT: IMAGE_BYTES_LIMIT,
+    TEXTBOOK_IMAGE_MAX_EDGE: IMAGE_MAX_EDGE,
     normalizeTextbookEntry,
     normalizeTextbookEntries,
     parseTextbookMentions: detectTextbooks,

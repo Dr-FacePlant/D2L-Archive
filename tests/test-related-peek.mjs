@@ -74,7 +74,7 @@ check(pdf.includes('<div class="peek-scrim" data-action="close-peek"></div>') &&
 // Wiring.
 const css = read("src/dashboard/dashboard.css");
 const preview = read("src/dashboard/app-preview.js");
-const events = read("src/dashboard/app-events.js");
+const events = read("src/dashboard/app-events.js") + read("src/dashboard/app-events-actions.js");
 const render = read("src/dashboard/app-render.js");
 check(/\.detail-panel \{ position: relative;/.test(css) && /#related-peek, \.peek-leaving \{ position: absolute; inset: 54px 0 0; z-index: 30; overflow: hidden; \}/.test(css), "the panel should sit inside the pop-up, under its header");
 check(/\.peek \{[^}]*width: 48%;/.test(css) && /\.rel-pill\.sel \{/.test(css) && /@media \(max-width: 760px\) \{ \.peek \{ width: 100%; \} \}/.test(css), "the panel should take about half the pop-up, the open pill should stay lit, and a narrow screen should fill it");
