@@ -1,7 +1,7 @@
 (function initExportProbesModule(global) {
   const shared = global.D2LExtractorShared;
   const background = global.D2LExtractorBackground ||= {};
-  const { flattenItem, isSafeReadOnlyUrl } = shared;
+  const { flattenItem, isSafeReadOnlyUrl, normalizeText, classifyUrl } = shared;
   const {
     createWorkerTabs, navigateAndExtract, collectAssignmentProbePages,
     collectQuizProbePages, collectAnnouncementProbePages, collectDiscussionListProbePages,

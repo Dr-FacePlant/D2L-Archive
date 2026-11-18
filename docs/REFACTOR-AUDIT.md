@@ -180,3 +180,44 @@ safety net was a suite that never loads the result.
 6. **Keep the batch small for splits.** One new file per batch when kind 5 or 6
    touches a controller, so a bad move is a two-line undo instead of a
    six-file rewrite.
+
+## Outcome — what `scan` does now
+
+The scanner gained a `Broken references` kind (`REF-nnn`), built from four
+text-level checks in `~/.claude/hooks/refactor/finders/references/`:
+
+| check | question | catches |
+|---|---|---|
+| `unresolved-call` | is this call declared, imported, global to the page, or destructured? | items 2, 3, 7 |
+| `missing-key` | is this namespace key assigned anywhere? | item 2 |
+| `unhandled-action` | does any script mention the `data-action` the markup emits? | items 1, 4 |
+| `dataset-mismatch` | is this `dataset.x` read ever written as `data-x`? | item 1 (partly) |
+
+Measured:
+
+- Pre-fix tree (`219c66e`): 5 findings — `detailRoot()` and
+  `renderSyncStatus()` unresolved, and three dead controls (`epub-prev`,
+  `epub-next`, `set-reminder`).
+- Fixed tree (`e4932c2` plus the export-probes destructure): 0 findings.
+- Four unrelated projects (a 24k-file TS monorepo, a JS hook repo, a worker and
+  a static site): 0 findings.
+
+### A false alarm worth recording
+
+The first version reported six more findings in `src/background/export-probes.js`:
+`normalizeText` and `classifyUrl` were called but not in its destructure. They
+are not live bugs. `background.js`, the worker entry, declares both at the top
+level of a classic script, so every script loaded into the same worker sees
+them. The scanner now collects depth-0 declarations from every classic script
+and treats them as resolvable, which is what the browser does.
+
+The destructure was still made explicit (`const { flattenItem, isSafeReadOnlyUrl,
+normalizeText, classifyUrl } = shared`) because the implicit dependency is the
+same thing a split can quietly break, and `tests/test-background-module-loading.mjs`
+now checks that every name a background module takes from `shared` is assigned
+by a `src/shared` module.
+
+Known limits: the checks skip TypeScript (a type checker does it better), skip
+JSX, and a `dataset.x` read is only flagged when nothing in the repo writes
+`data-x`, so reading the wrong element's dataset still escapes.
+`tests/test-dashboard-wiring.mjs` covers that case.
