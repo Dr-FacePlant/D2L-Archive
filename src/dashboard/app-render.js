@@ -203,7 +203,8 @@
     if (!current || !next) return;
     if (current.isEqualNode(next)) return;
     if (depth > 0 && current.nodeType === 1 && next.nodeType === 1 && current.tagName === next.tagName && sameAttributes(current, next) && current.childNodes.length === next.childNodes.length) {
-      for (let i = 0; i < current.childNodes.length; i++) morph(current.childNodes[i], next.childNodes[i], depth - 1);
+      const currentChildren = [...current.childNodes], nextChildren = [...next.childNodes];
+      for (let i = 0; i < currentChildren.length; i++) morph(currentChildren[i], nextChildren[i], depth - 1);
       return;
     }
     current.replaceWith(next);
@@ -220,7 +221,7 @@
     const node = main(), key = focusKey(document.activeElement), next = document.createElement("div");
     next.innerHTML = html;
     if (node.childNodes.length !== next.childNodes.length) node.innerHTML = html;
-    else for (let i = 0; i < node.childNodes.length; i++) morph(node.childNodes[i], next.childNodes[i], 8);
+    else { const pairs = [...node.childNodes].map((child, i) => [child, next.childNodes[i]]); for (const [child, replacement] of pairs) morph(child, replacement, 8); }
     if (key && !node.contains(document.activeElement)) node.querySelector(key)?.focus({ preventScroll: true });
   }
 
