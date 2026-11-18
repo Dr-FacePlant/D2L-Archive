@@ -89,12 +89,11 @@
     return guesses;
   }
 
-  // A guess already in the past says nothing about when the work is due, so it
-  // is not offered at all: the item reads "No due date" again.
+  // Guessed deadline from module close or next module open.
   function inferredDue(index, entity, kind) {
     const found = index.inferredDue?.get(lessonKey(entity.courseId, entity.canonicalTitle, kind))
       || index.inferredDue?.get(lessonKey(entity.courseId, entity.canonicalTitle, ""));
-    if (!found || !Number.isFinite(time(found.at)) || time(found.at) < index.now.getTime()) return null;
+    if (!found || !Number.isFinite(time(found.at))) return null;
     return found;
   }
 

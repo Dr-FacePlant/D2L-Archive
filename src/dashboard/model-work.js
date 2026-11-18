@@ -56,7 +56,7 @@
     const grade = entity.gradeEntityId ? index.byId.get(entity.gradeEntityId) : null;
     const submitted = entity.submissionCount > 0 || entity.status === "submitted" || entity.status === "graded";
     const graded = Boolean(entity.score?.displayed) || isGradedGrade(grade);
-    const guess = !stated && !lesson && !closesAt && !submitted && !graded ? inferredDue(index, entity, "assignment") : null;
+    const guess = !stated && !lesson && !closesAt ? inferredDue(index, entity, "assignment") : null;
     const dueAt = stated || lesson?.at || guess?.at || null;
     const late = submitted && entity.dates?.submittedAt && dueAt && time(entity.dates.submittedAt) > time(dueAt);
     let st;
@@ -83,7 +83,7 @@
     const grade = entity.gradeEntityId ? index.byId.get(entity.gradeEntityId) : null;
     const graded = isGradedGrade(grade);
     const attempted = (entity.attempts?.completed || 0) > 0;
-    const guess = !stated && !lesson && !closesAt && !graded && !attempted ? inferredDue(index, entity, "quiz") : null;
+    const guess = !stated && !lesson && !closesAt ? inferredDue(index, entity, "quiz") : null;
     const dueAt = stated || lesson?.at || guess?.at || null;
     const countKnown = Boolean(entity.attempts?.source && entity.attempts.source !== "none");
     let st;
@@ -109,7 +109,7 @@
     const { grade, graded, posted, hasThread, replies, needed, complete } = discussionProgress(index, entity);
     const closed = Boolean(closesAt && time(closesAt) < now);
     const missing = missingStep(hasThread, replies, needed, closed);
-    const guess = !deadline && !closesAt && !graded && !complete ? inferredDue(index, entity, "discussion") : null;
+    const guess = !deadline && !closesAt ? inferredDue(index, entity, "discussion") : null;
     let st;
     if (graded) st = status("graded", "Graded", "good");
     else if (complete) st = status("posted", "Submitted", "info");

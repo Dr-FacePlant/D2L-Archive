@@ -36,7 +36,11 @@ const entities = [
 
   // Stated due date item: should NOT be inferred
   { entityId: `resource:${C}:link_stated`, entityType: "learningResource", courseId: C, canonicalTitle: "Stated Assignment", resourceType: "Link", moduleId: "mod1", urls: { download: quickLink("dropbox", "astated") } },
-  { entityId: `assignmentBundle:${C}:astated`, entityType: "assignmentBundle", courseId: C, canonicalTitle: "Stated Assignment", pointsPossible: 10, dates: { dueAt: "2026-10-10T03:59:00.000Z" }, urls: {} }
+  { entityId: `assignmentBundle:${C}:astated`, entityType: "assignmentBundle", courseId: C, canonicalTitle: "Stated Assignment", pointsPossible: 10, dates: { dueAt: "2026-10-10T03:59:00.000Z" }, urls: {} },
+
+  // Submitted item in Module 1
+  { entityId: `resource:${C}:link_sub_done`, entityType: "learningResource", courseId: C, canonicalTitle: "Submitted Assignment", resourceType: "Link", moduleId: "mod1", urls: { download: quickLink("dropbox", "asub") } },
+  { entityId: `assignmentBundle:${C}:asub`, entityType: "assignmentBundle", courseId: C, canonicalTitle: "Submitted Assignment", pointsPossible: 10, submissionCount: 1, status: "submitted", dates: {}, urls: {} }
 ];
 
 const at = (now) => dash.buildIndex({ now, courses: [{ courseId: C, title: "Course 1", code: "C1" }], entities });
@@ -74,19 +78,24 @@ const at = (now) => dash.buildIndex({ now, courses: [{ courseId: C, title: "Cour
   const boxHtml = dash.dateBox(d1Row.parts, d1Row.count, d1Row.inferred);
   check(/class="datebox flip est"/.test(boxHtml), `5: dateBox should include "est" class, got ${boxHtml}`);
   check(/title="Estimated — tap to see the date"/.test(boxHtml), `5: dateBox title should reflect Estimated, got ${boxHtml}`);
+
+  // 6. Submitted item also receives inferred date
+  const asub = all.find((item) => item.id === `assignmentBundle:${C}:asub`);
+  check(asub?.dueAt === MODULE_1_CLOSE, `6: Submitted item should take module close date (${MODULE_1_CLOSE}), got ${asub?.dueAt}`);
+  check(asub?.inferred?.rule === "moduleClose", `6: Submitted item rule should be moduleClose`);
+  check(/^Estimated · Module 1 closes/.test(dash.dueLine(asub, index.now)), `6: Submitted item dueLine should be Estimated, got "${dash.dueLine(asub, index.now)}"`);
 }
 
 {
-  // 6. A past guess -> not Upcoming, not Late, not Needs attention
+  // 7. A past guess -> not in Upcoming (because it is in the past and not late), not Late, not Needs attention
   const pastIndex = at("2026-10-20T12:00:00.000Z"); // After both MODULE_1_CLOSE and MODULE_2_START
   const allPast = dash.allWork(pastIndex);
   const d1Past = allPast.find((item) => item.id === `discussionThread:${C}:d1`);
-  check(!d1Past?.dueAt, `6: Past guess should be cleared to undated, got ${d1Past?.dueAt}`);
-  check(!d1Past?.inferred, "6: Past guess should have inferred cleared");
-  check(dash.dueLine(d1Past, pastIndex.now) === "No due date", `6: Past guess dueLine should be "No due date", got "${dash.dueLine(d1Past, pastIndex.now)}"`);
-  check(!dash.upcomingWork(pastIndex).some((item) => item.id === d1Past?.id), "6: Past guess should not be in upcomingWork");
-  check(!dash.needsAttention(d1Past, pastIndex.now.getTime()), "6: Past guess should not need attention");
-  check(!dash.isLate(d1Past), "6: Past guess should not be late");
+  check(d1Past?.dueAt === MODULE_1_CLOSE, `7: Past guess keeps its estimated dueAt, got ${d1Past?.dueAt}`);
+  check(d1Past?.inferred?.rule === "moduleClose", "7: Past guess keeps inferred metadata");
+  check(!dash.upcomingWork(pastIndex).some((item) => item.id === d1Past?.id), "7: Past guess should not be in upcomingWork");
+  check(!dash.needsAttention(d1Past, pastIndex.now.getTime()), "7: Past guess should not need attention");
+  check(!dash.isLate(d1Past), "7: Past guess should not be late");
 }
 
 if (failures.length) {
