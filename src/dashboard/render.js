@@ -113,7 +113,7 @@
   function dateBox(parts, count = null, inferred = null) {
     if (!parts?.day) return `<div class="datebox" aria-hidden="true"><span class="mon">—</span></div>`;
     const date = `<span class="mon">${e(parts.mon)}</span><span class="day">${e(parts.day)}</span><span class="dow">${e(parts.dow)}</span>`;
-    if (!count) return `<div class="datebox">${date}</div>`;
+    if (!count) return `<div class="datebox${inferred ? " est" : ""}"${inferred ? ` title="Estimated deadline"` : ""}>${date}</div>`;
     return `<span class="datebox flip${count.late ? " late" : ""}${inferred ? " est" : ""}" data-action="flip-date" data-due="${e(count.at)}" title="${inferred ? "Estimated — tap to see the date" : "Tap to see the date"}" aria-hidden="true"><span class="face cd"><span class="mon">${count.late ? "late" : "in"}</span><span class="day">${e(count.n)}<span class="unit">${e(count.letter)}</span></span></span><span class="face dt">${date}</span></span>`;
   }
 

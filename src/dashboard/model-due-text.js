@@ -15,6 +15,8 @@
   function inferredLine(item, now) {
     const guess = item.inferred;
     const at = fmtDateTime(guess.at, now);
+    if (guess.rule === "calendarReminder") return `Estimated · calendar reminder “${guess.sourceTitle}” ${at}`;
+    if (guess.rule === "moduleQuiz") return `Estimated · ${guess.sourceTitle} deadline ${at}`;
     return guess.rule === "nextModuleOpen"
       ? `Estimated · next module opens ${at}`
       : `Estimated · ${guess.module || "Module"} closes ${at}`;

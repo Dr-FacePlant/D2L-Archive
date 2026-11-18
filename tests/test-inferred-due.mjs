@@ -34,6 +34,18 @@ const entities = [
   { entityId: `assignmentBundle:${C}:a2`, entityType: "assignmentBundle", courseId: C, canonicalTitle: "Assignment 2", pointsPossible: 20, dates: {}, urls: {} },
   { entityId: `resource:${C}:mod3`, entityType: "learningResource", courseId: C, canonicalTitle: "Module 3", isModule: true, moduleId: "", order: 4, moduleStartsAt: MODULE_2_START },
 
+  // The quiz cutoff estimates undated work beside it in the same module.
+  { entityId: `resource:${C}:mod4`, entityType: "learningResource", courseId: C, canonicalTitle: "Module 4", isModule: true, moduleId: "", order: 5 },
+  { entityId: `resource:${C}:link_q4`, entityType: "learningResource", courseId: C, canonicalTitle: "Quiz 4", resourceType: "Link", moduleId: "mod4", urls: { download: quickLink("quiz", "q4") } },
+  { entityId: `quiz:${C}:q4`, entityType: "quizBundle", courseId: C, canonicalTitle: "Quiz 4", dates: { dueAt: "2026-10-19T03:59:00.000Z" }, attempts: { completed: 0 }, urls: {} },
+  { entityId: `resource:${C}:link_a4`, entityType: "learningResource", courseId: C, canonicalTitle: "Paper 4", resourceType: "Link", moduleId: "mod4", urls: { download: quickLink("dropbox", "a4") } },
+  { entityId: `assignment:${C}:a4`, entityType: "assignmentBundle", courseId: C, canonicalTitle: "Paper 4", dates: {}, urls: {} },
+
+  // A calendar event attached to a discussion forum estimates its topics.
+  { entityId: `discussionForum:${C}:forum1`, entityType: "discussionForum", courseId: C, canonicalTitle: "Document Questions" },
+  { entityId: `discussionThread:${C}:calendarTopic`, entityType: "discussionThread", courseId: C, forumId: `discussionForum:${C}:forum1`, canonicalTitle: "Calendar Topic", dates: {}, posts: { mine: 0 }, grading: { pointsPossible: 10 }, urls: {} },
+  { entityId: `calendar:${C}:event1`, entityType: "calendarEvent", courseId: C, canonicalTitle: "Post your questions for each document", eventLabel: "Due", sourceEntityType: "DiscussionForum", targetEntityId: `discussionForum:${C}:forum1`, dates: { dueAt: "2026-10-18T03:59:00.000Z" } },
+
   // Stated due date item: should NOT be inferred
   { entityId: `resource:${C}:link_stated`, entityType: "learningResource", courseId: C, canonicalTitle: "Stated Assignment", resourceType: "Link", moduleId: "mod1", urls: { download: quickLink("dropbox", "astated") } },
   { entityId: `assignmentBundle:${C}:astated`, entityType: "assignmentBundle", courseId: C, canonicalTitle: "Stated Assignment", pointsPossible: 10, dates: { dueAt: "2026-10-10T03:59:00.000Z" }, urls: {} },
@@ -67,23 +79,39 @@ const at = (now) => dash.buildIndex({ now, courses: [{ courseId: C, title: "Cour
   check(a2?.inferred?.rule === "nextModuleOpen", `3: rule should be nextModuleOpen, got ${a2?.inferred?.rule}`);
   check(/^Estimated · next module opens/.test(dash.dueLine(a2, index.now)), `3: dueLine should say Estimated · next module opens..., got "${dash.dueLine(a2, index.now)}"`);
 
-  // 4. Stated due date always wins over a guess
+  // 4. A same-module quiz cutoff estimates an undated assignment.
+  const a4 = all.find((item) => item.id === `assignment:${C}:a4`);
+  check(a4?.dueAt === "2026-10-19T03:59:00.000Z", `4: Paper 4 should use the Quiz 4 deadline, got ${a4?.dueAt}`);
+  check(a4?.inferred?.rule === "moduleQuiz", `4: Paper 4 rule should be moduleQuiz, got ${a4?.inferred?.rule}`);
+  check(/^Estimated · Quiz 4 deadline/.test(dash.dueLine(a4, index.now)), `4: Paper 4 dueLine should name Quiz 4, got "${dash.dueLine(a4, index.now)}"`);
+
+  // 5. A linked calendar reminder estimates a forum topic and names the source.
+  const calendarTopic = all.find((item) => item.id === `discussionThread:${C}:calendarTopic`);
+  check(calendarTopic?.dueAt === "2026-10-18T03:59:00.000Z", `5: Calendar Topic should use its reminder date, got ${calendarTopic?.dueAt}`);
+  check(calendarTopic?.inferred?.rule === "calendarReminder", `5: Calendar Topic rule should be calendarReminder, got ${calendarTopic?.inferred?.rule}`);
+  check(/^Estimated · calendar reminder “Post your questions/.test(dash.dueLine(calendarTopic, index.now)), `5: Calendar Topic dueLine should name its reminder, got "${dash.dueLine(calendarTopic, index.now)}"`);
+
+  // 6. Stated due date always wins over a guess
   const astated = all.find((item) => item.id === `assignmentBundle:${C}:astated`);
-  check(!astated?.inferred, "4: Stated assignment should NOT have inferred date");
-  check(astated?.hasDueDate === true, "4: Stated assignment hasDueDate should be true");
-  check(!dash.dueLine(astated, index.now).startsWith("Estimated"), `4: Stated dueLine should not start with Estimated: "${dash.dueLine(astated, index.now)}"`);
+  check(!astated?.inferred, "6: Stated assignment should NOT have inferred date");
+  check(astated?.hasDueDate === true, "6: Stated assignment hasDueDate should be true");
+  check(!dash.dueLine(astated, index.now).startsWith("Estimated"), `6: Stated dueLine should not start with Estimated: "${dash.dueLine(astated, index.now)}"`);
 
   // 5. dateBox output carries est
   const d1Row = dash.workListModel(index, {}).rows.find((row) => row.id === d1.id);
   const boxHtml = dash.dateBox(d1Row.parts, d1Row.count, d1Row.inferred);
-  check(/class="datebox flip est"/.test(boxHtml), `5: dateBox should include "est" class, got ${boxHtml}`);
-  check(/title="Estimated — tap to see the date"/.test(boxHtml), `5: dateBox title should reflect Estimated, got ${boxHtml}`);
+  check(/class="datebox flip est"/.test(boxHtml), `7: dateBox should include "est" class, got ${boxHtml}`);
+  check(/title="Estimated — tap to see the date"/.test(boxHtml), `7: dateBox title should reflect Estimated, got ${boxHtml}`);
 
   // 6. Submitted item also receives inferred date
   const asub = all.find((item) => item.id === `assignmentBundle:${C}:asub`);
-  check(asub?.dueAt === MODULE_1_CLOSE, `6: Submitted item should take module close date (${MODULE_1_CLOSE}), got ${asub?.dueAt}`);
-  check(asub?.inferred?.rule === "moduleClose", `6: Submitted item rule should be moduleClose`);
-  check(/^Estimated · Module 1 closes/.test(dash.dueLine(asub, index.now)), `6: Submitted item dueLine should be Estimated, got "${dash.dueLine(asub, index.now)}"`);
+  check(asub?.dueAt === MODULE_1_CLOSE, `8: Submitted item should take module close date (${MODULE_1_CLOSE}), got ${asub?.dueAt}`);
+  check(asub?.inferred?.rule === "moduleClose", `8: Submitted item rule should be moduleClose`);
+  check(/^Estimated · Module 1 closes/.test(dash.dueLine(asub, index.now)), `8: Submitted item dueLine should be Estimated, got "${dash.dueLine(asub, index.now)}"`);
+  const submittedRow = dash.workListModel(index, { tab: "done" }).rows.find((item) => item.id === asub.id);
+  check(Boolean(submittedRow?.inferred), "8: Submitted item should remain estimated in Submitted & graded");
+  const submittedBox = submittedRow ? dash.dateBox(submittedRow.parts, submittedRow.count, submittedRow.inferred) : "";
+  check(/class="datebox est"/.test(submittedBox), `8: Submitted estimate should keep the inverted date box, got ${submittedBox}`);
 }
 
 {

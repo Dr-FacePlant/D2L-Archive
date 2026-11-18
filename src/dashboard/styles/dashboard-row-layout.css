@@ -1,0 +1,8 @@
+/* Keep long estimate explanations from squeezing dashboard item titles away. */
+.dashboard-overview .row > .aside {
+  flex: 0 1 36%;
+  max-width: 36%;
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
