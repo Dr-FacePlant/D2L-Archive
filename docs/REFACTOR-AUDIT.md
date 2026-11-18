@@ -217,7 +217,14 @@ same thing a split can quietly break, and `tests/test-background-module-loading.
 now checks that every name a background module takes from `shared` is assigned
 by a `src/shared` module.
 
-Known limits: the checks skip TypeScript (a type checker does it better), skip
-JSX, and a `dataset.x` read is only flagged when nothing in the repo writes
-`data-x`, so reading the wrong element's dataset still escapes.
-`tests/test-dashboard-wiring.mjs` covers that case.
+Sanity check on a second codebase: `token-monitor/src` (408 CommonJS files)
+reported three method-shorthand false positives — `invalidate()`, `*push()`,
+`onSessionActivity()` written as object methods — which the declaration reader
+now recognises. Renaming one called function in a copy produced exactly one
+finding, naming that function and line.
+
+Known limits: the checks skip TypeScript (a type checker does it better) and
+JSX, read ES modules, CommonJS and whole-file IIFEs, and a `dataset.x` read is
+only flagged when nothing in the repo writes `data-x`, so reading the wrong
+element's dataset still escapes. `tests/test-dashboard-wiring.mjs` covers that
+case.
