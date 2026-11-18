@@ -56,7 +56,7 @@ for (const url of [...read("src/dashboard/model.js").matchAll(/image: "([^"]+)"/
   check(fs.existsSync(path.join(repoRoot, url)), `course picture missing (paths resolve from dashboard.html): ${url}`);
 }
 
-const modelFiles = ["model.js", "model-archive.js", "model-updates.js", "model-work.js", "model-details.js", "model-resources.js", "model-dashboard.js", "model-courses.js", "model-grades.js", "model-calendar.js", "model-search.js", "model-palette.js", "model-routes.js"];
+const modelFiles = ["model.js", "model-archive.js", "model-inferred-due.js", "model-due-text.js", "model-updates.js", "model-work.js", "model-details.js", "model-resources.js", "model-dashboard.js", "model-courses.js", "model-grades.js", "model-calendar.js", "model-search.js", "model-palette.js", "model-routes.js"];
 const renderFiles = ["render.js", "render-dashboard.js", "render-updates.js", "render-courses.js", "render-calendar.js", "render-work.js", "render-details.js", "render-grades.js", "render-resources.js", "render-search.js", "render-palette.js", "render-settings.js"];
 const appFiles = ["app-state.js", "app-plumbing.js", "app-overlay.js", "app-files.js", "app-preview.js", "app-appearance.js", "app-archive.js", "app-render.js", "app-sync.js", "app-events-menu.js", "app-events-contacts.js", "app-events-shelf.js", "app-events-textbooks.js", "app-events-actions.js", "app-events.js", "app-palette.js", "app-selfcheck.js", "app.js"];
 const dashboardJs = ["format.js", ...modelFiles, ...renderFiles, ...appFiles].map((file) => read(`src/dashboard/${file}`)).join("\n");

@@ -1,7 +1,7 @@
 // Work items, statuses, due lines and work lists.
 (function initDashboardModelWork(global) {
   const dash = global.D2LDashboard ||= {};
-  const { D2L_ORIGIN, DAY_MS, KIND_LABELS, KIND_PLURALS, countdown, dateParts, dayKey, fmtDateTime, fmtNumber, fmtPoints, fmtShortDate, fmtTime, fromEarlierTerm, lessonDue, plural, relativeDay, routeFor, startOfDay, step, time, words } = dash;
+  const { D2L_ORIGIN, DAY_MS, KIND_LABELS, KIND_PLURALS, countdown, dateParts, dayKey, dueFull, dueLine, dueVerb, fmtDateTime, fmtNumber, fmtPoints, fmtShortDate, fmtTime, fromEarlierTerm, inferredDue, isLate, lessonDue, plural, relativeDay, routeFor, startOfDay, step, time, words } = dash;
   // ------------------------------------------------------------------ work
 
   const isGradedGrade = (grade) => Boolean(grade && grade.status === "graded");
@@ -51,22 +51,24 @@
   function assignmentItem(index, entity, base, now) {
     const opensAt = entity.dates?.availableFrom || null;
     const closesAt = entity.dates?.availableUntil || null;
-    const lesson = !realDue(entity) && !closesAt ? lessonDue(index, entity, "assignment") : null;
-    const dueAt = realDue(entity) || lesson?.at || null;
+    const stated = realDue(entity);
+    const lesson = !stated && !closesAt ? lessonDue(index, entity, "assignment") : null;
     const grade = entity.gradeEntityId ? index.byId.get(entity.gradeEntityId) : null;
     const submitted = entity.submissionCount > 0 || entity.status === "submitted" || entity.status === "graded";
     const graded = Boolean(entity.score?.displayed) || isGradedGrade(grade);
+    const guess = !stated && !lesson && !closesAt && !submitted && !graded ? inferredDue(index, entity, "assignment") : null;
+    const dueAt = stated || lesson?.at || guess?.at || null;
     const late = submitted && entity.dates?.submittedAt && dueAt && time(entity.dates.submittedAt) > time(dueAt);
     let st;
     if (graded) st = status("graded", "Graded", "good");
     else if (submitted) st = late ? status("late", "Submitted late", "warn") : status("submitted", "Submitted", "info");
     else if (opensAt && time(opensAt) > now) st = status("notOpen", "Not open yet", "neutral");
     else if (closesAt && time(closesAt) < now) st = status("closed", "Missed", "bad");
-    else if (dueAt && time(dueAt) < now) st = status("pastDue", "Late", "warn");
+    else if (dueAt && !guess && time(dueAt) < now) st = status("pastDue", "Late", "warn");
     else st = status("open", "Open", "neutral");
     return {
-      ...base, kind: "assignment", dueAt: dueAt || closesAt, hasDueDate: Boolean(dueAt), lesson: lesson?.lesson || "", opensAt, closesAt, status: st,
-      done: graded || submitted, actionable: !graded && !submitted && st.key !== "closed" && st.key !== "notOpen",
+      ...base, kind: "assignment", dueAt: dueAt || closesAt, hasDueDate: Boolean(stated || lesson), lesson: lesson?.lesson || "", opensAt, closesAt, status: st,
+      inferred: guess, done: graded || submitted, actionable: !graded && !submitted && st.key !== "closed" && st.key !== "notOpen",
       score: graded ? (entity.score?.pointsEarned != null ? fmtPoints(entity.score.pointsEarned, entity.score.pointsPossible) : gradeLabel(grade) || entity.score?.displayed) : "",
       points: entity.pointsPossible != null ? plural(Number(fmtNumber(entity.pointsPossible)), "point") : "",
       d2lUrl: entity.urls?.d2l || ""
@@ -76,11 +78,13 @@
   function quizItem(index, entity, base, now) {
     const opensAt = entity.dates?.availableFrom || null;
     const closesAt = entity.dates?.availableUntil || null;
-    const lesson = !realDue(entity) && !closesAt ? lessonDue(index, entity, "quiz") : null;
-    const dueAt = realDue(entity) || lesson?.at || null;
+    const stated = realDue(entity);
+    const lesson = !stated && !closesAt ? lessonDue(index, entity, "quiz") : null;
     const grade = entity.gradeEntityId ? index.byId.get(entity.gradeEntityId) : null;
     const graded = isGradedGrade(grade);
     const attempted = (entity.attempts?.completed || 0) > 0;
+    const guess = !stated && !lesson && !closesAt && !graded && !attempted ? inferredDue(index, entity, "quiz") : null;
+    const dueAt = stated || lesson?.at || guess?.at || null;
     const countKnown = Boolean(entity.attempts?.source && entity.attempts.source !== "none");
     let st;
     if (graded) st = status("graded", "Graded", "good");
@@ -89,8 +93,8 @@
     else if (closesAt && time(closesAt) < now) st = countKnown ? status("closed", "Missed", "bad") : status("closed", "Closed", "neutral");
     else st = status("open", "Open", "info");
     return {
-      ...base, kind: "quiz", dueAt: dueAt || closesAt, hasDueDate: Boolean(dueAt), lesson: lesson?.lesson || "", opensAt, closesAt, status: st,
-      done: graded || attempted, actionable: !graded && !attempted && st.key !== "closed",
+      ...base, kind: "quiz", dueAt: dueAt || closesAt, hasDueDate: Boolean(stated || lesson), lesson: lesson?.lesson || "", opensAt, closesAt, status: st,
+      inferred: guess, done: graded || attempted, actionable: !graded && !attempted && st.key !== "closed",
       score: graded ? gradeLabel(grade) : "", points: grade?.grade?.pointsPossible != null ? plural(Number(fmtNumber(grade.grade.pointsPossible)), "point") : "",
       d2lUrl: entity.urls?.d2l || ""
     };
@@ -105,6 +109,7 @@
     const { grade, graded, posted, hasThread, replies, needed, complete } = discussionProgress(index, entity);
     const closed = Boolean(closesAt && time(closesAt) < now);
     const missing = missingStep(hasThread, replies, needed, closed);
+    const guess = !deadline && !closesAt && !graded && !complete ? inferredDue(index, entity, "discussion") : null;
     let st;
     if (graded) st = status("graded", "Graded", "good");
     else if (complete) st = status("posted", "Submitted", "info");
@@ -116,8 +121,8 @@
     else if (deadline && time(deadline.at) < now) st = status("pastDue", "Late", "warn");
     else st = status("open", "Open", "info");
     return {
-      ...base, kind: "discussion", dueAt: deadline?.at || closesAt, hasDueDate: Boolean(deadline), lesson: deadline?.lesson || "", opensAt, closesAt, status: st,
-      repliesNeeded: needed, done: graded || complete,
+      ...base, kind: "discussion", dueAt: deadline?.at || guess?.at || closesAt, hasDueDate: Boolean(deadline), lesson: deadline?.lesson || "", opensAt, closesAt, status: st,
+      inferred: guess, repliesNeeded: needed, done: graded || complete,
       actionable: !graded && !complete && !["closed", "partialClosed", "notOpen"].includes(st.key),
       score: graded ? (gradeLabel(grade) || fmtPoints(entity.grading.pointsEarned, entity.grading.pointsPossible)) : "",
       points: entity.grading?.pointsPossible != null ? plural(Number(fmtNumber(entity.grading.pointsPossible)), "point") : "",
@@ -187,16 +192,14 @@
     });
   }
 
-  // Past the deadline but D2L still takes it: never posted, or only partly.
-  const isLate = (item) => item.status.key === "pastDue" || item.status.key === "partialLate";
-
   // Open work with a deadline counts down in its date box ("in 2 days",
   // "late 2 days"). Done, missed or closed work, and work the student set
-  // aside, keeps its date.
+  // aside, keeps its date. A guessed date never counts down as late.
   function countdownFor(item, now) {
     if (!item.dueAt || item.done || item.hidden) return null;
     if (["closed", "partialClosed"].includes(item.status?.key) || item.status?.tone === "bad") return null;
-    return countdown(item.dueAt, now);
+    const left = countdown(item.dueAt, now);
+    return left && !(item.inferred && left.late) ? left : null;
   }
 
   function byDue(a, b) {
@@ -247,9 +250,9 @@
 
   // "Did I miss anything?": graded work (it has points) that isn't turned in and
   // is past due, or closes within 3 days. Checklist tasks never count, and
-  // neither does work the student hid.
+  // neither does work the student hid or a date the model only guessed.
   function needsAttention(item, now) {
-    if (item.hidden || item.done || (!item.points && item.kind !== "task")) return false;
+    if (item.hidden || item.done || item.inferred || (!item.points && item.kind !== "task")) return false;
     const due = item.hasDueDate ? time(item.dueAt) : NaN;
     const closes = time(item.closesAt || item.dueAt);
     return (Number.isFinite(due) && due < now) || (Number.isFinite(closes) && closes < now + 3 * DAY_MS);
@@ -265,30 +268,6 @@
         const due = time(item.dueAt);
         return (Number.isFinite(due) && due >= now) || (isLate(item) && item.kind !== "task");
       }).sort(byDue);
-  }
-
-  // Work whose deadline comes from its lesson says so: "Due with Lesson 6 · 11:59 PM".
-  const dueVerb = (item) => item.lesson ? `Due with ${item.lesson} ·` : item.kind === "discussion" ? "Closes" : "Due";
-
-  function dueLine(item, now) {
-    if (isLate(item) && item.closesAt) return `Past due · closes ${fmtDateTime(item.closesAt, now)}`;
-    if (isLate(item) && item.kind !== "task") return `Was due${item.lesson ? ` with ${item.lesson} ·` : ""} ${fmtDateTime(item.dueAt, now)} · still open`;
-    if (item.status.key === "notOpen" && item.opensAt) return `Opens ${fmtDateTime(item.opensAt, now)}`;
-    if (!item.dueAt) return "No due date";
-    if (!item.hasDueDate) return `Closes ${fmtShortDate(item.closesAt, now)} · ${fmtTime(item.closesAt)}`;
-    const late = item.closesAt && item.dueAt && time(item.closesAt) > time(item.dueAt) + 60000 ? ` · accepted until ${fmtDateTime(item.closesAt, now)}` : "";
-    return `${dueVerb(item)} ${fmtTime(item.dueAt)}${late}`;
-  }
-
-  // The due line with its date, for lists where no date box sits beside it.
-  // The due date always comes first, so it's the thing you see.
-  function dueFull(item, now) {
-    if (!item.dueAt || !item.hasDueDate) return dueLine(item, now);
-    const verb = dueVerb(item);
-    const lateUntil = item.closesAt && time(item.closesAt) > time(item.dueAt) + 60000 ? fmtDateTime(item.closesAt, now) : "";
-    if (isLate(item)) return `Was due${item.lesson ? ` with ${item.lesson} ·` : ""} ${fmtDateTime(item.dueAt, now)} · ${lateUntil ? `closes ${lateUntil}` : "still open"}`;
-    if (item.status.key === "notOpen" && item.opensAt) return `${verb} ${fmtDateTime(item.dueAt, now)} · opens ${fmtDateTime(item.opensAt, now)}`;
-    return `${verb} ${fmtDateTime(item.dueAt, now)}${lateUntil ? ` · accepted until ${lateUntil}` : ""}`;
   }
 
   // Week headings for the work list. Weeks start on Sunday, like D2L's calendar.
@@ -341,6 +320,6 @@
 
 
   Object.assign(dash, {
-    isGradedGrade, gradeLabel, realDue, status, discussionProgress, missingStep, linkedTask, workItem, allWork, withChecklistState, withHiddenState, countdownFor, byDue, gradedFirst, groupTasks, itemCount, nextRows, needsAttention, upcomingWork, dueVerb, dueLine, dueFull, weekGroup, workListModel, isLate
+    isGradedGrade, gradeLabel, realDue, status, discussionProgress, missingStep, linkedTask, workItem, allWork, withChecklistState, withHiddenState, countdownFor, byDue, gradedFirst, groupTasks, itemCount, nextRows, needsAttention, upcomingWork, weekGroup, workListModel
   });
 })(globalThis);

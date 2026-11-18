@@ -108,12 +108,13 @@
 
   // Open work shows how long is left ("in 2 days", "late 2 days"); a tap flips
   // the box to the date and back without opening the row (app.js, flip-date).
-  // Screen readers skip the flipping box and read the due line beside it.
-  function dateBox(parts, count = null) {
+  // Screen readers skip the flipping box and read the due line beside it. A
+  // guessed date inverts the box: it is not a date D2L ever stated.
+  function dateBox(parts, count = null, inferred = null) {
     if (!parts?.day) return `<div class="datebox" aria-hidden="true"><span class="mon">—</span></div>`;
     const date = `<span class="mon">${e(parts.mon)}</span><span class="day">${e(parts.day)}</span><span class="dow">${e(parts.dow)}</span>`;
     if (!count) return `<div class="datebox">${date}</div>`;
-    return `<span class="datebox flip${count.late ? " late" : ""}" data-action="flip-date" data-due="${e(count.at)}" title="Tap to see the date" aria-hidden="true"><span class="face cd"><span class="mon">${count.late ? "late" : "in"}</span><span class="day">${e(count.n)}<span class="unit">${e(count.letter)}</span></span></span><span class="face dt">${date}</span></span>`;
+    return `<span class="datebox flip${count.late ? " late" : ""}${inferred ? " est" : ""}" data-action="flip-date" data-due="${e(count.at)}" title="${inferred ? "Estimated — tap to see the date" : "Tap to see the date"}" aria-hidden="true"><span class="face cd"><span class="mon">${count.late ? "late" : "in"}</span><span class="day">${e(count.n)}<span class="unit">${e(count.letter)}</span></span></span><span class="face dt">${date}</span></span>`;
   }
 
   function extLink(link, extraClass = "") {

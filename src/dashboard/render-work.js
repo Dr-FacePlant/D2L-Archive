@@ -20,7 +20,7 @@
     const scoreCol = scores ? `<span class="col-score">${e(row.score || "—")}</span>` : "";
     const asideText = aside(row) ? `<small>${e(aside(row))}</small>` : "";
     return `${week}<a class="table-row" href="${e(row.route)}" data-entity="${e(row.id)}">
-      <span class="col-due">${dateBox(row.parts, row.count)}</span>
+      <span class="col-due">${dateBox(row.parts, row.count, row.inferred)}</span>
       <span class="col-item" style="flex:1 1 200px;min-width:0;display:flex;align-items:center;gap:14px">
         <span class="stripe" style="background:${e(row.course?.color || "var(--faint)")}"></span>
         <span style="min-width:0"><span class="title" style="display:block;font-size:14px;font-weight:500;color:var(--link);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${e(row.title)}</span><span class="due-line">${e(row.due)}</span><span style="display:block;font-size:12px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${meta}</span></span>

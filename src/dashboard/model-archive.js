@@ -140,7 +140,8 @@
       raw, now, entities, byId, list, allCourses, courses, courseById, visible,
       courseContactOverrides: raw.courseContactOverrides || {},
       courseTextbooks: raw.courseTextbooks || {},
-      lessonDue: lessonDeadlines(entities, byId)
+      lessonDue: lessonDeadlines(entities, byId),
+      inferredDue: dash.inferredDueDates(entities, byId)
     };
     index.checklistLinks = checklistLinks(index);
     return index;

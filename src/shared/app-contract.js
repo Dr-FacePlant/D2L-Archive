@@ -5,7 +5,7 @@
   const APP_API_PROTOCOL_VERSION = "1";
   const APP_DB_NAME = "d2l-student-archive";
   const APP_DB_VERSION = 3;
-  const ORGANIZER_VERSION = "8";
+  const ORGANIZER_VERSION = "9";
 
   const ENTITY_TYPES = Object.freeze([
     "assignmentBundle",

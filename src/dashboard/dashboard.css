@@ -413,6 +413,10 @@ p { margin: 0; }
 .datebox.flip .dt, .datebox.flip.flipped .cd { display: none; }
 .datebox.flip.flipped .dt { display: flex; }
 .datebox.flip.late .cd .mon, .datebox.flip.late .cd .day, .datebox.flip.late .cd .dow { color: var(--warn); }
+.datebox.est { background: var(--ink); border-color: var(--ink); }
+.datebox.est .mon, .datebox.est .dow { color: color-mix(in srgb, var(--on-ink) 62%, transparent); }
+.datebox.est .day { color: var(--on-ink); }
+.datebox.est.flip::after { border-color: color-mix(in srgb, var(--on-ink) 45%, transparent); }
 /* The unit sits beside the number at full size ("15h", "1d", "40m") so hours and days can't be confused. */
 .datebox.flip .cd .unit { margin-left: 1px; }
 .stripe { width: 4px; height: 34px; border-radius: 4px; flex: none; }

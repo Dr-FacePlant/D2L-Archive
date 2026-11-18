@@ -6,7 +6,7 @@
 
   function workRow(item, options = {}) {
     return `<a class="row" href="${e(item.route)}" data-entity="${e(item.id)}">
-      ${dateBox(item.parts, item.count)}
+      ${dateBox(item.parts, item.count, item.inferred)}
       <span class="ico">${icon(KIND_ICON[item.kind] || "doc", 22)}</span>
       <span class="grow"><span class="title">${e(item.title)}</span><span class="meta">${e([item.typeLabel, options.hideCourse ? "" : item.course?.code, options.hideCourse ? item.points : item.course?.name].filter(Boolean).join("  ·  "))}</span></span>
       <span class="aside">${e(item.dueLine)}${options.rel && item.rel && !item.count ? `<br>${e(item.rel)}` : ""}</span>

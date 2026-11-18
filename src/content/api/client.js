@@ -24,10 +24,16 @@ async function apiGet(pathname) {
 
 // Topics come back in D2L's Table of Contents order; tocOrder keeps that order
 // and moduleId/moduleStartDate keep which module (and week) each belongs to.
-function flattenTocTopics(modules, trail = [], counter = { value: 0 }) {
+// A module's close date is the only deadline undated work inside it can have,
+// and submodules often carry none, so each topic also keeps the nearest
+// ancestor's close date plus which module supplied it.
+function flattenTocTopics(modules, trail = [], counter = { value: 0 }, close = { at: "", moduleId: "", moduleTitle: "" }) {
   const topics = [];
   for (const module of modules || []) {
     const path = [...trail, module.Title || ""];
+    const ownClose = module.EndDateTime
+      ? { at: module.EndDateTime, moduleId: String(module.ModuleId ?? ""), moduleTitle: module.Title || "" }
+      : close;
     for (const topic of module.Topics || []) {
       counter.value += 1;
       topics.push({
@@ -36,10 +42,13 @@ function flattenTocTopics(modules, trail = [], counter = { value: 0 }) {
         moduleId: module.ModuleId ?? "",
         moduleTitle: module.Title || "",
         moduleStartDate: module.StartDateTime || "",
+        moduleEndDate: ownClose.at,
+        moduleEndFromId: ownClose.moduleId,
+        moduleEndFromTitle: ownClose.moduleTitle,
         tocOrder: counter.value
       });
     }
-    topics.push(...flattenTocTopics(module.Modules, path, counter));
+    topics.push(...flattenTocTopics(module.Modules, path, counter, ownClose));
   }
   return topics;
 }

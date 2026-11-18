@@ -205,6 +205,7 @@ const checks = [
   ["file preview loader, formats and failure reasons", [path.join(root, "tests", "test-file-preview.mjs")]],
   ["dashboard extractor fields regression", [path.join(root, "tests", "test-dashboard-extractor-fields.mjs")]],
   ["dashboard lesson deadlines", [path.join(root, "tests", "test-dashboard-lesson-deadlines.mjs")]],
+  ["dashboard inferred due dates", [path.join(root, "tests", "test-inferred-due.mjs")]],
   ["dashboard appearance and settings", [path.join(root, "tests", "test-dashboard-appearance.mjs")]],
   ["class list paging regression", [path.join(root, "tests", "test-classlist-paging.mjs")]],
   ["static extension validation", [path.join(root, "tools", "validate-extension.mjs")]]
