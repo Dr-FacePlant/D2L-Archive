@@ -200,8 +200,9 @@
   const sameAttributes = (a, b) => a.attributes.length === b.attributes.length && [...a.attributes].every((attr) => b.getAttribute(attr.name) === attr.value);
 
   function morph(current, next, depth) {
+    if (!current || !next) return;
     if (current.isEqualNode(next)) return;
-    if (depth > 0 && current.nodeType === 1 && current.tagName === next.tagName && sameAttributes(current, next) && current.childNodes.length === next.childNodes.length) {
+    if (depth > 0 && current.nodeType === 1 && next.nodeType === 1 && current.tagName === next.tagName && sameAttributes(current, next) && current.childNodes.length === next.childNodes.length) {
       for (let i = 0; i < current.childNodes.length; i++) morph(current.childNodes[i], next.childNodes[i], depth - 1);
       return;
     }
